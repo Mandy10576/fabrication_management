@@ -66,25 +66,25 @@ export const Dashboard = () => {
   const COLORS = ['#10b981', '#f59e0b', '#ef4444'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-brand-950 text-white shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-brand-950 text-white shadow-xl">
         <div>
-          <span className="inline-block px-3 py-1 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 text-xs font-semibold uppercase tracking-wider mb-2">
+          <span className="inline-block px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-1.5">
             Overview • FY {activeFYObj ? activeFYObj.year : 'All Years'}
           </span>
-          <h2 className="text-2xl font-bold tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
             Fabrication Business Dashboard
           </h2>
-          <p className="text-xs text-slate-300 mt-1 max-w-xl">
+          <p className="text-[11px] sm:text-xs text-slate-300 mt-1 max-w-xl">
             Real-time financial analytics, client revenue metrics, pending balance tracking, and GST bill insights.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Link
             to="/invoices/new"
-            className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-2 transition-all transform active:scale-95"
+            className="flex-1 sm:flex-none justify-center px-3.5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-1.5 transition-all transform active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>New Invoice</span>
@@ -92,7 +92,7 @@ export const Dashboard = () => {
 
           <Link
             to="/quotations/new"
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center gap-2 transition-all"
+            className="flex-1 sm:flex-none justify-center px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 flex items-center gap-1.5 transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>New Quotation</span>
@@ -101,7 +101,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Primary Stat Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="Total Revenue (Billed)"
           value={formatCurrency(summary.totalRevenue)}
@@ -140,105 +140,105 @@ export const Dashboard = () => {
       </div>
 
       {/* Secondary GST / Non-GST Summary Pill Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-              <Receipt className="w-6 h-6" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+              <Receipt className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+              <div className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
                 GST Bills Overview
               </div>
-              <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+              <div className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-0.5">
                 {formatCurrency(summary.gstBillsAmount)}
               </div>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+            <div className="text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400">
               {summary.gstBillsCount} Bills
             </div>
-            <div className="text-[11px] text-slate-400">CGST/SGST/IGST</div>
+            <div className="text-[10px] sm:text-[11px] text-slate-400">CGST/SGST/IGST</div>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-              <Layers className="w-6 h-6" />
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+              <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+              <div className="text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
                 Non-GST Bills Overview
               </div>
-              <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+              <div className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-0.5">
                 {formatCurrency(summary.nonGstBillsAmount)}
               </div>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
+            <div className="text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-400">
               {summary.nonGstBillsCount} Bills
             </div>
-            <div className="text-[11px] text-slate-400">Direct Retail / Job Work</div>
+            <div className="text-[10px] sm:text-[11px] text-slate-400">Direct Retail / Job Work</div>
           </div>
         </div>
       </div>
 
       {/* Analytics Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Monthly Revenue Chart */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="lg:col-span-2 p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-brand-500" />
                 <span>Monthly Billing vs Collection</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                 Revenue generated vs actual payments received by month
               </p>
             </div>
           </div>
 
-          <div className="h-72 w-full">
+          <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyAnalytics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415520" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} />
                 <Tooltip
                   formatter={(value) => formatCurrency(value)}
                   contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#fff' }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                <Bar dataKey="revenue" name="Total Billed" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="received" name="Amount Received" fill="#10b981" radius={[6, 6, 0, 0]} />
+                <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }} />
+                <Bar dataKey="revenue" name="Total Billed" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="received" name="Amount Received" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Payment Status Breakdown */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mb-1">
               Payment Status Breakdown
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mb-4">
               Distribution of Paid, Partial, and Unpaid invoices
             </p>
 
-            <div className="h-52 w-full">
+            <div className="h-48 sm:h-52 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={paymentBreakdown}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
+                    innerRadius={45}
+                    outerRadius={75}
                     paddingAngle={4}
                     dataKey="value"
                   >
@@ -250,7 +250,7 @@ export const Dashboard = () => {
                     formatter={(value, name, item) => [`${value} Invoices (${formatCurrency(item.payload.amount)})`, name]}
                     contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', color: '#fff' }}
                   />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -273,13 +273,13 @@ export const Dashboard = () => {
       </div>
 
       {/* Recent Invoices Table */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="p-4 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Recent Invoices
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
               Latest transactions recorded for FY {activeFYObj ? activeFYObj.year : ''}
             </p>
           </div>
@@ -287,7 +287,7 @@ export const Dashboard = () => {
             to="/invoices"
             className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
           >
-            <span>View All Invoices</span>
+            <span>View All</span>
             <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
