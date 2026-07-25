@@ -4,29 +4,29 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding company & sample data from Khodiyar Steel Fabrication sample invoice...');
+  console.log('Seeding company & sample data for Khodiyar Steel Fabrication...');
 
   // 1. Seed Admin User
   const hashedPassword = await bcrypt.hash('admin123', 10);
   const user = await prisma.user.upsert({
     where: { email: 'admin@apexsteel.com' },
-    update: { password: hashedPassword },
+    update: { password: hashedPassword, name: 'Prayag Sharma (Owner)' },
     create: {
       email: 'admin@apexsteel.com',
       password: hashedPassword,
-      name: 'Owner Admin',
+      name: 'Prayag Sharma (Owner)',
       role: 'ADMIN'
     }
   });
 
-  // 2. Seed Company Details matching sample invoice
+  // 2. Seed Company Details matching sample invoice & Prayag Sharma
   let company = await prisma.companyDetails.findFirst();
   if (company) {
     await prisma.companyDetails.update({
       where: { id: company.id },
       data: {
         companyName: 'Khodiyar Steel Fabrication',
-        ownerName: 'Owner Name',
+        ownerName: 'Prayag Sharma',
         gstin: 'N/A',
         pan: 'N/A',
         email: 'khodiyarsteelandfabrication@gmail.com',
@@ -44,7 +44,7 @@ async function main() {
     await prisma.companyDetails.create({
       data: {
         companyName: 'Khodiyar Steel Fabrication',
-        ownerName: 'Owner Name',
+        ownerName: 'Prayag Sharma',
         gstin: 'N/A',
         pan: 'N/A',
         email: 'khodiyarsteelandfabrication@gmail.com',
@@ -157,7 +157,7 @@ async function main() {
     });
   }
 
-  console.log('Seed updated with Khodiyar Steel Fabrication sample invoice data!');
+  console.log('Seed updated with Owner Name: Prayag Sharma');
 }
 
 main()

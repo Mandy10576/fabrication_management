@@ -1,13 +1,21 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { Wrench, ShieldCheck, Lock, Mail, ArrowRight } from 'lucide-react';
 
 export const Login = () => {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState('admin@apexsteel.com');
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // If user is already logged in, redirect to dashboard
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,7 +23,9 @@ export const Login = () => {
     setLoading(true);
     try {
       await login(email, password);
+      navigate('/');
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.message || 'Login failed. Please check credentials.');
     } finally {
       setLoading(false);
@@ -35,11 +45,11 @@ export const Login = () => {
             <Wrench className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            Apex Fabrication System
+            Khodiyar Steel Fabrication
           </h1>
           <p className="text-xs text-slate-400 mt-1 font-medium flex items-center justify-center gap-1">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Single Business Owner Admin Portal</span>
+            <span>Business Owner Admin Portal</span>
           </p>
         </div>
 

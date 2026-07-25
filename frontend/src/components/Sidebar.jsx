@@ -72,7 +72,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
       {/* Footer Info */}
       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1">
         <div className="font-semibold text-slate-700 dark:text-slate-300">
-          Apex Fabrication v1.0
+          Khodiyar Steel Fabrication v1.0
         </div>
         <div>Owner Admin Access Only</div>
       </div>

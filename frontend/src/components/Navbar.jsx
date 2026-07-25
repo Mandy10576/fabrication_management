@@ -26,10 +26,10 @@ export const Navbar = ({ onToggleMobileSidebar }) => {
             </div>
             <div>
               <h1 className="text-base font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                Apex Fabrication
+                Khodiyar Steel Fabrication
               </h1>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-none">
-                Business Management
+                Business Management System
               </p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export const Navbar = ({ onToggleMobileSidebar }) => {
               <ShieldCheck className="w-4 h-4 text-brand-500" />
               <div className="text-left leading-none">
                 <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {user.name || 'Admin'}
+                  {user.name || 'Owner'}
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                   Owner Admin

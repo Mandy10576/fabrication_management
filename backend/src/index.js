@@ -19,18 +19,21 @@ const backupRoutes = require('./routes/backupRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Ensure upload directory exists (for non-serverless local execution)
+// Ensure upload directory exists
 const uploadsDir = path.join(__dirname, '../public/uploads');
 if (!fs.existsSync(uploadsDir)) {
   try {
     fs.mkdirSync(uploadsDir, { recursive: true });
   } catch (e) {
-    // Ignore read-only filesystem errors in serverless env
+    // Ignore read-only errors in serverless
   }
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(uploadsDir));
@@ -48,7 +51,7 @@ app.use('/api/backup', backupRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Fabrication Business Management API (AWS RDS + Vercel Ready)' });
+  res.json({ status: 'ok', service: 'Fabrication Business Management API' });
 });
 
 // Error handling middleware
@@ -56,8 +59,8 @@ app.use(errorHandler);
 
 // Start server if run directly (local node execution)
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`🚀 Fabrication Backend API Server running on port ${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Fabrication Backend API Server running on http://localhost:${PORT}`);
   });
 }
 

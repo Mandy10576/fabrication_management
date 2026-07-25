@@ -1,4 +1,12 @@
-const API_BASE = '/api';
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    // If running on localhost development server (e.g., port 3000), target backend port 5000
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
+  }
+  return '/api';
+};
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -10,6 +18,7 @@ const getHeaders = () => {
 
 export const api = {
   async get(endpoint) {
+    const API_BASE = getApiBase();
     const res = await fetch(`${API_BASE}${endpoint}`, {
       headers: getHeaders()
     });
@@ -21,6 +30,7 @@ export const api = {
   },
 
   async post(endpoint, body) {
+    const API_BASE = getApiBase();
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers: getHeaders(),
@@ -34,6 +44,7 @@ export const api = {
   },
 
   async put(endpoint, body) {
+    const API_BASE = getApiBase();
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'PUT',
       headers: getHeaders(),
@@ -47,6 +58,7 @@ export const api = {
   },
 
   async patch(endpoint, body) {
+    const API_BASE = getApiBase();
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'PATCH',
       headers: getHeaders(),
@@ -60,6 +72,7 @@ export const api = {
   },
 
   async delete(endpoint) {
+    const API_BASE = getApiBase();
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'DELETE',
       headers: getHeaders()
@@ -72,6 +85,7 @@ export const api = {
   },
 
   async upload(endpoint, formData) {
+    const API_BASE = getApiBase();
     const token = localStorage.getItem('token');
     const res = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',

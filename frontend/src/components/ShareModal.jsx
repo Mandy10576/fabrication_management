@@ -12,7 +12,7 @@ export const ShareModal = ({ invoice, onClose }) => {
 
   const defaultMsg = `Dear ${invoice.client?.contactPerson || invoice.client?.companyName || 'Valued Client'},
 
-Please find the details of your Tax Invoice #${invoice.invoiceNumber}:
+Please find the details of your Invoice #${invoice.invoiceNumber}:
 
 *Invoice No:* ${invoice.invoiceNumber}
 *Date:* ${new Date(invoice.date).toLocaleDateString('en-IN')}
@@ -21,13 +21,13 @@ Please find the details of your Tax Invoice #${invoice.invoiceNumber}:
 *Balance Due:* ${formatCurrency(invoice.balanceDue)}
 *Status:* ${invoice.status}
 
-Thank you for your business!
-Apex Heavy Engineering & Fabrication Works`;
+Thank you for doing business with us!
+Khodiyar Steel Fabrication`;
 
   const [message, setMessage] = useState(defaultMsg);
 
   const whatsappUrl = `https://wa.me/${clientMobile ? '91' + clientMobile.slice(-10) : ''}?text=${encodeURIComponent(message)}`;
-  const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(`Tax Invoice #${invoice.invoiceNumber} - Apex Fabrication`)}&body=${encodeURIComponent(message)}`;
+  const mailtoUrl = `mailto:${clientEmail}?subject=${encodeURIComponent(`Invoice #${invoice.invoiceNumber} - Khodiyar Steel Fabrication`)}&body=${encodeURIComponent(message)}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
