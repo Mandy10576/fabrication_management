@@ -9,36 +9,29 @@ export const downloadPDF = async (elementId, filename = 'invoice.pdf') => {
   }
 
   try {
+    // Render element into canvas with desktop width & high DPI scale
     const canvas = await html2canvas(element, {
-      scale: 2, // High resolution
+      scale: 3, // High DPI clarity
       useCORS: true,
+      allowTaint: true,
       logging: false,
-      backgroundColor: '#ffffff'
+      backgroundColor: '#ffffff',
+      windowWidth: 1024 // Render as desktop layout for canvas capture
     });
 
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgWidth = 210; // A4 width in mm
-    const pageHeight = 297; // A4 height in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
-
+    // Fit precisely onto single A4 page (210mm width x 297mm height)
+    pdf.addImage(imgData, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
     pdf.save(filename);
   } catch (error) {
-    console.error('Failed to generate PDF:', error);
-    alert('Failed to generate PDF. You can also try using the Print button -> Save as PDF.');
+    console.error('Failed to generate PDF via canvas, falling back to print:', error);
+    window.print();
   }
 };
 
