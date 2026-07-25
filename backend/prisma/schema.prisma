@@ -1,0 +1,156 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompanyDetails {
+  id              String   @id @default(uuid())
+  companyName     String
+  ownerName       String
+  gstin           String?
+  pan             String?
+  email           String?
+  phone           String?
+  address         String?
+  bankName        String?
+  accountNumber   String?
+  ifscCode        String?
+  branch          String?
+  upiId           String?
+  logoUrl         String?
+  termsConditions String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model FinancialYear {
+  id          String      @id @default(uuid())
+  year        String      @unique // e.g. "2025-26", "2026-27"
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  clients     Client[]
+  invoices    Invoice[]
+  quotations  Quotation[]
+}
+
+model Client {
+  id              String        @id @default(uuid())
+  companyName     String
+  contactPerson   String
+  mobile          String
+  email           String?
+  gstin           String?
+  pan             String?
+  address         String
+  notes           String?
+  financialYearId String
+  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  invoices        Invoice[]
+  quotations      Quotation[]
+}
+
+model RateMaster {
+  id          String   @id @default(uuid())
+  serviceName String
+  hsnSac      String   @default("9988")
+  unit        String   @default("sq ft")
+  rate        Float
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  invoiceNumber   String
+  financialYearId String
+  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date            DateTime
+  dueDate         DateTime?
+  gstType         String        @default("CGST_SGST") // CGST_SGST, IGST, NON_GST
+  gstRate         Float         @default(18.0)
+  subtotal        Float
+  cgstAmount      Float         @default(0)
+  sgstAmount      Float         @default(0)
+  igstAmount      Float         @default(0)
+  totalTax        Float         @default(0)
+  discount        Float         @default(0)
+  grandTotal      Float
+  amountInWords   String
+  amountReceived  Float         @default(0)
+  balanceDue      Float
+  status          String        @default("UNPAID") // PAID, PARTIAL, UNPAID
+  notes           String?
+  terms           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  items           InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  hsnSac      String?
+  quantity    Float
+  unit        String
+  rate        Float
+  amount      Float
+}
+
+model Quotation {
+  id                 String          @id @default(uuid())
+  quotationNumber    String
+  financialYearId    String
+  financialYear      FinancialYear   @relation(fields: [financialYearId], references: [id])
+  clientId           String
+  client             Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date               DateTime
+  validUntil         DateTime?
+  gstType            String          @default("CGST_SGST") // CGST_SGST, IGST, NON_GST
+  gstRate            Float           @default(18.0)
+  subtotal           Float
+  taxAmount          Float           @default(0)
+  discount           Float           @default(0)
+  grandTotal         Float
+  status             String          @default("PENDING") // PENDING, ACCEPTED, REJECTED, CONVERTED
+  convertedInvoiceId String?
+  notes              String?
+  terms              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  items              QuotationItem[]
+}
+
+model QuotationItem {
+  id          String    @id @default(uuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  description String
+  hsnSac      String?
+  quantity    Float
+  unit        String
+  rate        Float
+  amount      Float
+}
