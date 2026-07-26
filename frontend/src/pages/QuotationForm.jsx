@@ -42,12 +42,12 @@ export const QuotationForm = () => {
       try {
         setLoading(true);
         const [clientsRes, ratesRes, companyRes] = await Promise.all([
-          api.get('/clients?financialYearId=ALL'),
+          api.get('/clients?all=true&financialYearId=ALL'),
           api.get('/rates'),
           api.get('/company')
         ]);
-        setClients(clientsRes);
-        setRateMaster(ratesRes);
+        setClients(Array.isArray(clientsRes) ? clientsRes : (clientsRes?.items || []));
+        setRateMaster(Array.isArray(ratesRes) ? ratesRes : (ratesRes?.items || []));
 
         const targetFY = selectedFY === 'ALL'
           ? (financialYears.find(f => f.isCurrent)?.id || financialYears[0]?.id)
