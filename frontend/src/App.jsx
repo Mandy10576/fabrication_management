@@ -45,7 +45,7 @@ const ProtectedLayout = () => {
         <div className="flex flex-1">
           <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
 
-          <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+          <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1700px] 2xl:max-w-[1920px] mx-auto w-full overflow-x-hidden">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/invoices" element={<Invoices />} />

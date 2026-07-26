@@ -10,7 +10,7 @@ export const Navbar = ({ onToggleMobileSidebar }) => {
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
-      <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 max-w-7xl mx-auto">
+      <div className="px-3 sm:px-6 md:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 max-w-[1700px] 2xl:max-w-[1920px] mx-auto">
         {/* Left Side */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button

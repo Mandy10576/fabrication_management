@@ -95,7 +95,7 @@ export const CompanySettings = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-6xl 2xl:max-w-7xl mx-auto">
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Building2 className="w-6 h-6 text-brand-500" />
