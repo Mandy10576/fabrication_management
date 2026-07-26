@@ -22,8 +22,9 @@ export const Reports = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/invoices?financialYearId=${selectedFY}&search=${encodeURIComponent(search)}`);
-      setInvoices(res);
+      const res = await api.get(`/invoices?all=true&financialYearId=${selectedFY}&search=${encodeURIComponent(search)}`);
+      const itemsList = Array.isArray(res) ? res : (res?.items || []);
+      setInvoices(itemsList);
     } catch (err) {
       console.error('Failed to load report data:', err);
     } finally {
