@@ -21,7 +21,6 @@ const getRates = async (req, res, next) => {
         hsnSac: true,
         unit: true,
         rate: true,
-        gstRate: true,
         description: true
       }
     });
@@ -33,7 +32,7 @@ const getRates = async (req, res, next) => {
 
 const createRate = async (req, res, next) => {
   try {
-    const { serviceName, hsnSac, unit, rate, gstRate, description } = req.body;
+    const { serviceName, hsnSac, unit, rate, description } = req.body;
     if (!serviceName || rate === undefined) {
       return res.status(400).json({ error: 'Service name and rate are required' });
     }
@@ -44,7 +43,6 @@ const createRate = async (req, res, next) => {
         hsnSac: hsnSac || '9988',
         unit: unit || 'sq ft',
         rate: parseFloat(rate),
-        gstRate: gstRate !== undefined && gstRate !== null ? parseFloat(gstRate) : 18.0,
         description: description || ''
       }
     });
@@ -58,7 +56,7 @@ const createRate = async (req, res, next) => {
 const updateRate = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { serviceName, hsnSac, unit, rate, gstRate, description } = req.body;
+    const { serviceName, hsnSac, unit, rate, description } = req.body;
 
     const updated = await prisma.rateMaster.update({
       where: { id },
@@ -67,7 +65,6 @@ const updateRate = async (req, res, next) => {
         hsnSac,
         unit,
         rate: parseFloat(rate),
-        gstRate: gstRate !== undefined && gstRate !== null ? parseFloat(gstRate) : 18.0,
         description
       }
     });

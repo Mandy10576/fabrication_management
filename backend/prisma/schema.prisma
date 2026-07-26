@@ -77,7 +77,6 @@ model RateMaster {
   hsnSac      String   @default("9988")
   unit        String   @default("sq ft")
   rate        Float
-  gstRate     Float    @default(18.0)
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -160,10 +160,6 @@ export const QuotationForm = () => {
     const q = parseFloat(updated[index].quantity) || 1;
     updated[index].amount = q * rateItem.rate;
     setItems(updated);
-
-    if (rateItem.gstRate !== undefined && rateItem.gstRate !== null) {
-      setGstRate(rateItem.gstRate);
-    }
   };
 
   const subtotal = items.reduce((acc, cur) => acc + (parseFloat(cur.amount) || 0), 0);
