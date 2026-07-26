@@ -24,6 +24,31 @@ export const RateMaster = () => {
   const [editingRate, setEditingRate] = useState(null);
   const [isCustomUnit, setIsCustomUnit] = useState(false);
 
+  // Persistent custom units list saved in browser storage
+  const [customUnits, setCustomUnits] = useState(() => {
+    try {
+      const saved = localStorage.getItem('khodiyar_custom_units');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const saveCustomUnit = (unitName) => {
+    if (!unitName) return;
+    const trimmed = unitName.trim();
+    if (!trimmed) return;
+    if (!customUnits.includes(trimmed)) {
+      const updated = [...customUnits, trimmed];
+      setCustomUnits(updated);
+      try {
+        localStorage.setItem('khodiyar_custom_units', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save custom units:', e);
+      }
+    }
+  };
+
   const [formData, setFormData] = useState({
     serviceName: '',
     hsnSac: '9988',
@@ -50,9 +75,9 @@ export const RateMaster = () => {
     fetchRates();
   }, [search]);
 
-  // Combine default units and any custom units created in the rate catalog
+  // Combine default units, persistent custom units, and any units from rate catalog
   const dynamicUnits = Array.from(
-    new Set([...DEFAULT_UNITS, ...rates.map(r => r.unit).filter(Boolean)])
+    new Set([...DEFAULT_UNITS, ...customUnits, ...rates.map(r => r.unit).filter(Boolean)])
   );
 
   const handleOpenAdd = () => {
@@ -88,16 +113,25 @@ export const RateMaster = () => {
     e.preventDefault();
     setError('');
 
-    if (!formData.unit || !formData.unit.trim()) {
+    const finalUnit = formData.unit?.trim();
+    if (!finalUnit) {
       setError('Please provide a valid unit of measurement');
       return;
     }
 
+    // Save custom unit to persistent options list
+    saveCustomUnit(finalUnit);
+
+    const payload = {
+      ...formData,
+      unit: finalUnit
+    };
+
     try {
       if (editingRate) {
-        await api.put(`/rates/${editingRate.id}`, formData);
+        await api.put(`/rates/${editingRate.id}`, payload);
       } else {
-        await api.post('/rates', formData);
+        await api.post('/rates', payload);
       }
       setShowModal(false);
       fetchRates();
@@ -291,14 +325,31 @@ export const RateMaster = () => {
                   </div>
 
                   {isCustomUnit ? (
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. nos, running ft..."
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
-                    />
+                    <div className="space-y-1">
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. bundle, cft, pair..."
+                          value={formData.unit}
+                          onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold text-xs"
+                        />
+                        {formData.unit?.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              saveCustomUnit(formData.unit);
+                              setIsCustomUnit(false);
+                            }}
+                            className="px-2.5 py-2 rounded-xl bg-brand-50 dark:bg-brand-950/60 hover:bg-brand-100 text-brand-700 dark:text-brand-300 font-bold text-[10px] shrink-0 border border-brand-200 dark:border-brand-800 transition-all"
+                            title="Save this unit into the options dropdown"
+                          >
+                            + Save Option
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <select
                       value={formData.unit}
