@@ -145,23 +145,15 @@ export const InvoiceForm = () => {
     setItems(updated);
   };
 
-  const handleDescriptionChange = (index, value) => {
+  const handleSelectRateMaster = (index, rateItem) => {
+    if (!rateItem) return;
     const updated = [...items];
-    updated[index].description = value;
-
-    // Check if value matches a Rate Master preset
-    const matchedRate = rateMaster.find(
-      r => r.serviceName.toLowerCase().trim() === value.toLowerCase().trim()
-    );
-
-    if (matchedRate) {
-      updated[index].hsnSac = matchedRate.hsnSac || '9988';
-      updated[index].unit = matchedRate.unit || 'sq ft';
-      updated[index].rate = matchedRate.rate;
-      const q = parseFloat(updated[index].quantity) || 1;
-      updated[index].amount = q * matchedRate.rate;
-    }
-
+    updated[index].description = rateItem.serviceName;
+    updated[index].hsnSac = rateItem.hsnSac || '9988';
+    updated[index].unit = rateItem.unit || 'sq ft';
+    updated[index].rate = rateItem.rate;
+    const q = parseFloat(updated[index].quantity) || 1;
+    updated[index].amount = q * rateItem.rate;
     setItems(updated);
   };
 
@@ -409,28 +401,34 @@ export const InvoiceForm = () => {
                   <div className="col-span-12 md:col-span-5">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-[10px] font-bold uppercase text-slate-500">
-                        Description / Rate Master Preset *
+                        Description *
                       </label>
-                      <span className="text-[10px] text-brand-500 font-semibold">Select preset or type custom</span>
+                      {rateMaster.length > 0 && (
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const rItem = rateMaster.find(r => r.id === e.target.value);
+                            if (rItem) handleSelectRateMaster(idx, rItem);
+                          }}
+                          className="bg-transparent text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline outline-none cursor-pointer"
+                        >
+                          <option value="" disabled>⚡ Pick Rate Master Preset</option>
+                          {rateMaster.map(r => (
+                            <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-800">
+                              {r.serviceName} (₹{r.rate}/{r.unit})
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        required
-                        list={`rate-preset-list-inv-${idx}`}
-                        placeholder="Choose Rate Master preset or type custom description..."
-                        value={item.description}
-                        onChange={(e) => handleDescriptionChange(idx, e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
-                      />
-                      <datalist id={`rate-preset-list-inv-${idx}`}>
-                        {rateMaster.map(r => (
-                          <option key={r.id} value={r.serviceName}>
-                            ₹{r.rate} per {r.unit} (HSN: {r.hsnSac || '9988'})
-                          </option>
-                        ))}
-                      </datalist>
-                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Type custom description or choose from preset above..."
+                      value={item.description}
+                      onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
+                    />
                   </div>
 
                   <div className="col-span-6 md:col-span-2">
