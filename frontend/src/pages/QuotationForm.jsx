@@ -11,7 +11,8 @@ import {
   Save,
   Layers,
   Zap,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 
 export const QuotationForm = () => {
@@ -23,6 +24,52 @@ export const QuotationForm = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Quick Add Rate Master State
+  const [isAddRateModalOpen, setIsAddRateModalOpen] = useState(false);
+  const [activeItemIndexForModal, setActiveItemIndexForModal] = useState(0);
+  const [savingRate, setSavingRate] = useState(false);
+  const [newRateData, setNewRateData] = useState({
+    serviceName: '',
+    rate: '',
+    unit: 'sq ft',
+    hsnSac: '9988'
+  });
+
+  const handleOpenAddRateModal = (index) => {
+    setActiveItemIndexForModal(index);
+    const targetItem = items[index] || {};
+    setNewRateData({
+      serviceName: targetItem.description || '',
+      rate: targetItem.rate || '',
+      unit: targetItem.unit || 'sq ft',
+      hsnSac: targetItem.hsnSac || '9988'
+    });
+    setIsAddRateModalOpen(true);
+  };
+
+  const handleQuickSaveRateMaster = async (e) => {
+    e.preventDefault();
+    if (!newRateData.serviceName || !newRateData.rate) return;
+
+    setSavingRate(true);
+    try {
+      const createdRate = await api.post('/rates', {
+        serviceName: newRateData.serviceName,
+        rate: parseFloat(newRateData.rate) || 0,
+        unit: newRateData.unit || 'sq ft',
+        hsnSac: newRateData.hsnSac || '9988'
+      });
+
+      setRateMaster(prev => [createdRate, ...prev]);
+      handleSelectRateMaster(activeItemIndexForModal, createdRate);
+      setIsAddRateModalOpen(false);
+    } catch (err) {
+      alert(err.message || 'Failed to save Rate Master item');
+    } finally {
+      setSavingRate(false);
+    }
+  };
 
   const [financialYearId, setFinancialYearId] = useState('');
   const [clientId, setClientId] = useState('');
@@ -280,7 +327,15 @@ export const QuotationForm = () => {
                       <label className="block text-[10px] font-bold uppercase text-slate-500">
                         Description / Rate Master Catalog *
                       </label>
-                      <span className="text-[10px] text-indigo-500 font-semibold">Type or pick from drop arrow</span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddRateModal(idx)}
+                        className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1"
+                        title="Save this item to Rate Master database catalog"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Save to Rate Master</span>
+                      </button>
                     </div>
 
                     <div className="relative flex items-center">
@@ -293,30 +348,35 @@ export const QuotationForm = () => {
                         className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
                       />
 
-                      {rateMaster.length > 0 && (
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                          <select
-                            value=""
-                            title="Click to select Rate Master Preset"
-                            onChange={(e) => {
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                        <select
+                          value=""
+                          title="Click to select Rate Master Preset"
+                          onChange={(e) => {
+                            if (e.target.value === '__ADD_NEW__') {
+                              handleOpenAddRateModal(idx);
+                            } else {
                               const rItem = rateMaster.find(r => r.id === e.target.value);
                               if (rItem) handleSelectRateMaster(idx, rItem);
-                            }}
-                            className="w-8 h-8 opacity-0 cursor-pointer absolute inset-0 z-10"
-                          >
-                            <option value="" disabled>⚡ Select Rate Master Catalog Preset</option>
-                            {rateMaster.map(r => (
-                              <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
-                                {r.serviceName} — ₹{r.rate} / {r.unit} (HSN: {r.hsnSac || '-'})
-                              </option>
-                            ))}
-                          </select>
-                          <div className="p-1.5 text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors cursor-pointer flex items-center gap-0.5">
-                            <Zap className="w-3.5 h-3.5 fill-indigo-500" />
-                            <ChevronDown className="w-4 h-4" />
-                          </div>
+                            }
+                          }}
+                          className="w-8 h-8 opacity-0 cursor-pointer absolute inset-0 z-10"
+                        >
+                          <option value="" disabled>⚡ Select Rate Master Catalog Preset</option>
+                          <option value="__ADD_NEW__" className="font-bold text-indigo-600 bg-indigo-50 dark:bg-slate-800 dark:text-indigo-400 py-1">
+                            ➕ + Add New Item to Rate Master Catalog...
+                          </option>
+                          {rateMaster.map(r => (
+                            <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
+                              {r.serviceName} — ₹{r.rate} / {r.unit} (HSN: {r.hsnSac || '-'})
+                            </option>
+                          ))}
+                        </select>
+                        <div className="p-1.5 text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors cursor-pointer flex items-center gap-0.5">
+                          <Zap className="w-3.5 h-3.5 fill-indigo-500" />
+                          <ChevronDown className="w-4 h-4" />
                         </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                   <div className="col-span-4 md:col-span-2">
@@ -371,6 +431,95 @@ export const QuotationForm = () => {
           </button>
         </div>
       </form>
+
+      {/* Quick Add Rate Master Modal */}
+      {isAddRateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Zap className="w-5 h-5 text-indigo-500 fill-indigo-500" />
+                <span>Save to Rate Master Catalog</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddRateModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickSaveRateMaster} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold uppercase text-slate-500 mb-1">Service / Work Item Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Parking Stand Fabrication"
+                  value={newRateData.serviceName}
+                  onChange={(e) => setNewRateData({ ...newRateData, serviceName: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Standard Rate (₹) *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    placeholder="3000"
+                    value={newRateData.rate}
+                    onChange={(e) => setNewRateData({ ...newRateData, rate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-500 mb-1">Unit</label>
+                  <input
+                    type="text"
+                    placeholder="sq ft, Kg, Job, Piece"
+                    value={newRateData.unit}
+                    onChange={(e) => setNewRateData({ ...newRateData, unit: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-500 mb-1">HSN / SAC Code</label>
+                <input
+                  type="text"
+                  placeholder="9988"
+                  value={newRateData.hsnSac}
+                  onChange={(e) => setNewRateData({ ...newRateData, hsnSac: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRateModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingRate}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingRate ? 'Saving...' : 'Save to Master & Auto-Fill'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
