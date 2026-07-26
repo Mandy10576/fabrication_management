@@ -297,44 +297,21 @@ export const QuotationForm = () => {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400">
-                  Total GST Rate (%) *
-                </label>
-                {gstType !== 'NON_GST' && (
-                  <span className="text-[10px] text-indigo-500 font-semibold">
-                    {gstType === 'CGST_SGST' ? `(CGST ${gstRate / 2}% + SGST ${gstRate / 2}%)` : `(IGST ${gstRate}%)`}
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                step="any"
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                GST Rate (%)
+              </label>
+              <select
                 disabled={gstType === 'NON_GST'}
                 value={gstRate}
-                onFocus={(e) => e.target.select()}
                 onChange={(e) => setGstRate(parseFloat(e.target.value) || 0)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-extrabold outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              />
-              {gstType !== 'NON_GST' && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-400 font-medium">Quick:</span>
-                  {[18, 12, 5, 28, 0].map(r => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setGstRate(r)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                        gstRate === r
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-500'
-                      }`}
-                    >
-                      {r}%
-                    </button>
-                  ))}
-                </div>
-              )}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold outline-none disabled:opacity-50"
+              >
+                <option value={18}>18% (Standard Rate)</option>
+                <option value={12}>12% (Reduced Rate)</option>
+                <option value={5}>5% (Essential Rate)</option>
+                <option value={28}>28% (Luxury/Heavy Metal Rate)</option>
+                <option value={0}>0% (Exempted)</option>
+              </select>
             </div>
 
             <div>

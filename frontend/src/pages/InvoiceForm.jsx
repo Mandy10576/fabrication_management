@@ -360,7 +360,7 @@ export const InvoiceForm = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
             <div>
               <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
                 Invoice Date *
@@ -376,65 +376,7 @@ export const InvoiceForm = () => {
 
             <div>
               <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                GST Tax Mode *
-              </label>
-              <select
-                value={gstType}
-                onChange={(e) => setGstType(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-brand-500"
-              >
-                <option value="CGST_SGST">Include CGST + SGST (Intrastate)</option>
-                <option value="IGST">Include IGST (Interstate)</option>
-                <option value="NON_GST">Exclude GST (Non-GST / Bill of Supply)</option>
-              </select>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400">
-                  Total GST Rate (%) *
-                </label>
-                {gstType !== 'NON_GST' && (
-                  <span className="text-[10px] text-brand-500 font-semibold">
-                    {gstType === 'CGST_SGST' ? `(CGST ${gstRate / 2}% + SGST ${gstRate / 2}%)` : `(IGST ${gstRate}%)`}
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <input
-                  type="number"
-                  step="any"
-                  disabled={gstType === 'NON_GST'}
-                  value={gstRate}
-                  onFocus={(e) => e.target.select()}
-                  onChange={(e) => setGstRate(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-extrabold outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
-                />
-              </div>
-              {gstType !== 'NON_GST' && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-400 font-medium">Quick:</span>
-                  {[18, 12, 5, 28, 0].map(r => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setGstRate(r)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                        gstRate === r
-                          ? 'bg-brand-500 text-white border-brand-500'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-brand-500'
-                      }`}
-                    >
-                      {r}%
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Payment Due Date (Optional)
+                Payment Due Date
               </label>
               <input
                 type="date"
@@ -442,6 +384,21 @@ export const InvoiceForm = () => {
                 onChange={(e) => setDueDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
               />
+            </div>
+
+            <div>
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                GST Tax Mode *
+              </label>
+              <select
+                value={gstType}
+                onChange={(e) => setGstType(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="CGST_SGST">CGST + SGST (18% Intra-State)</option>
+                <option value="IGST">IGST (18% Inter-State)</option>
+                <option value="NON_GST">Non-GST (Retail / Bill of Supply)</option>
+              </select>
             </div>
           </div>
         </div>
