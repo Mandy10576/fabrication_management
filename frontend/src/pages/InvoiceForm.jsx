@@ -13,7 +13,9 @@ import {
   Building2,
   Calendar,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 
 export const InvoiceForm = () => {
@@ -377,54 +379,58 @@ export const InvoiceForm = () => {
                 key={idx}
                 className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-3 text-xs"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center text-[10px]">
+                    <span className="w-6 h-6 rounded-full bg-brand-500/10 text-brand-500 font-bold flex items-center justify-center text-[10px]">
                       {idx + 1}
                     </span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Line Item #{idx + 1}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">Line Item #{idx + 1}</span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(idx)}
-                    disabled={items.length === 1}
-                    className="px-2 py-1 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-lg transition-colors disabled:opacity-30 flex items-center gap-1 text-[11px] font-semibold"
-                    title="Remove Item"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Item</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-12 md:col-span-5">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[10px] font-bold uppercase text-slate-500">
-                        Description *
-                      </label>
-                      {rateMaster.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {rateMaster.length > 0 && (
+                      <div className="relative">
                         <select
                           value=""
                           onChange={(e) => {
                             const rItem = rateMaster.find(r => r.id === e.target.value);
                             if (rItem) handleSelectRateMaster(idx, rItem);
                           }}
-                          className="bg-transparent text-[11px] font-bold text-brand-600 dark:text-brand-400 hover:underline outline-none cursor-pointer"
+                          className="appearance-none pl-8 pr-8 py-1.5 rounded-xl border border-brand-500/30 dark:border-brand-500/40 bg-brand-50/50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-300 font-semibold text-xs outline-none cursor-pointer hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-all shadow-sm"
                         >
-                          <option value="" disabled>⚡ Pick Rate Master Preset</option>
+                          <option value="" disabled>⚡ Quick Fill from Rate Master Catalog</option>
                           {rateMaster.map(r => (
-                            <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-800">
-                              {r.serviceName} (₹{r.rate}/{r.unit})
+                            <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
+                              {r.serviceName} — ₹{r.rate} / {r.unit} (HSN: {r.hsnSac || '-'})
                             </option>
                           ))}
                         </select>
-                      )}
-                    </div>
+                        <Zap className="w-3.5 h-3.5 text-brand-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <ChevronDown className="w-3.5 h-3.5 text-brand-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      disabled={items.length === 1}
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-xl transition-colors disabled:opacity-30 flex items-center gap-1 text-xs font-semibold"
+                      title="Remove Line Item"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-3 pt-1">
+                  <div className="col-span-12 md:col-span-5">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Description of Goods / Fabrication Work *
+                    </label>
                     <input
                       type="text"
                       required
-                      placeholder="Type custom description or choose from preset above..."
+                      placeholder="e.g. Laser Cutting & Bending Work or select preset above..."
                       value={item.description}
                       onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
