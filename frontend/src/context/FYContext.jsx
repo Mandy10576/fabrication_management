@@ -6,20 +6,38 @@ const FYContext = createContext();
 
 export const FYProvider = ({ children }) => {
   const { token } = useAuth();
-  const [financialYears, setFinancialYears] = useState([]);
-  const [selectedFY, setSelectedFY] = useState('ALL'); // 'ALL' or FY object or FY id
-  const [loading, setLoading] = useState(true);
+  const [financialYears, setFinancialYears] = useState(() => {
+    try {
+      const saved = localStorage.getItem('khodiyar_fys');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [selectedFY, setSelectedFYState] = useState(() => {
+    return localStorage.getItem('khodiyar_selected_fy') || 'ALL';
+  });
+  const [loading, setLoading] = useState(financialYears.length === 0);
+
+  const setSelectedFY = (fyId) => {
+    setSelectedFYState(fyId);
+    try {
+      localStorage.setItem('khodiyar_selected_fy', fyId);
+    } catch (e) {}
+  };
 
   const fetchFYs = async () => {
     if (!token) return;
     try {
-      setLoading(true);
       const data = await api.get('/financial-years');
       setFinancialYears(data);
+      try {
+        localStorage.setItem('khodiyar_fys', JSON.stringify(data));
+      } catch (e) {}
       
-      // Auto select current financial year if none selected
+      // Auto select current financial year if none explicitly set
       const current = data.find(f => f.isCurrent);
-      if (current && selectedFY === 'ALL') {
+      if (current && (selectedFY === 'ALL' || !selectedFY)) {
         setSelectedFY(current.id);
       }
     } catch (err) {
