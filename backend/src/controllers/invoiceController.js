@@ -105,16 +105,13 @@ const getInvoices = async (req, res, next) => {
     const takeLimit = Math.min(100, parseInt(limit) || 20);
     const take = takeLimit + 1;
 
-    const [totalCount, items] = await Promise.all([
-      prisma.invoice.count({ where }),
-      prisma.invoice.findMany({
-        where,
-        take,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-        select: selectFields,
-        orderBy: [{ date: 'desc' }, { id: 'desc' }]
-      })
-    ]);
+    const items = await prisma.invoice.findMany({
+      where,
+      take,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: selectFields,
+      orderBy: [{ date: 'desc' }, { id: 'desc' }]
+    });
 
     let hasMore = false;
     let nextCursor = null;
@@ -124,7 +121,7 @@ const getInvoices = async (req, res, next) => {
       nextCursor = items[items.length - 1]?.id || null;
     }
 
-    res.json({ items, nextCursor, hasMore, totalCount });
+    res.json({ items, nextCursor, hasMore });
   } catch (error) {
     next(error);
   }

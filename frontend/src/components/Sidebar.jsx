@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { api } from '../services/api';
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +25,16 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Backup & Restore', path: '/backup', icon: DatabaseBackup },
   ];
 
+  const handlePrefetch = (path) => {
+    try {
+      const fy = localStorage.getItem('khodiyar_selected_fy') || 'ALL';
+      if (path === '/invoices') api.get(`/invoices?financialYearId=${fy}&status=ALL&gstType=ALL&search=&limit=20`);
+      else if (path === '/quotations') api.get(`/quotations?financialYearId=${fy}&search=&limit=20`);
+      else if (path === '/clients') api.get(`/clients?financialYearId=${fy}&search=&limit=20`);
+      else if (path === '/rates') api.get('/rates?search=');
+    } catch (e) {}
+  };
+
   const sidebarContent = (
     <div className="h-full flex flex-col justify-between py-4 px-3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
       <div className="space-y-6">
@@ -32,6 +43,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
           <NavLink
             to="/invoices/new"
             onClick={onClose}
+            onMouseEnter={() => handlePrefetch('/invoices')}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-brand-500/25 transition-all transform active:scale-95"
           >
             <PlusCircle className="w-4 h-4" />
@@ -53,6 +65,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
                 to={item.path}
                 end={item.path === '/'}
                 onClick={onClose}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all ${
                     isActive
