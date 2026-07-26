@@ -279,6 +279,53 @@ export const QuotationForm = () => {
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div>
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                GST Tax Inclusion *
+              </label>
+              <select
+                value={gstType}
+                onChange={(e) => setGstType(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold outline-none"
+              >
+                <option value="CGST_SGST">Include CGST + SGST (Intrastate)</option>
+                <option value="IGST">Include IGST (Interstate)</option>
+                <option value="NON_GST">Exclude GST (Non-GST / Estimate Quotation)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                GST Rate (%)
+              </label>
+              <select
+                disabled={gstType === 'NON_GST'}
+                value={gstRate}
+                onChange={(e) => setGstRate(parseFloat(e.target.value) || 0)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold outline-none disabled:opacity-50"
+              >
+                <option value={18}>18% (Standard Rate)</option>
+                <option value={12}>12% (Reduced Rate)</option>
+                <option value={5}>5% (Essential Rate)</option>
+                <option value={28}>28% (Luxury/Heavy Metal Rate)</option>
+                <option value={0}>0% (Exempted)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                Valid Until (Optional)
+              </label>
+              <input
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Dynamic Items Table */}
@@ -410,6 +457,90 @@ export const QuotationForm = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Totals & Financial Summary Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
+            <div>
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                Notes / Quotation Remarks
+              </label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Quotation valid for 30 days from date of issue"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                Terms & Conditions
+              </label>
+              <textarea
+                rows={4}
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 text-xs">
+            <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-2">
+              Quotation Financial Summary
+            </h3>
+
+            <div className="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-600 dark:text-slate-400">Subtotal:</span>
+              <strong className="text-slate-900 dark:text-white font-bold">{formatCurrency(subtotal)}</strong>
+            </div>
+
+            <div className="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-600 dark:text-slate-400">Discount (₹):</span>
+              <input
+                type="number"
+                step="0.01"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                className="w-32 px-3 py-1 text-right rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold outline-none"
+              />
+            </div>
+
+            {gstType === 'CGST_SGST' && (
+              <>
+                <div className="flex justify-between items-center py-1 text-slate-600 dark:text-slate-400">
+                  <span>CGST ({gstRate / 2}%):</span>
+                  <span>{formatCurrency((taxableAmount * (gstRate / 2)) / 100)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 text-slate-600 dark:text-slate-400">
+                  <span>SGST ({gstRate / 2}%):</span>
+                  <span>{formatCurrency((taxableAmount * (gstRate / 2)) / 100)}</span>
+                </div>
+              </>
+            )}
+
+            {gstType === 'IGST' && (
+              <div className="flex justify-between items-center py-1 text-slate-600 dark:text-slate-400">
+                <span>IGST ({gstRate}%):</span>
+                <span>{formatCurrency((taxableAmount * gstRate) / 100)}</span>
+              </div>
+            )}
+
+            {gstType === 'NON_GST' && (
+              <div className="flex justify-between items-center py-1 text-amber-600 dark:text-amber-400 font-semibold">
+                <span>GST Status:</span>
+                <span>Excluded (Estimate Quotation)</span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center py-2.5 px-3 rounded-xl bg-indigo-900 text-white font-extrabold text-sm">
+              <span>Grand Total:</span>
+              <span>{formatCurrency(grandTotal)}</span>
+            </div>
           </div>
         </div>
 
