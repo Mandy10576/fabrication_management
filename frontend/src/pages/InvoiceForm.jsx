@@ -204,6 +204,10 @@ export const InvoiceForm = () => {
     const q = parseFloat(updated[index].quantity) || 1;
     updated[index].amount = q * rateItem.rate;
     setItems(updated);
+
+    if (rateItem.gstRate !== undefined && rateItem.gstRate !== null) {
+      setGstRate(rateItem.gstRate);
+    }
   };
 
   // Calculations

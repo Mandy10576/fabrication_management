@@ -54,6 +54,7 @@ export const RateMaster = () => {
     hsnSac: '9988',
     unit: 'sq ft',
     rate: '',
+    gstRate: 18,
     description: ''
   });
 
@@ -87,6 +88,7 @@ export const RateMaster = () => {
       hsnSac: '9988',
       unit: 'sq ft',
       rate: '',
+      gstRate: 18,
       description: ''
     });
     setIsCustomUnit(false);
@@ -102,6 +104,7 @@ export const RateMaster = () => {
       hsnSac: item.hsnSac || '9988',
       unit: currentUnit,
       rate: item.rate || '',
+      gstRate: item.gstRate !== undefined && item.gstRate !== null ? item.gstRate : 18,
       description: item.description || ''
     });
     setIsCustomUnit(!dynamicUnits.includes(currentUnit));
@@ -206,9 +209,14 @@ export const RateMaster = () => {
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                     {item.serviceName}
                   </h3>
-                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono font-semibold border border-slate-200 dark:border-slate-700 shrink-0">
-                    HSN: {item.hsnSac || '9988'}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-300 text-[10px] font-bold border border-brand-200 dark:border-brand-800">
+                      GST: {item.gstRate !== undefined && item.gstRate !== null ? item.gstRate : 18}%
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono font-semibold border border-slate-200 dark:border-slate-700">
+                      HSN: {item.hsnSac || '9988'}
+                    </span>
+                  </div>
                 </div>
 
                 {item.description && (
@@ -372,19 +380,38 @@ export const RateMaster = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Rate per Unit (₹) *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="e.g. 45.00"
-                  value={formData.rate}
-                  onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                    Rate per Unit (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    placeholder="e.g. 45.00"
+                    value={formData.rate}
+                    onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                    GST Rate (%) *
+                  </label>
+                  <select
+                    value={formData.gstRate}
+                    onChange={(e) => setFormData({ ...formData, gstRate: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-bold"
+                  >
+                    <option value={18}>18% (Standard Rate)</option>
+                    <option value={12}>12% (Reduced Rate)</option>
+                    <option value={5}>5% (Essential Rate)</option>
+                    <option value={28}>28% (Heavy/Luxury Rate)</option>
+                    <option value={0}>0% (Exempted / Non-GST)</option>
+                  </select>
+                </div>
               </div>
 
               <div>
