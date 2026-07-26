@@ -70,9 +70,9 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
           </div>
         </div>
 
-        <div className="border-t border-b border-slate-300 py-1.5 my-3 text-center" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', paddingTop: '6px', paddingBottom: '6px', marginTop: '12px', marginBottom: '12px', textAlign: 'center' }}>
-          <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.12em', margin: 0 }}>
-            QUOTATION
+        <div className="border-t border-b border-slate-300 py-2 my-3 text-center" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', paddingTop: '6px', paddingBottom: '6px', marginTop: '12px', marginBottom: '12px', textAlign: 'center' }}>
+          <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.35em', margin: 0 }}>
+            Q U O T A T I O N
           </h2>
         </div>
 
