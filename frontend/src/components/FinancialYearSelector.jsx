@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useFY } from '../context/FYContext';
 import { Calendar, Plus, Check } from 'lucide-react';
 import { api } from '../services/api';
@@ -104,9 +105,9 @@ export const FinancialYearSelector = () => {
       )}
 
       {/* Modal for adding new financial year */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl">
+      {showAddModal && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-4">Add Financial Year</h3>
 
             {error && (
@@ -173,7 +174,8 @@ export const FinancialYearSelector = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

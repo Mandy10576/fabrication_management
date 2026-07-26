@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 import {
@@ -13,12 +14,15 @@ import {
   Wrench
 } from 'lucide-react';
 
+const DEFAULT_UNITS = ['sq ft', 'meter', 'kg', 'pcs', 'hrs', 'ton', 'set', 'lot', 'nos', 'mm', 'inch', 'sq mtr', 'job'];
+
 export const RateMaster = () => {
   const [rates, setRates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingRate, setEditingRate] = useState(null);
+  const [isCustomUnit, setIsCustomUnit] = useState(false);
 
   const [formData, setFormData] = useState({
     serviceName: '',
@@ -46,6 +50,11 @@ export const RateMaster = () => {
     fetchRates();
   }, [search]);
 
+  // Combine default units and any custom units created in the rate catalog
+  const dynamicUnits = Array.from(
+    new Set([...DEFAULT_UNITS, ...rates.map(r => r.unit).filter(Boolean)])
+  );
+
   const handleOpenAdd = () => {
     setEditingRate(null);
     setFormData({
@@ -55,19 +64,22 @@ export const RateMaster = () => {
       rate: '',
       description: ''
     });
+    setIsCustomUnit(false);
     setError('');
     setShowModal(true);
   };
 
   const handleOpenEdit = (item) => {
     setEditingRate(item);
+    const currentUnit = item.unit || 'sq ft';
     setFormData({
       serviceName: item.serviceName || '',
       hsnSac: item.hsnSac || '9988',
-      unit: item.unit || 'sq ft',
+      unit: currentUnit,
       rate: item.rate || '',
       description: item.description || ''
     });
+    setIsCustomUnit(!dynamicUnits.includes(currentUnit));
     setError('');
     setShowModal(true);
   };
@@ -75,6 +87,12 @@ export const RateMaster = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!formData.unit || !formData.unit.trim()) {
+      setError('Please provide a valid unit of measurement');
+      return;
+    }
+
     try {
       if (editingRate) {
         await api.put(`/rates/${editingRate.id}`, formData);
@@ -97,8 +115,6 @@ export const RateMaster = () => {
       alert(err.message || 'Failed to delete service');
     }
   };
-
-  const unitsList = ['sq ft', 'meter', 'kg', 'pcs', 'hrs', 'ton', 'set', 'lot'];
 
   return (
     <div className="space-y-6">
@@ -202,9 +218,9 @@ export const RateMaster = () => {
       )}
 
       {/* Add / Edit Rate Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -253,18 +269,55 @@ export const RateMaster = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    Unit of Measurement *
-                  </label>
-                  <select
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                  >
-                    {unitsList.map(u => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400">
+                      Unit *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = !isCustomUnit;
+                        setIsCustomUnit(nextState);
+                        if (nextState) {
+                          setFormData(prev => ({ ...prev, unit: '' }));
+                        } else {
+                          setFormData(prev => ({ ...prev, unit: dynamicUnits[0] || 'sq ft' }));
+                        }
+                      }}
+                      className="text-[10px] text-brand-600 dark:text-brand-400 font-bold hover:underline"
+                    >
+                      {isCustomUnit ? '← Presets' : '+ Custom'}
+                    </button>
+                  </div>
+
+                  {isCustomUnit ? (
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. nos, running ft..."
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
+                    />
+                  ) : (
+                    <select
+                      value={formData.unit}
+                      onChange={(e) => {
+                        if (e.target.value === '__ADD_CUSTOM__') {
+                          setIsCustomUnit(true);
+                          setFormData({ ...formData, unit: '' });
+                        } else {
+                          setFormData({ ...formData, unit: e.target.value });
+                        }
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
+                    >
+                      {dynamicUnits.map(u => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                      <option value="__ADD_CUSTOM__">+ Add Custom Unit...</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -313,7 +366,8 @@ export const RateMaster = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
