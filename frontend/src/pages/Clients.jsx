@@ -318,11 +318,10 @@ export const Clients = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    Contact Person *
+                    Contact Person (Optional)
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. Suresh Patil"
                     value={formData.contactPerson}
                     onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}

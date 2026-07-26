@@ -108,14 +108,14 @@ const createClient = async (req, res, next) => {
   try {
     const { companyName, contactPerson, mobile, email, gstin, pan, address, notes, financialYearId } = req.body;
 
-    if (!companyName || !contactPerson || !mobile || !address || !financialYearId) {
-      return res.status(400).json({ error: 'Company Name, Contact Person, Mobile, Address, and Financial Year are required' });
+    if (!companyName || !mobile || !address || !financialYearId) {
+      return res.status(400).json({ error: 'Company Name, Mobile, Address, and Financial Year are required' });
     }
 
     const client = await prisma.client.create({
       data: {
         companyName,
-        contactPerson,
+        contactPerson: contactPerson || '',
         mobile,
         email: email || '',
         gstin: gstin || '',
@@ -142,7 +142,7 @@ const updateClient = async (req, res, next) => {
       where: { id },
       data: {
         companyName,
-        contactPerson,
+        contactPerson: contactPerson || '',
         mobile,
         email,
         gstin,
