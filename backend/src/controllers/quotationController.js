@@ -277,6 +277,10 @@ const convertToInvoice = async (req, res, next) => {
 const deleteQuotation = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const existing = await prisma.quotation.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Quotation not found or already deleted' });
+    }
     await prisma.quotation.delete({ where: { id } });
     res.json({ message: 'Quotation deleted successfully' });
   } catch (error) {

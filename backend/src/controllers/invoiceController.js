@@ -376,6 +376,10 @@ const updateInvoice = async (req, res, next) => {
 const deleteInvoice = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const existing = await prisma.invoice.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Invoice not found or already deleted' });
+    }
     await prisma.invoice.delete({ where: { id } });
     res.json({ message: 'Invoice deleted successfully' });
   } catch (error) {
