@@ -11,7 +11,9 @@ import {
   Tag,
   IndianRupee,
   X,
-  Wrench
+  Wrench,
+  Settings,
+  ChevronDown
 } from 'lucide-react';
 
 const DEFAULT_UNITS = ['sq ft', 'meter', 'kg', 'pcs', 'hrs', 'ton', 'set', 'lot', 'nos', 'mm', 'inch', 'sq mtr', 'job'];
@@ -22,30 +24,46 @@ export const RateMaster = () => {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingRate, setEditingRate] = useState(null);
-  const [isCustomUnit, setIsCustomUnit] = useState(false);
+  const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
+  const [showManageUnitsModal, setShowManageUnitsModal] = useState(false);
+  const [newUnitInput, setNewUnitInput] = useState('');
 
-  // Persistent custom units list saved in browser storage
-  const [customUnits, setCustomUnits] = useState(() => {
+  // Persistent managed units list saved in browser storage
+  const [availableUnits, setAvailableUnits] = useState(() => {
     try {
-      const saved = localStorage.getItem('khodiyar_custom_units');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
+      const saved = localStorage.getItem('khodiyar_managed_units');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_UNITS;
   });
 
-  const saveCustomUnit = (unitName) => {
-    if (!unitName) return;
-    const trimmed = unitName.trim();
+  const saveAvailableUnits = (newUnitsList) => {
+    setAvailableUnits(newUnitsList);
+    try {
+      localStorage.setItem('khodiyar_managed_units', JSON.stringify(newUnitsList));
+    } catch (e) {
+      console.error('Failed to save units:', e);
+    }
+  };
+
+  const handleAddUnitOption = (newUnitName) => {
+    if (!newUnitName) return;
+    const trimmed = newUnitName.trim();
     if (!trimmed) return;
-    if (!customUnits.includes(trimmed)) {
-      const updated = [...customUnits, trimmed];
-      setCustomUnits(updated);
-      try {
-        localStorage.setItem('khodiyar_custom_units', JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save custom units:', e);
-      }
+    if (!availableUnits.some(u => u.toLowerCase() === trimmed.toLowerCase())) {
+      const updated = [...availableUnits, trimmed];
+      saveAvailableUnits(updated);
+    }
+  };
+
+  const handleRemoveUnitOption = (unitToRemove) => {
+    const updated = availableUnits.filter(u => u !== unitToRemove);
+    saveAvailableUnits(updated);
+    if (formData.unit === unitToRemove) {
+      setFormData(prev => ({ ...prev, unit: updated[0] || '' }));
     }
   };
 
@@ -75,21 +93,16 @@ export const RateMaster = () => {
     fetchRates();
   }, [search]);
 
-  // Combine default units, persistent custom units, and any units from rate catalog
-  const dynamicUnits = Array.from(
-    new Set([...DEFAULT_UNITS, ...customUnits, ...rates.map(r => r.unit).filter(Boolean)])
-  );
-
   const handleOpenAdd = () => {
     setEditingRate(null);
     setFormData({
       serviceName: '',
       hsnSac: '9988',
-      unit: 'sq ft',
+      unit: availableUnits[0] || 'sq ft',
       rate: '',
       description: ''
     });
-    setIsCustomUnit(false);
+    setIsUnitDropdownOpen(false);
     setError('');
     setShowModal(true);
   };
@@ -97,6 +110,9 @@ export const RateMaster = () => {
   const handleOpenEdit = (item) => {
     setEditingRate(item);
     const currentUnit = item.unit || 'sq ft';
+    if (currentUnit && !availableUnits.includes(currentUnit)) {
+      handleAddUnitOption(currentUnit);
+    }
     setFormData({
       serviceName: item.serviceName || '',
       hsnSac: item.hsnSac || '9988',
@@ -104,7 +120,7 @@ export const RateMaster = () => {
       rate: item.rate || '',
       description: item.description || ''
     });
-    setIsCustomUnit(!dynamicUnits.includes(currentUnit));
+    setIsUnitDropdownOpen(false);
     setError('');
     setShowModal(true);
   };
@@ -302,73 +318,100 @@ export const RateMaster = () => {
                   />
                 </div>
 
-                <div>
+                <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400">
                       Unit *
                     </label>
                     <button
                       type="button"
-                      onClick={() => {
-                        const nextState = !isCustomUnit;
-                        setIsCustomUnit(nextState);
-                        if (nextState) {
-                          setFormData(prev => ({ ...prev, unit: '' }));
-                        } else {
-                          setFormData(prev => ({ ...prev, unit: dynamicUnits[0] || 'sq ft' }));
-                        }
-                      }}
-                      className="text-[10px] text-brand-600 dark:text-brand-400 font-bold hover:underline"
+                      onClick={() => setShowManageUnitsModal(true)}
+                      className="text-[10px] text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1"
                     >
-                      {isCustomUnit ? '← Presets' : '+ Custom'}
+                      <Settings className="w-3 h-3" />
+                      <span>Edit List</span>
                     </button>
                   </div>
 
-                  {isCustomUnit ? (
-                    <div className="space-y-1">
-                      <div className="flex gap-1.5">
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. bundle, cft, pair..."
-                          value={formData.unit}
-                          onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold text-xs"
-                        />
-                        {formData.unit?.trim() && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold flex items-center justify-between outline-none"
+                    >
+                      <span>{formData.unit || '-- Select Unit --'}</span>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    </button>
+
+                    {isUnitDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 space-y-1 max-h-60 overflow-y-auto">
+                        {availableUnits.map((u) => (
+                          <div
+                            key={u}
+                            className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer font-medium transition-colors ${
+                              formData.unit === u
+                                ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-bold'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span
+                              className="flex-1"
+                              onClick={() => {
+                                setFormData({ ...formData, unit: u });
+                                setIsUnitDropdownOpen(false);
+                              }}
+                            >
+                              {u}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveUnitOption(u);
+                              }}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                              title={`Delete "${u}" from dropdown list`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+
+                        <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800 flex gap-1.5 p-1">
+                          <input
+                            type="text"
+                            placeholder="+ Add custom unit..."
+                            value={newUnitInput}
+                            onChange={(e) => setNewUnitInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (newUnitInput.trim()) {
+                                  handleAddUnitOption(newUnitInput);
+                                  setFormData({ ...formData, unit: newUnitInput.trim() });
+                                  setNewUnitInput('');
+                                }
+                              }
+                            }}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none"
+                          />
                           <button
                             type="button"
                             onClick={() => {
-                              saveCustomUnit(formData.unit);
-                              setIsCustomUnit(false);
+                              if (newUnitInput.trim()) {
+                                handleAddUnitOption(newUnitInput);
+                                setFormData({ ...formData, unit: newUnitInput.trim() });
+                                setNewUnitInput('');
+                              }
                             }}
-                            className="px-2.5 py-2 rounded-xl bg-brand-50 dark:bg-brand-950/60 hover:bg-brand-100 text-brand-700 dark:text-brand-300 font-bold text-[10px] shrink-0 border border-brand-200 dark:border-brand-800 transition-all"
-                            title="Save this unit into the options dropdown"
+                            className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shrink-0"
                           >
-                            + Save Option
+                            Add
                           </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <select
-                      value={formData.unit}
-                      onChange={(e) => {
-                        if (e.target.value === '__ADD_CUSTOM__') {
-                          setIsCustomUnit(true);
-                          setFormData({ ...formData, unit: '' });
-                        } else {
-                          setFormData({ ...formData, unit: e.target.value });
-                        }
-                      }}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
-                    >
-                      {dynamicUnits.map(u => (
-                        <option key={u} value={u}>{u}</option>
-                      ))}
-                      <option value="__ADD_CUSTOM__">+ Add Custom Unit...</option>
-                    </select>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -419,6 +462,99 @@ export const RateMaster = () => {
           </div>
         </div>,
         document.body
+      )}
+      {/* Manage Units Catalog Modal */}
+      {showManageUnitsModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Settings className="w-5 h-5 text-brand-500" />
+                <span>Manage Units Options</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowManageUnitsModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Add custom units or click the trash icon next to any unit option to permanently remove it from your dropdown list.
+            </p>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter unit name (e.g. bundle, CFT, pair)"
+                value={newUnitInput}
+                onChange={(e) => setNewUnitInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newUnitInput.trim()) {
+                      handleAddUnitOption(newUnitInput);
+                      setNewUnitInput('');
+                    }
+                  }
+                }}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newUnitInput.trim()) {
+                    handleAddUnitOption(newUnitInput);
+                    setNewUnitInput('');
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shrink-0"
+              >
+                + Add Unit
+              </button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              {availableUnits.map(u => (
+                <div
+                  key={u}
+                  className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  <span>{u}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveUnitOption(u)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
+                    title={`Delete "${u}" option`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  saveAvailableUnits(DEFAULT_UNITS);
+                }}
+                className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold underline"
+              >
+                Reset Standard Defaults
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowManageUnitsModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
