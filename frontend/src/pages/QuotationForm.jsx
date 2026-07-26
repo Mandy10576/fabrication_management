@@ -302,9 +302,10 @@ export const QuotationForm = () => {
                     <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Qty *</label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       required
                       value={item.quantity}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-right"
                     />
@@ -313,9 +314,10 @@ export const QuotationForm = () => {
                     <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Rate (₹) *</label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       required
                       value={item.rate}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'rate', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-right"
                     />

@@ -452,9 +452,10 @@ export const InvoiceForm = () => {
                     </label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       required
                       value={item.quantity}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold text-right outline-none focus:ring-2 focus:ring-brand-500"
                     />
@@ -467,6 +468,7 @@ export const InvoiceForm = () => {
                     <input
                       type="text"
                       value={item.unit}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-center outline-none focus:ring-2 focus:ring-brand-500"
                     />
@@ -478,9 +480,10 @@ export const InvoiceForm = () => {
                     </label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       required
                       value={item.rate}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'rate', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold text-right outline-none focus:ring-2 focus:ring-brand-500"
                     />
