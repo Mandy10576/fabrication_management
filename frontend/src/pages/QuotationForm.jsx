@@ -101,17 +101,21 @@ export const QuotationForm = () => {
     setItems(updated);
   };
 
-  const handleSelectRateMaster = (index, serviceId) => {
-    const rateItem = rateMaster.find(r => r.id === serviceId);
-    if (!rateItem) return;
-
+  const handleDescriptionChange = (index, value) => {
     const updated = [...items];
-    updated[index].description = rateItem.serviceName;
-    updated[index].hsnSac = rateItem.hsnSac || '9988';
-    updated[index].unit = rateItem.unit || 'sq ft';
-    updated[index].rate = rateItem.rate;
-    const q = parseFloat(updated[index].quantity) || 1;
-    updated[index].amount = q * rateItem.rate;
+    updated[index].description = value;
+
+    const matchedRate = rateMaster.find(
+      r => r.serviceName.toLowerCase().trim() === value.toLowerCase().trim()
+    );
+
+    if (matchedRate) {
+      updated[index].hsnSac = matchedRate.hsnSac || '9988';
+      updated[index].unit = matchedRate.unit || 'sq ft';
+      updated[index].rate = matchedRate.rate;
+      const q = parseFloat(updated[index].quantity) || 1;
+      updated[index].amount = q * matchedRate.rate;
+    }
 
     setItems(updated);
   };
@@ -257,39 +261,42 @@ export const QuotationForm = () => {
               <div key={idx} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-3 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-700 dark:text-slate-300">Line Item #{idx + 1}</span>
-                  <div className="flex items-center gap-2">
-                    <select
-                      onChange={(e) => handleSelectRateMaster(idx, e.target.value)}
-                      defaultValue=""
-                      className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 text-[11px] font-medium outline-none"
-                    >
-                      <option value="" disabled>-- Rate Master Preset --</option>
-                      {rateMaster.map(r => (
-                        <option key={r.id} value={r.id}>{r.serviceName} (₹{r.rate}/{r.unit})</option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(idx)}
-                      disabled={items.length === 1}
-                      className="p-1 text-rose-500 hover:bg-rose-100 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(idx)}
+                    disabled={items.length === 1}
+                    className="px-2 py-1 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors disabled:opacity-30 flex items-center gap-1 text-[11px] font-semibold"
+                    title="Remove Item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Item</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
                   <div className="col-span-12 md:col-span-6">
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Description *</label>
-                    <input
-                      type="text"
-                      required
-                      value={item.description}
-                      onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase text-slate-500">Description / Rate Master Preset *</label>
+                      <span className="text-[10px] text-brand-500 font-semibold">Select preset or type custom</span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        list={`rate-preset-list-quote-${idx}`}
+                        placeholder="Choose Rate Master preset or type custom description..."
+                        value={item.description}
+                        onChange={(e) => handleDescriptionChange(idx, e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <datalist id={`rate-preset-list-quote-${idx}`}>
+                        {rateMaster.map(r => (
+                          <option key={r.id} value={r.serviceName}>
+                            ₹{r.rate} per {r.unit} (HSN: {r.hsnSac || '9988'})
+                          </option>
+                        ))}
+                      </datalist>
+                    </div>
                   </div>
                   <div className="col-span-4 md:col-span-2">
                     <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Qty *</label>
