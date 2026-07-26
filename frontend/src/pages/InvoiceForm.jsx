@@ -145,9 +145,6 @@ export const InvoiceForm = () => {
     setItems(updated);
   };
 
-    setItems(updated);
-  };
-
   const handleDescriptionChange = (index, value) => {
     const updated = [...items];
     updated[index].description = value;
