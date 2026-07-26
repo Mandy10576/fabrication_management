@@ -46,16 +46,15 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
           </div>
         </div>
 
-        {/* TAX INVOICE Header Banner with Prominent Word Spacing */}
         <div className="border-t border-b border-slate-300 py-1.5 my-3 text-center" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', paddingTop: '6px', paddingBottom: '6px', marginTop: '12px', marginBottom: '12px', textAlign: 'center' }}>
           {invoice.gstType === 'NON_GST' ? (
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.35em', margin: 0 }}>
-              I N V O I C E
+            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.12em', margin: 0 }}>
+              INVOICE
             </h2>
           ) : (
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', margin: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2.5rem' }}>
-              <span style={{ letterSpacing: '0.35em' }}>TAX</span>
-              <span style={{ letterSpacing: '0.35em' }}>INVOICE</span>
+            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', margin: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ letterSpacing: '0.12em' }}>TAX</span>
+              <span style={{ letterSpacing: '0.12em' }}>INVOICE</span>
             </h2>
           )}
         </div>
