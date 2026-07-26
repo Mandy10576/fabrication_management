@@ -18,6 +18,30 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
   const client = quotation.client || {};
   const totalQuantity = quotation.items ? quotation.items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) : 0;
 
+  const subtotal = quotation.subtotal || 0;
+  const discount = quotation.discount || 0;
+  const taxableAmount = Math.max(0, subtotal - discount);
+  const gstRate = quotation.gstRate ?? 18;
+  const gstType = quotation.gstType || 'CGST_SGST';
+
+  let cgstAmount = quotation.cgstAmount;
+  let sgstAmount = quotation.sgstAmount;
+  let igstAmount = quotation.igstAmount;
+
+  if (gstType === 'CGST_SGST') {
+    const halfRate = gstRate / 2;
+    if (cgstAmount === undefined || cgstAmount === null) {
+      cgstAmount = (taxableAmount * halfRate) / 100;
+    }
+    if (sgstAmount === undefined || sgstAmount === null) {
+      sgstAmount = (taxableAmount * halfRate) / 100;
+    }
+  } else if (gstType === 'IGST') {
+    if (igstAmount === undefined || igstAmount === null) {
+      igstAmount = (taxableAmount * gstRate) / 100;
+    }
+  }
+
   return (
     <div
       id={id}
@@ -148,13 +172,40 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
           <div className="space-y-1 text-xs" style={{ fontSize: '11px' }}>
             <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
               <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>Sub Total</span>
-              <span className="font-bold text-slate-900" style={{ fontWeight: '700', color: '#0f172a' }}>{formatCurrency(quotation.subtotal)}</span>
+              <span className="font-bold text-slate-900" style={{ fontWeight: '700', color: '#0f172a' }}>{formatCurrency(subtotal)}</span>
             </div>
 
-            {quotation.discount > 0 && (
+            {discount > 0 && (
               <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
                 <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>Discount</span>
-                <span className="font-bold text-rose-600" style={{ fontWeight: '700', color: '#e11d48' }}>- {formatCurrency(quotation.discount)}</span>
+                <span className="font-bold text-rose-600" style={{ fontWeight: '700', color: '#e11d48' }}>- {formatCurrency(discount)}</span>
+              </div>
+            )}
+
+            {gstType === 'CGST_SGST' && (
+              <>
+                <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                  <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>CGST ({gstRate / 2}%)</span>
+                  <span className="font-bold text-slate-900" style={{ fontWeight: '700', color: '#0f172a' }}>{formatCurrency(cgstAmount)}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                  <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>SGST ({gstRate / 2}%)</span>
+                  <span className="font-bold text-slate-900" style={{ fontWeight: '700', color: '#0f172a' }}>{formatCurrency(sgstAmount)}</span>
+                </div>
+              </>
+            )}
+
+            {gstType === 'IGST' && (
+              <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>IGST ({gstRate}%)</span>
+                <span className="font-bold text-slate-900" style={{ fontWeight: '700', color: '#0f172a' }}>{formatCurrency(igstAmount)}</span>
+              </div>
+            )}
+
+            {gstType === 'NON_GST' && (
+              <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
+                <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>GST Tax</span>
+                <span className="font-bold text-amber-600" style={{ fontWeight: '700', color: '#d97706' }}>Excluded (Estimate)</span>
               </div>
             )}
 
