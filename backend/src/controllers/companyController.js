@@ -1,8 +1,13 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
+
+let companyCache = null;
 
 const getCompany = async (req, res, next) => {
   try {
+    if (companyCache) {
+      return res.json(companyCache);
+    }
+
     let company = await prisma.companyDetails.findFirst();
     if (!company) {
       company = await prisma.companyDetails.create({
@@ -14,6 +19,7 @@ const getCompany = async (req, res, next) => {
         }
       });
     }
+    companyCache = company;
     res.json(company);
   } catch (error) {
     next(error);
@@ -35,6 +41,7 @@ const updateCompany = async (req, res, next) => {
       updated = await prisma.companyDetails.create({ data });
     }
 
+    companyCache = updated;
     res.json(updated);
   } catch (error) {
     next(error);
@@ -49,13 +56,15 @@ const uploadLogo = async (req, res, next) => {
     const logoUrl = `/uploads/${req.file.filename}`;
     const existing = await prisma.companyDetails.findFirst();
 
+    let updated;
     if (existing) {
-      await prisma.companyDetails.update({
+      updated = await prisma.companyDetails.update({
         where: { id: existing.id },
         data: { logoUrl }
       });
     }
 
+    companyCache = updated || companyCache;
     res.json({ message: 'Logo uploaded successfully', logoUrl });
   } catch (error) {
     next(error);

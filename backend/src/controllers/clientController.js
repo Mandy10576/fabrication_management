@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
 const getClients = async (req, res, next) => {
   try {
-    const { financialYearId, search } = req.query;
+    const { financialYearId, search, limit, cursor, all } = req.query;
 
     const where = {};
     if (financialYearId && financialYearId !== 'ALL') {
@@ -20,18 +19,58 @@ const getClients = async (req, res, next) => {
       ];
     }
 
-    const clients = await prisma.client.findMany({
-      where,
-      include: {
-        financialYear: true,
-        _count: {
-          select: { invoices: true, quotations: true }
-        }
+    const selectFields = {
+      id: true,
+      companyName: true,
+      contactPerson: true,
+      mobile: true,
+      email: true,
+      gstin: true,
+      pan: true,
+      address: true,
+      notes: true,
+      financialYearId: true,
+      createdAt: true,
+      financialYear: {
+        select: { id: true, year: true }
       },
-      orderBy: { createdAt: 'desc' }
-    });
+      _count: {
+        select: { invoices: true, quotations: true }
+      }
+    };
 
-    res.json(clients);
+    if (all === 'true') {
+      const clients = await prisma.client.findMany({
+        where,
+        select: selectFields,
+        orderBy: { companyName: 'asc' }
+      });
+      return res.json(clients);
+    }
+
+    const takeLimit = Math.min(100, parseInt(limit) || 20);
+    const take = takeLimit + 1;
+
+    const [totalCount, items] = await Promise.all([
+      prisma.client.count({ where }),
+      prisma.client.findMany({
+        where,
+        take,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: selectFields,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+      })
+    ]);
+
+    let hasMore = false;
+    let nextCursor = null;
+    if (items.length > takeLimit) {
+      hasMore = true;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id || null;
+    }
+
+    res.json({ items, nextCursor, hasMore, totalCount });
   } catch (error) {
     next(error);
   }

@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
 const getDashboardStats = async (req, res, next) => {
   try {
@@ -15,9 +14,43 @@ const getDashboardStats = async (req, res, next) => {
       quoteWhere.financialYearId = financialYearId;
     }
 
-    const totalClients = await prisma.client.count({ where: clientWhere });
-    const invoices = await prisma.invoice.findMany({ where: invoiceWhere });
-    const quotations = await prisma.quotation.findMany({ where: quoteWhere });
+    // Parallelize independent database queries using Promise.all for sub-50ms performance
+    const [totalClients, invoices, quotationsCount, recentInvoices] = await Promise.all([
+      prisma.client.count({ where: clientWhere }),
+      prisma.invoice.findMany({
+        where: invoiceWhere,
+        select: {
+          id: true,
+          grandTotal: true,
+          balanceDue: true,
+          amountReceived: true,
+          gstType: true,
+          status: true,
+          date: true
+        }
+      }),
+      prisma.quotation.count({ where: quoteWhere }),
+      prisma.invoice.findMany({
+        where: invoiceWhere,
+        take: 5,
+        orderBy: { date: 'desc' },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          date: true,
+          gstType: true,
+          grandTotal: true,
+          balanceDue: true,
+          status: true,
+          client: {
+            select: {
+              id: true,
+              companyName: true
+            }
+          }
+        }
+      })
+    ]);
 
     let totalRevenue = 0;
     let pendingPayments = 0;
@@ -89,19 +122,11 @@ const getDashboardStats = async (req, res, next) => {
       { name: 'Non-GST Invoices', count: nonGstBillsCount, amount: nonGstBillsAmount }
     ];
 
-    // Recent 5 Invoices
-    const recentInvoices = await prisma.invoice.findMany({
-      where: invoiceWhere,
-      take: 5,
-      orderBy: { date: 'desc' },
-      include: { client: true }
-    });
-
     res.json({
       summary: {
         totalClients,
         totalInvoices: invoices.length,
-        totalQuotations: quotations.length,
+        totalQuotations: quotationsCount,
         totalRevenue,
         amountReceivedTotal,
         pendingPayments,

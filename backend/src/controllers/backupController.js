@@ -1,15 +1,15 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
 const exportBackup = async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({ select: { id: true, email: true, name: true, role: true } });
-    const companyDetails = await prisma.companyDetails.findMany();
-    const financialYears = await prisma.financialYear.findMany();
-    const clients = await prisma.client.findMany();
-    const rateMaster = await prisma.rateMaster.findMany();
-    const invoices = await prisma.invoice.findMany({ include: { items: true } });
-    const quotations = await prisma.quotation.findMany({ include: { items: true } });
+    const [companyDetails, financialYears, clients, rateMaster, invoices, quotations] = await Promise.all([
+      prisma.companyDetails.findMany(),
+      prisma.financialYear.findMany(),
+      prisma.client.findMany(),
+      prisma.rateMaster.findMany(),
+      prisma.invoice.findMany({ include: { items: true } }),
+      prisma.quotation.findMany({ include: { items: true } })
+    ]);
 
     const backupData = {
       version: '1.0',

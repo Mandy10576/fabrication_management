@@ -21,19 +21,37 @@ export const Quotations = () => {
   const { selectedFY } = useFY();
   const navigate = useNavigate();
   const [quotations, setQuotations] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [previewQuotation, setPreviewQuotation] = useState(null);
 
-  const fetchQuotations = async () => {
+  const fetchQuotations = async (isLoadMore = false) => {
     try {
-      setLoading(true);
-      const res = await api.get(`/quotations?financialYearId=${selectedFY}&search=${encodeURIComponent(search)}`);
-      setQuotations(res);
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
+
+      const cursorParam = isLoadMore && nextCursor ? `&cursor=${nextCursor}` : '';
+      const res = await api.get(`/quotations?financialYearId=${selectedFY}&search=${encodeURIComponent(search)}&limit=20${cursorParam}`);
+
+      const newItems = Array.isArray(res) ? res : (res.items || []);
+      const newNextCursor = res.nextCursor || null;
+      const newHasMore = Boolean(res.hasMore);
+
+      if (isLoadMore) {
+        setQuotations(prev => [...prev, ...newItems]);
+      } else {
+        setQuotations(newItems);
+      }
+      setNextCursor(newNextCursor);
+      setHasMore(newHasMore);
     } catch (err) {
       console.error('Failed to fetch quotations:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -176,6 +194,25 @@ export const Quotations = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+            <button
+              onClick={() => fetchQuotations(true)}
+              disabled={loadingMore}
+              className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all border border-slate-200 dark:border-slate-700 inline-flex items-center gap-2"
+            >
+              {loadingMore ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading More Quotations...</span>
+                </>
+              ) : (
+                <span>Load More Quotations</span>
+              )}
+            </button>
           </div>
         )}
       </div>

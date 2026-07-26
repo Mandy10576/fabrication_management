@@ -23,7 +23,10 @@ export const Invoices = () => {
   const { selectedFY } = useFY();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [gstFilter, setGstFilter] = useState('ALL');
@@ -32,16 +35,31 @@ export const Invoices = () => {
   const [paymentModalInvoice, setPaymentModalInvoice] = useState(null);
   const [amountReceivedInput, setAmountReceivedInput] = useState('');
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = async (isLoadMore = false) => {
     try {
-      setLoading(true);
-      const url = `/invoices?financialYearId=${selectedFY}&status=${statusFilter}&gstType=${gstFilter}&search=${encodeURIComponent(search)}`;
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
+
+      const cursorParam = isLoadMore && nextCursor ? `&cursor=${nextCursor}` : '';
+      const url = `/invoices?financialYearId=${selectedFY}&status=${statusFilter}&gstType=${gstFilter}&search=${encodeURIComponent(search)}&limit=20${cursorParam}`;
       const res = await api.get(url);
-      setInvoices(res);
+
+      const newItems = Array.isArray(res) ? res : (res.items || []);
+      const newNextCursor = res.nextCursor || null;
+      const newHasMore = Boolean(res.hasMore);
+
+      if (isLoadMore) {
+        setInvoices(prev => [...prev, ...newItems]);
+      } else {
+        setInvoices(newItems);
+      }
+      setNextCursor(newNextCursor);
+      setHasMore(newHasMore);
     } catch (err) {
       console.error('Failed to load invoices:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -254,6 +272,25 @@ export const Invoices = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+            <button
+              onClick={() => fetchInvoices(true)}
+              disabled={loadingMore}
+              className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all border border-slate-200 dark:border-slate-700 inline-flex items-center gap-2"
+            >
+              {loadingMore ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading More Invoices...</span>
+                </>
+              ) : (
+                <span>Load More Invoices</span>
+              )}
+            </button>
           </div>
         )}
       </div>

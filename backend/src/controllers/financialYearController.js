@@ -1,11 +1,16 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
+
+let fyCache = null;
 
 const getFinancialYears = async (req, res, next) => {
   try {
+    if (fyCache) {
+      return res.json(fyCache);
+    }
     const years = await prisma.financialYear.findMany({
       orderBy: { year: 'desc' }
     });
+    fyCache = years;
     res.json(years);
   } catch (error) {
     next(error);
@@ -35,6 +40,7 @@ const createFinancialYear = async (req, res, next) => {
       }
     });
 
+    fyCache = null; // Invalidate cache
     res.status(201).json(fy);
   } catch (error) {
     next(error);
@@ -53,6 +59,7 @@ const setCurrentFinancialYear = async (req, res, next) => {
       data: { isCurrent: true }
     });
 
+    fyCache = null; // Invalidate cache
     res.json(updated);
   } catch (error) {
     next(error);

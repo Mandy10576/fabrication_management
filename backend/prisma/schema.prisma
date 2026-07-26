@@ -65,6 +65,9 @@ model Client {
   updatedAt       DateTime      @updatedAt
   invoices        Invoice[]
   quotations      Quotation[]
+
+  @@index([financialYearId])
+  @@index([companyName])
 }
 
 model RateMaster {
@@ -76,6 +79,8 @@ model RateMaster {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([serviceName])
 }
 
 model Invoice {
@@ -105,6 +110,12 @@ model Invoice {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   items           InvoiceItem[]
+
+  @@index([financialYearId])
+  @@index([clientId])
+  @@index([status])
+  @@index([gstType])
+  @@index([date])
 }
 
 model InvoiceItem {
@@ -117,6 +128,8 @@ model InvoiceItem {
   unit        String
   rate        Float
   amount      Float
+
+  @@index([invoiceId])
 }
 
 model Quotation {
@@ -141,6 +154,11 @@ model Quotation {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   items              QuotationItem[]
+
+  @@index([financialYearId])
+  @@index([clientId])
+  @@index([status])
+  @@index([date])
 }
 
 model QuotationItem {
@@ -153,4 +171,6 @@ model QuotationItem {
   unit        String
   rate        Float
   amount      Float
+
+  @@index([quotationId])
 }

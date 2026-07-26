@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
 const getRates = async (req, res, next) => {
   try {
@@ -15,7 +14,15 @@ const getRates = async (req, res, next) => {
 
     const rates = await prisma.rateMaster.findMany({
       where,
-      orderBy: { serviceName: 'asc' }
+      orderBy: { serviceName: 'asc' },
+      select: {
+        id: true,
+        serviceName: true,
+        hsnSac: true,
+        unit: true,
+        rate: true,
+        description: true
+      }
     });
     res.json(rates);
   } catch (error) {

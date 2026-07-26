@@ -1,6 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
 const { numberToWords } = require('../utils/numberToWords');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
 const getNextInvoiceNumber = async (req, res, next) => {
   try {
@@ -9,14 +8,19 @@ const getNextInvoiceNumber = async (req, res, next) => {
       return res.status(400).json({ error: 'financialYearId is required' });
     }
 
-    const fy = await prisma.financialYear.findUnique({ where: { id: financialYearId } });
+    const [fy, count] = await Promise.all([
+      prisma.financialYear.findUnique({
+        where: { id: financialYearId },
+        select: { id: true, year: true }
+      }),
+      prisma.invoice.count({
+        where: { financialYearId }
+      })
+    ]);
+
     if (!fy) {
       return res.status(404).json({ error: 'Financial year not found' });
     }
-
-    const count = await prisma.invoice.count({
-      where: { financialYearId }
-    });
 
     const nextSeq = String(count + 1).padStart(3, '0');
     const invoiceNumber = `${fy.year}/${nextSeq}`;
@@ -29,7 +33,7 @@ const getNextInvoiceNumber = async (req, res, next) => {
 
 const getInvoices = async (req, res, next) => {
   try {
-    const { financialYearId, status, gstType, clientId, search } = req.query;
+    const { financialYearId, status, gstType, clientId, search, limit, cursor, all } = req.query;
 
     const where = {};
     if (financialYearId && financialYearId !== 'ALL') {
@@ -53,17 +57,70 @@ const getInvoices = async (req, res, next) => {
       ];
     }
 
-    const invoices = await prisma.invoice.findMany({
-      where,
-      include: {
-        client: true,
-        financialYear: true,
-        items: true
+    const selectFields = {
+      id: true,
+      invoiceNumber: true,
+      date: true,
+      dueDate: true,
+      gstType: true,
+      subtotal: true,
+      totalTax: true,
+      grandTotal: true,
+      amountReceived: true,
+      balanceDue: true,
+      status: true,
+      createdAt: true,
+      clientId: true,
+      client: {
+        select: {
+          id: true,
+          companyName: true,
+          contactPerson: true,
+          mobile: true,
+          email: true,
+          gstin: true
+        }
       },
-      orderBy: { date: 'desc' }
-    });
+      financialYear: {
+        select: {
+          id: true,
+          year: true
+        }
+      }
+    };
 
-    res.json(invoices);
+    if (all === 'true') {
+      const invoices = await prisma.invoice.findMany({
+        where,
+        select: selectFields,
+        orderBy: { date: 'desc' }
+      });
+      return res.json(invoices);
+    }
+
+    const takeLimit = Math.min(100, parseInt(limit) || 20);
+    const take = takeLimit + 1;
+
+    const [totalCount, items] = await Promise.all([
+      prisma.invoice.count({ where }),
+      prisma.invoice.findMany({
+        where,
+        take,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: selectFields,
+        orderBy: [{ date: 'desc' }, { id: 'desc' }]
+      })
+    ]);
+
+    let hasMore = false;
+    let nextCursor = null;
+    if (items.length > takeLimit) {
+      hasMore = true;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id || null;
+    }
+
+    res.json({ items, nextCursor, hasMore, totalCount });
   } catch (error) {
     next(error);
   }

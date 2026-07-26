@@ -1,10 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
 const { numberToWords } = require('../utils/numberToWords');
-const prisma = new PrismaClient();
+const prisma = require('../config/prisma');
 
 const getQuotations = async (req, res, next) => {
   try {
-    const { financialYearId, status, clientId, search } = req.query;
+    const { financialYearId, status, clientId, search, limit, cursor, all } = req.query;
 
     const where = {};
     if (financialYearId && financialYearId !== 'ALL') {
@@ -24,17 +23,67 @@ const getQuotations = async (req, res, next) => {
       ];
     }
 
-    const quotations = await prisma.quotation.findMany({
-      where,
-      include: {
-        client: true,
-        financialYear: true,
-        items: true
+    const selectFields = {
+      id: true,
+      quotationNumber: true,
+      date: true,
+      validUntil: true,
+      gstType: true,
+      subtotal: true,
+      taxAmount: true,
+      discount: true,
+      grandTotal: true,
+      status: true,
+      createdAt: true,
+      clientId: true,
+      client: {
+        select: {
+          id: true,
+          companyName: true,
+          contactPerson: true,
+          mobile: true
+        }
       },
-      orderBy: { date: 'desc' }
-    });
+      financialYear: {
+        select: {
+          id: true,
+          year: true
+        }
+      }
+    };
 
-    res.json(quotations);
+    if (all === 'true') {
+      const quotations = await prisma.quotation.findMany({
+        where,
+        select: selectFields,
+        orderBy: { date: 'desc' }
+      });
+      return res.json(quotations);
+    }
+
+    const takeLimit = Math.min(100, parseInt(limit) || 20);
+    const take = takeLimit + 1;
+
+    const [totalCount, items] = await Promise.all([
+      prisma.quotation.count({ where }),
+      prisma.quotation.findMany({
+        where,
+        take,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: selectFields,
+        orderBy: [{ date: 'desc' }, { id: 'desc' }]
+      })
+    ]);
+
+    let hasMore = false;
+    let nextCursor = null;
+    if (items.length > takeLimit) {
+      hasMore = true;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id || null;
+    }
+
+    res.json({ items, nextCursor, hasMore, totalCount });
   } catch (error) {
     next(error);
   }
