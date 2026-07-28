@@ -37,7 +37,7 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
               <h1 className="text-xl font-extrabold text-slate-900 tracking-tight" style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginBottom: '3px' }}>
                 {comp.companyName}
               </h1>
-              <div className="text-slate-700 text-[11px] leading-snug space-y-0.5 font-normal" style={{ fontSize: '11px', color: '#334155', lineHeight: '1.45' }}>
+              <div className="text-slate-800 text-[11px] leading-snug space-y-0.5 font-medium" style={{ fontSize: '11px', color: '#1e293b', fontWeight: '600', lineHeight: '1.45' }}>
                 {addressWithoutState.map((line, idx) => (
                   <div key={idx}>{line}</div>
                 ))}
