@@ -50,25 +50,29 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
     >
       <div>
         {/* Company Header */}
-        <div className="mb-3">
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight" style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>
-            {comp.companyName}
-          </h1>
-          <div className="text-slate-600 text-[11px] leading-tight space-y-0.5 mt-1 font-normal" style={{ fontSize: '11px', color: '#475569' }}>
-            <p style={{ whiteSpace: 'pre-line' }}>{comp.address ? comp.address.replace(/\\n/g, '\n') : ''}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-700 font-medium pt-0.5">
-              {comp.phone && <span>Phone no. : <strong>{comp.phone}</strong></span>}
-              {comp.email && <span>Email : <strong>{comp.email}</strong></span>}
+        {(() => {
+          const addressText = comp.address ? comp.address.replace(/\\n/g, '\n') : '';
+          const lines = addressText.split('\n').filter(l => l.trim());
+          const addressWithoutState = lines.filter(l => !l.toLowerCase().startsWith('state:'));
+          const stateLine = lines.find(l => l.toLowerCase().startsWith('state:')) || 'State: Gujarat';
+
+          return (
+            <div className="mb-3">
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight" style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginBottom: '3px' }}>
+                {comp.companyName}
+              </h1>
+              <div className="text-slate-700 text-[11px] leading-snug space-y-0.5 font-normal" style={{ fontSize: '11px', color: '#334155', lineHeight: '1.45' }}>
+                {addressWithoutState.map((line, idx) => (
+                  <div key={idx}>{line}</div>
+                ))}
+                {comp.phone && <div>Phone no. : {comp.phone}</div>}
+                {comp.email && <div>Email : {comp.email}</div>}
+                <div>GSTIN: {comp.gstin || 'N/A'} | PAN: {comp.pan || 'N/A'}</div>
+                <div>{stateLine.startsWith('State:') ? stateLine : `State: ${stateLine}`}</div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
-              <span>GSTIN: <strong>{comp.gstin || 'N/A'}</strong></span>
-              <span>|</span>
-              <span>PAN: <strong>{comp.pan || 'N/A'}</strong></span>
-              <span>|</span>
-              <span>State: <strong>Gujarat</strong></span>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         <div className="border-t border-b border-slate-300 py-2 my-3 text-center" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', paddingTop: '6px', paddingBottom: '6px', marginTop: '12px', marginBottom: '12px', textAlign: 'center' }}>
           <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.35em', margin: 0 }}>
