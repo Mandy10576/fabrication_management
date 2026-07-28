@@ -80,6 +80,15 @@ export const Quotations = () => {
     }
   };
 
+  const openPreview = async (q) => {
+    try {
+      const full = await api.get(`/quotations/${q.id}`);
+      setPreviewQuotation(full);
+    } catch (err) {
+      setPreviewQuotation(q);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -164,7 +173,7 @@ export const Quotations = () => {
                     </td>
                     <td className="py-3.5 px-4 text-right space-x-1">
                       <button
-                        onClick={() => setPreviewQuotation(q)}
+                        onClick={() => openPreview(q)}
                         className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-500 inline-flex items-center"
                         title="Preview A4 Quotation"
                       >

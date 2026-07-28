@@ -63,6 +63,7 @@ const getInvoices = async (req, res, next) => {
       date: true,
       dueDate: true,
       gstType: true,
+      gstRate: true,
       subtotal: true,
       cgstAmount: true,
       sgstAmount: true,
@@ -70,27 +71,17 @@ const getInvoices = async (req, res, next) => {
       totalTax: true,
       discount: true,
       grandTotal: true,
+      amountInWords: true,
       amountReceived: true,
       balanceDue: true,
       status: true,
+      notes: true,
+      terms: true,
       createdAt: true,
       clientId: true,
-      client: {
-        select: {
-          id: true,
-          companyName: true,
-          contactPerson: true,
-          mobile: true,
-          email: true,
-          gstin: true
-        }
-      },
-      financialYear: {
-        select: {
-          id: true,
-          year: true
-        }
-      }
+      client: true,
+      financialYear: true,
+      items: true
     };
 
     if (all === 'true') {

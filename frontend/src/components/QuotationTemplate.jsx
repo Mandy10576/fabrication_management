@@ -123,37 +123,37 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
 
         {/* Items Table */}
         <div className="mb-4" style={{ marginBottom: '16px' }}>
-          <table className="w-full text-left border-collapse" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="w-full text-left border-collapse" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
-              <tr style={{ backgroundColor: '#4c40aa', color: '#ffffff', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase' }}>
-                <th className="p-2 w-10 text-center" style={{ padding: '8px', textAlign: 'center', width: '40px' }}>Sr.</th>
-                <th className="p-2" style={{ padding: '8px', textAlign: 'left' }}>Item / Particulars</th>
-                <th className="p-2 w-20 text-center" style={{ padding: '8px', textAlign: 'center', width: '80px' }}>HSN/SAC</th>
-                <th className="p-2 w-16 text-center" style={{ padding: '8px', textAlign: 'center', width: '60px' }}>Qty</th>
-                <th className="p-2 w-16 text-center" style={{ padding: '8px', textAlign: 'center', width: '60px' }}>Unit</th>
-                <th className="p-2 w-24 text-right" style={{ padding: '8px', textAlign: 'right', width: '90px' }}>Price/Unit</th>
-                <th className="p-2 w-28 text-right" style={{ padding: '8px', textAlign: 'right', width: '100px' }}>Amount</th>
+              <tr style={{ backgroundColor: '#4c40aa', color: '#ffffff', fontWeight: '700', fontSize: '10.5px', textTransform: 'uppercase' }}>
+                <th style={{ padding: '8px 4px', textAlign: 'center', width: '35px' }}>Sr.</th>
+                <th style={{ padding: '8px 6px', textAlign: 'left' }}>Item / Particulars</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center', width: '65px' }}>HSN/SAC</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center', width: '45px' }}>Qty</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center', width: '45px' }}>Unit</th>
+                <th style={{ padding: '8px 6px', textAlign: 'right', width: '80px' }}>Price/Unit</th>
+                <th style={{ padding: '8px 6px', textAlign: 'right', width: '90px' }}>Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-800 font-medium" style={{ fontSize: '11px', color: '#1e293b' }}>
               {quotation.items && quotation.items.map((item, idx) => (
                 <tr key={idx} style={{ backgroundColor: idx % 2 === 1 ? '#f8fafc' : '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
-                  <td className="p-2 text-center text-slate-500" style={{ padding: '8px', textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
-                  <td className="p-2 font-bold text-slate-900" style={{ padding: '8px', fontWeight: '700', color: '#0f172a' }}>{item.description}</td>
-                  <td className="p-2 text-center text-slate-500" style={{ padding: '8px', textAlign: 'center', color: '#64748b' }}>{item.hsnSac && item.hsnSac !== '9988' ? item.hsnSac : '-'}</td>
-                  <td className="p-2 text-center" style={{ padding: '8px', textAlign: 'center' }}>{item.quantity}</td>
-                  <td className="p-2 text-center" style={{ padding: '8px', textAlign: 'center' }}>{item.unit}</td>
-                  <td className="p-2 text-right" style={{ padding: '8px', textAlign: 'right' }}>{Number(item.rate).toFixed(2)}</td>
-                  <td className="p-2 text-right font-bold text-slate-900" style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{Number(item.amount).toFixed(2)}</td>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
+                  <td style={{ padding: '8px 6px', fontWeight: '700', color: '#0f172a', wordBreak: 'break-word' }}>{item.description}</td>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', color: '#64748b' }}>{item.hsnSac && item.hsnSac !== '9988' ? item.hsnSac : '-'}</td>
+                  <td style={{ padding: '8px 4px', textAlign: 'center' }}>{item.quantity}</td>
+                  <td style={{ padding: '8px 4px', textAlign: 'center' }}>{item.unit}</td>
+                  <td style={{ padding: '8px 6px', textAlign: 'right' }}>{Number(item.rate).toFixed(2)}</td>
+                  <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{Number(item.amount).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr style={{ borderTop: '2px solid #cbd5e1', borderBottom: '2px solid #cbd5e1', fontWeight: '700', fontSize: '11px', color: '#0f172a' }}>
-                <td colSpan={3} className="p-2 font-extrabold uppercase" style={{ padding: '8px', fontWeight: '800', textTransform: 'uppercase' }}>Total</td>
-                <td className="p-2 text-center font-extrabold" style={{ padding: '8px', textAlign: 'center', fontWeight: '800' }}>{totalQuantity}</td>
+                <td colSpan={3} style={{ padding: '8px 6px', fontWeight: '800', textTransform: 'uppercase' }}>Total</td>
+                <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '800' }}>{totalQuantity}</td>
                 <td colSpan={2}></td>
-                <td className="p-2 text-right font-extrabold text-sm" style={{ padding: '8px', textAlign: 'right', fontWeight: '800', fontSize: '13px' }}>{Number(quotation.subtotal).toFixed(2)}</td>
+                <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '800', fontSize: '13px' }}>{Number(quotation.subtotal).toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>

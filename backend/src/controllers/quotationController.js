@@ -29,27 +29,19 @@ const getQuotations = async (req, res, next) => {
       date: true,
       validUntil: true,
       gstType: true,
+      gstRate: true,
       subtotal: true,
       taxAmount: true,
       discount: true,
       grandTotal: true,
       status: true,
+      notes: true,
+      terms: true,
       createdAt: true,
       clientId: true,
-      client: {
-        select: {
-          id: true,
-          companyName: true,
-          contactPerson: true,
-          mobile: true
-        }
-      },
-      financialYear: {
-        select: {
-          id: true,
-          year: true
-        }
-      }
+      client: true,
+      financialYear: true,
+      items: true
     };
 
     if (all === 'true') {
