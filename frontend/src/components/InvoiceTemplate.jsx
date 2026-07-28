@@ -31,7 +31,7 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
             {comp.companyName}
           </h1>
           <div className="text-slate-600 text-[11px] leading-tight space-y-0.5 mt-1 font-normal" style={{ fontSize: '11px', color: '#475569' }}>
-            <p>{comp.address}</p>
+            <p style={{ whiteSpace: 'pre-line' }}>{comp.address ? comp.address.replace(/\\n/g, '\n') : ''}</p>
             <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-700 font-medium pt-0.5">
               {comp.phone && <span>Phone no. : <strong>{comp.phone}</strong></span>}
               {comp.email && <span>Email : <strong>{comp.email}</strong></span>}
@@ -67,8 +67,8 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
             <div className="font-extrabold text-sm text-slate-900" style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
               {client.companyName}
             </div>
-            <div className="text-slate-600 whitespace-pre-line leading-snug mt-0.5 font-medium" style={{ color: '#475569', fontSize: '11px' }}>
-              {client.address}
+            <div className="text-slate-600 whitespace-pre-line leading-snug mt-0.5 font-medium" style={{ color: '#475569', fontSize: '11px', whiteSpace: 'pre-line' }}>
+              {client.address ? client.address.replace(/\\n/g, '\n') : ''}
             </div>
             <div className="mt-1 space-y-0.5 text-slate-700 font-medium" style={{ fontSize: '11px', color: '#334155' }}>
               {client.mobile && <div>Phone: <strong>{client.mobile}</strong></div>}
@@ -153,7 +153,7 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
                 Terms and Conditions
               </div>
-              <div className="text-slate-700 font-medium" style={{ color: '#334155', fontSize: '11px' }}>
+              <div className="text-slate-700 font-medium" style={{ color: '#334155', fontSize: '11px', whiteSpace: 'pre-line' }}>
                 {invoice.terms || comp.termsConditions || 'Thank you for doing business with us!'}
               </div>
             </div>
