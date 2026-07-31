@@ -461,7 +461,7 @@ export const QuotationForm = () => {
                           </option>
                           {rateMaster.map(r => (
                             <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
-                              {r.serviceName} — ₹{r.rate} / {r.unit}
+                              {r.serviceName} — ₹{r.rate} / {r.unit} (HSN: {r.hsnSac || '9988'})
                             </option>
                           ))}
                         </select>
@@ -471,6 +471,19 @@ export const QuotationForm = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="col-span-6 md:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      HSN / SAC
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="9988"
+                      value={item.hsnSac || '9988'}
+                      onChange={(e) => handleItemChange(idx, 'hsnSac', e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </div>
 
                   <div className="col-span-6 md:col-span-2">
