@@ -126,13 +126,13 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
           <table className="w-full text-left border-collapse" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ backgroundColor: '#4c40aa', color: '#ffffff', fontWeight: '700', fontSize: '10.5px', textTransform: 'uppercase' }}>
-                <th style={{ padding: '8px 4px', textAlign: 'center', width: '35px' }}>Sr.</th>
+                <th style={{ padding: '8px 4px', textAlign: 'center', width: '35px', borderTopLeftRadius: '4px', borderBottomLeftRadius: '4px' }}>Sr.</th>
                 <th style={{ padding: '8px 6px', textAlign: 'left' }}>Item / Particulars</th>
                 <th style={{ padding: '8px 4px', textAlign: 'center', width: '65px' }}>HSN/SAC</th>
                 <th style={{ padding: '8px 4px', textAlign: 'center', width: '45px' }}>Qty</th>
                 <th style={{ padding: '8px 4px', textAlign: 'center', width: '45px' }}>Unit</th>
                 <th style={{ padding: '8px 6px', textAlign: 'right', width: '80px' }}>Price/Unit</th>
-                <th style={{ padding: '8px 6px', textAlign: 'right', width: '90px' }}>Amount</th>
+                <th style={{ padding: '8px 6px', textAlign: 'right', width: '90px', borderTopRightRadius: '4px', borderBottomRightRadius: '4px' }}>Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-800 font-medium" style={{ fontSize: '11px', color: '#1e293b' }}>
