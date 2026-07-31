@@ -4,6 +4,7 @@ const {
   getQuotations,
   getQuotationById,
   createQuotation,
+  updateQuotation,
   convertToInvoice,
   deleteQuotation
 } = require('../controllers/quotationController');
@@ -15,6 +16,7 @@ router.get('/next-number', authenticate, getNextQuotationNumber);
 router.get('/', authenticate, getQuotations);
 router.get('/:id', authenticate, getQuotationById);
 router.post('/', authenticate, createQuotation);
+router.put('/:id', authenticate, updateQuotation);
 router.post('/:id/convert', authenticate, convertToInvoice);
 router.delete('/:id', authenticate, deleteQuotation);
 

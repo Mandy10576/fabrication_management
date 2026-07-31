@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFY } from '../context/FYContext';
 import { api } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatters';
 import {
   Quote,
@@ -19,6 +19,8 @@ import {
 const DEFAULT_UNITS = ['sq ft', 'meter', 'kg', 'pcs', 'hrs', 'ton', 'set', 'lot', 'nos', 'mm', 'inch', 'sq mtr', 'job'];
 
 export const QuotationForm = () => {
+  const { id } = useParams();
+  const isEditing = Boolean(id);
   const { financialYears, selectedFY } = useFY();
   const navigate = useNavigate();
 
@@ -154,13 +156,35 @@ export const QuotationForm = () => {
         valDate.setDate(valDate.getDate() + 30);
         setValidUntil(valDate.toISOString().split('T')[0]);
 
-        if (targetFY) {
-          try {
-            const nextRes = await api.get(`/quotations/next-number?financialYearId=${targetFY}`);
-            setQuotationNumber(nextRes.quotationNumber);
-          } catch (e) {
-            const fyObj = financialYears.find(f => f.id === targetFY);
-            setQuotationNumber(`QT-${fyObj?.year || '2026-27'}/001`);
+        if (isEditing) {
+          const q = await api.get(`/quotations/${id}`);
+          setFinancialYearId(q.financialYearId);
+          setClientId(q.clientId);
+          setQuotationNumber(q.quotationNumber);
+          setDate(q.date ? q.date.split('T')[0] : '');
+          setValidUntil(q.validUntil ? q.validUntil.split('T')[0] : '');
+          setGstType(q.gstType || 'CGST_SGST');
+          setGstRate(q.gstRate ?? 18);
+          setDiscount(q.discount || 0);
+          setNotes(q.notes || '');
+          setTerms(q.terms || '');
+          setItems(q.items.map(i => ({
+            description: i.description,
+            hsnSac: i.hsnSac || '9988',
+            quantity: i.quantity,
+            unit: i.unit,
+            rate: i.rate,
+            amount: i.amount
+          })));
+        } else {
+          if (targetFY) {
+            try {
+              const nextRes = await api.get(`/quotations/next-number?financialYearId=${targetFY}`);
+              setQuotationNumber(nextRes.quotationNumber);
+            } catch (e) {
+              const fyObj = financialYears.find(f => f.id === targetFY);
+              setQuotationNumber(`QT-${fyObj?.year || '2026-27'}/001`);
+            }
           }
         }
       } catch (err) {
@@ -170,7 +194,7 @@ export const QuotationForm = () => {
       }
     };
     initData();
-  }, [selectedFY, financialYears]);
+  }, [id, selectedFY, financialYears]);
 
   const handleAddItem = () => {
     setItems([
@@ -229,7 +253,7 @@ export const QuotationForm = () => {
 
     setSaving(true);
     try {
-      await api.post('/quotations', {
+      const payload = {
         quotationNumber,
         financialYearId,
         clientId,
@@ -241,10 +265,16 @@ export const QuotationForm = () => {
         notes,
         terms,
         items
-      });
+      };
+
+      if (isEditing) {
+        await api.put(`/quotations/${id}`, payload);
+      } else {
+        await api.post('/quotations', payload);
+      }
       navigate('/quotations');
     } catch (err) {
-      setError(err.message || 'Failed to create quotation');
+      setError(err.message || 'Failed to save quotation');
     } finally {
       setSaving(false);
     }
@@ -267,7 +297,7 @@ export const QuotationForm = () => {
 
         <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <Quote className="w-5 h-5 text-indigo-500" />
-          <span>Create New Quotation</span>
+          <span>{isEditing ? `Edit Quotation #${quotationNumber}` : 'Create New Quotation'}</span>
         </h2>
       </div>
 
@@ -659,7 +689,7 @@ export const QuotationForm = () => {
             className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xl shadow-indigo-600/30 flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Creating Quotation...' : 'Save Quotation'}</span>
+            <span>{saving ? 'Saving...' : isEditing ? 'Update Quotation' : 'Save Quotation'}</span>
           </button>
         </div>
       </form>

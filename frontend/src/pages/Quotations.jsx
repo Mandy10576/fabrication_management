@@ -14,6 +14,7 @@ import {
   Trash2,
   Printer,
   Download,
+  Edit2,
   X
 } from 'lucide-react';
 
@@ -180,6 +181,14 @@ export const Quotations = () => {
                         <Quote className="w-4 h-4" />
                       </button>
 
+                      <Link
+                        to={`/quotations/${q.id}/edit`}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-500 inline-flex items-center"
+                        title="Edit Quotation"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Link>
+
                       {q.status !== 'CONVERTED' && (
                         <button
                           onClick={() => handleConvert(q.id, q.quotationNumber)}
@@ -235,6 +244,13 @@ export const Quotations = () => {
                 Quotation Preview - #{previewQuotation.quotationNumber}
               </h3>
               <div className="flex items-center gap-2">
+                <Link
+                  to={`/quotations/${previewQuotation.id}/edit`}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center gap-1"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Edit</span>
+                </Link>
                 <button
                   onClick={() => downloadPDF('printable-quotation', `Quotation_${previewQuotation.quotationNumber}.pdf`)}
                   className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs flex items-center gap-1"

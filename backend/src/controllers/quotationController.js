@@ -308,6 +308,87 @@ const convertToInvoice = async (req, res, next) => {
   }
 };
 
+const updateQuotation = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      financialYearId,
+      clientId,
+      quotationNumber,
+      date,
+      validUntil,
+      gstType = 'CGST_SGST',
+      gstRate = 18.0,
+      discount = 0,
+      notes,
+      terms,
+      items
+    } = req.body;
+
+    const existing = await prisma.quotation.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Quotation not found' });
+    }
+
+    let subtotal = 0;
+    const processedItems = items.map(item => {
+      const qty = parseFloat(item.quantity) || 0;
+      const rate = parseFloat(item.rate) || 0;
+      const amt = qty * rate;
+      subtotal += amt;
+      return {
+        description: item.description,
+        hsnSac: item.hsnSac || '9988',
+        quantity: qty,
+        unit: item.unit || 'sq ft',
+        rate: rate,
+        amount: amt
+      };
+    });
+
+    const disc = parseFloat(discount) || 0;
+    const taxableAmount = Math.max(0, subtotal - disc);
+
+    let taxAmount = 0;
+    const ratePct = parseFloat(gstRate) || 18.0;
+    if (gstType !== 'NON_GST') {
+      taxAmount = (taxableAmount * ratePct) / 100;
+    }
+
+    const grandTotal = Math.round(taxableAmount + taxAmount);
+
+    // Delete existing quotation items & recreate
+    await prisma.quotationItem.deleteMany({ where: { quotationId: id } });
+
+    const updated = await prisma.quotation.update({
+      where: { id },
+      data: {
+        ...(quotationNumber ? { quotationNumber } : {}),
+        financialYearId,
+        clientId,
+        date: new Date(date),
+        validUntil: validUntil ? new Date(validUntil) : null,
+        gstType,
+        gstRate: ratePct,
+        subtotal,
+        taxAmount,
+        discount: disc,
+        grandTotal,
+        notes: notes || '',
+        terms: terms || '',
+        items: {
+          create: processedItems
+        }
+      },
+      include: { client: true, items: true }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteQuotation = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -327,6 +408,7 @@ module.exports = {
   getQuotations,
   getQuotationById,
   createQuotation,
+  updateQuotation,
   convertToInvoice,
   deleteQuotation
 };

@@ -64,6 +64,7 @@ const ProtectedLayout = () => {
                 <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
                 <Route path="/quotations" element={<Quotations />} />
                 <Route path="/quotations/new" element={<QuotationForm />} />
+                <Route path="/quotations/:id/edit" element={<QuotationForm />} />
                 <Route path="/clients" element={<Clients />} />
                 <Route path="/clients/:id" element={<ClientDetail />} />
                 <Route path="/rates" element={<RateMaster />} />
