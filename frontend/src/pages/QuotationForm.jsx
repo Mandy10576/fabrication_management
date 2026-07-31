@@ -369,7 +369,7 @@ export const QuotationForm = () => {
                 </div>
 
                 <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-12 md:col-span-6">
+                  <div className="col-span-12 md:col-span-5">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-[10px] font-bold uppercase text-slate-500">
                         Description / Rate Master Catalog *
@@ -392,7 +392,7 @@ export const QuotationForm = () => {
                         placeholder="Type custom description or click drop arrow..."
                         value={item.description}
                         onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                        className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-indigo-500"
                       />
 
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
@@ -426,8 +426,24 @@ export const QuotationForm = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="col-span-4 md:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Qty *</label>
+
+                  <div className="col-span-6 md:col-span-2">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      HSN / SAC
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="9988"
+                      value={item.hsnSac}
+                      onChange={(e) => handleItemChange(idx, 'hsnSac', e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="col-span-6 md:col-span-1">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Qty *
+                    </label>
                     <input
                       type="number"
                       step="any"
@@ -435,11 +451,27 @@ export const QuotationForm = () => {
                       value={item.quantity}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-right"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold text-right outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <div className="col-span-4 md:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Rate (₹) *</label>
+
+                  <div className="col-span-6 md:col-span-1">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Unit
+                    </label>
+                    <input
+                      type="text"
+                      value={item.unit}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="col-span-6 md:col-span-1.5">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Rate (₹) *
+                    </label>
                     <input
                       type="number"
                       step="any"
@@ -447,12 +479,17 @@ export const QuotationForm = () => {
                       value={item.rate}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => handleItemChange(idx, 'rate', e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-right"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold text-right outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <div className="col-span-4 md:col-span-2 text-right flex flex-col justify-end">
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Amount</label>
-                    <div className="py-2 text-sm font-extrabold text-slate-900 dark:text-white">{formatCurrency(item.amount)}</div>
+
+                  <div className="col-span-12 md:col-span-1.5 text-right flex flex-col justify-end">
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Amount
+                    </label>
+                    <div className="py-2 text-sm font-extrabold text-slate-900 dark:text-white">
+                      {formatCurrency(item.amount)}
+                    </div>
                   </div>
                 </div>
               </div>
