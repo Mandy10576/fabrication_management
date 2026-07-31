@@ -52,11 +52,11 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
 
         <div className="border-t border-b border-slate-300 py-2 my-3 text-center" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', paddingTop: '6px', paddingBottom: '6px', marginTop: '12px', marginBottom: '12px', textAlign: 'center' }}>
           {invoice.gstType === 'NON_GST' ? (
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '18px', fontWeight: '800', letterSpacing: '0.2em', margin: 0 }}>
+            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '18px', fontWeight: '800', letterSpacing: '0.1em', margin: 0 }}>
               I N V O I C E
             </h2>
           ) : (
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '18px', fontWeight: '800', letterSpacing: '0.2em', margin: 0 }}>
+            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '18px', fontWeight: '800', letterSpacing: '0.1em', margin: 0 }}>
               T A X &nbsp;&nbsp;&nbsp; I N V O I C E
             </h2>
           )}
