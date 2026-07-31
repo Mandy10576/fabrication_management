@@ -30,6 +30,8 @@ export const InvoiceForm = () => {
   const { financialYears, selectedFY, activeFYObj } = useFY();
   const navigate = useNavigate();
 
+  const isEditing = Boolean(id);
+
   const [availableUnits, setAvailableUnits] = useState(() => {
     try {
       const saved = localStorage.getItem('khodiyar_managed_units');
