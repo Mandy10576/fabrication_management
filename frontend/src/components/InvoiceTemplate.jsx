@@ -56,8 +56,8 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
               I N V O I C E
             </h2>
           ) : (
-            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.4em', margin: 0 }}>
-              T A X &nbsp;&nbsp;&nbsp;&nbsp; I N V O I C E
+            <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.3em', margin: 0 }}>
+              T A X &nbsp;&nbsp;&nbsp; I N V O I C E
             </h2>
           )}
         </div>
