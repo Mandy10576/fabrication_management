@@ -16,8 +16,11 @@ import {
   HelpCircle,
   Zap,
   ChevronDown,
-  X
+  X,
+  Settings
 } from 'lucide-react';
+
+const DEFAULT_UNITS = ['sq ft', 'meter', 'kg', 'pcs', 'hrs', 'ton', 'set', 'lot', 'nos', 'mm', 'inch', 'sq mtr', 'job'];
 
 export const InvoiceForm = () => {
   const { id } = useParams();
@@ -27,7 +30,43 @@ export const InvoiceForm = () => {
   const { financialYears, selectedFY, activeFYObj } = useFY();
   const navigate = useNavigate();
 
-  const isEditing = Boolean(id);
+  const [availableUnits, setAvailableUnits] = useState(() => {
+    try {
+      const saved = localStorage.getItem('khodiyar_managed_units');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_UNITS;
+  });
+
+  const [showManageUnitsModal, setShowManageUnitsModal] = useState(false);
+  const [newUnitInput, setNewUnitInput] = useState('');
+
+  const saveAvailableUnits = (newUnitsList) => {
+    setAvailableUnits(newUnitsList);
+    try {
+      localStorage.setItem('khodiyar_managed_units', JSON.stringify(newUnitsList));
+    } catch (e) {
+      console.error('Failed to save units:', e);
+    }
+  };
+
+  const handleAddUnitOption = (newUnitName) => {
+    if (!newUnitName) return;
+    const trimmed = newUnitName.trim();
+    if (!trimmed) return;
+    if (!availableUnits.some(u => u.toLowerCase() === trimmed.toLowerCase())) {
+      const updated = [...availableUnits, trimmed];
+      saveAvailableUnits(updated);
+    }
+  };
+
+  const handleRemoveUnitOption = (unitToRemove) => {
+    const updated = availableUnits.filter(u => u !== unitToRemove);
+    saveAvailableUnits(updated);
+  };
 
   const [clients, setClients] = useState([]);
   const [rateMaster, setRateMaster] = useState([]);
@@ -534,16 +573,40 @@ export const InvoiceForm = () => {
                   </div>
 
                   <div className="col-span-6 md:col-span-1">
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                      Unit
-                    </label>
-                    <input
-                      type="text"
-                      value={item.unit}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-center outline-none focus:ring-2 focus:ring-brand-500"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase text-slate-500">
+                        Unit
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowManageUnitsModal(true)}
+                        className="text-[9px] text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-0.5"
+                        title="Manage units dropdown options list"
+                      >
+                        <Settings className="w-2.5 h-2.5" />
+                        <span>Edit List</span>
+                      </button>
+                    </div>
+                    <select
+                      value={item.unit || 'sq ft'}
+                      onChange={(e) => {
+                        if (e.target.value === '__MANAGE_UNITS__') {
+                          setShowManageUnitsModal(true);
+                        } else {
+                          handleItemChange(idx, 'unit', e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer text-center"
+                    >
+                      {Array.from(new Set([...availableUnits, item.unit].filter(Boolean))).map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                      <option value="__MANAGE_UNITS__" className="font-bold text-brand-600 bg-brand-50 dark:bg-slate-800 dark:text-brand-400 py-1">
+                        ⚙️ + Add / Edit Units List...
+                      </option>
+                    </select>
                   </div>
 
                   <div className="col-span-6 md:col-span-1.5">
@@ -736,13 +799,17 @@ export const InvoiceForm = () => {
 
                 <div>
                   <label className="block font-bold uppercase text-slate-500 mb-1">Unit</label>
-                  <input
-                    type="text"
-                    placeholder="sq ft, Kg, Job, Piece"
-                    value={newRateData.unit}
+                  <select
+                    value={newRateData.unit || 'sq ft'}
                     onChange={(e) => setNewRateData({ ...newRateData, unit: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
-                  />
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                  >
+                    {Array.from(new Set([...availableUnits, newRateData.unit].filter(Boolean))).map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -774,6 +841,97 @@ export const InvoiceForm = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Manage Units Modal */}
+      {showManageUnitsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Settings className="w-5 h-5 text-brand-500" />
+                <span>Manage Units Dropdown Options</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowManageUnitsModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Add custom measurement units (e.g. sq mtr, bundle, feet, box) or delete unwanted units from the dropdown list.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Type new unit name (e.g. sq mtr, bundle, box)..."
+                value={newUnitInput}
+                onChange={(e) => setNewUnitInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newUnitInput.trim()) {
+                      handleAddUnitOption(newUnitInput);
+                      setNewUnitInput('');
+                    }
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newUnitInput.trim()) {
+                    handleAddUnitOption(newUnitInput);
+                    setNewUnitInput('');
+                  }
+                }}
+                className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs shrink-0 shadow-lg shadow-brand-500/30"
+              >
+                + Add Unit
+              </button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              {availableUnits.map(u => (
+                <div
+                  key={u}
+                  className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                >
+                  <span>{u}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveUnitOption(u)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
+                    title={`Delete "${u}" option`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => saveAvailableUnits(DEFAULT_UNITS)}
+                className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold underline"
+              >
+                Reset Standard Defaults
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowManageUnitsModal(false)}
+                className="px-5 py-2 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-xs"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
