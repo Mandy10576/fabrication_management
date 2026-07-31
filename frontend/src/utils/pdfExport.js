@@ -9,14 +9,35 @@ export const downloadPDF = async (elementId, filename = 'invoice.pdf') => {
   }
 
   try {
-    // Render element into canvas with desktop width & high DPI scale
+    // Render element into canvas with exact pixel scale & zero scroll offset
     const canvas = await html2canvas(element, {
       scale: 3, // High DPI clarity
       useCORS: true,
       allowTaint: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 1024 // Render as desktop layout for canvas capture
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: element.scrollWidth || 1024,
+      onclone: (clonedDoc) => {
+        const clonedEl = clonedDoc.getElementById(elementId);
+        if (clonedEl) {
+          clonedEl.style.maxHeight = 'none';
+          clonedEl.style.overflow = 'visible';
+          clonedEl.style.transform = 'none';
+          clonedEl.style.margin = '0 auto';
+          let parent = clonedEl.parentElement;
+          while (parent) {
+            parent.scrollTop = 0;
+            parent.scrollLeft = 0;
+            if (parent.style) {
+              parent.style.maxHeight = 'none';
+              parent.style.overflow = 'visible';
+            }
+            parent = parent.parentElement;
+          }
+        }
+      }
     });
 
     const imgData = canvas.toDataURL('image/png');
@@ -26,8 +47,11 @@ export const downloadPDF = async (elementId, filename = 'invoice.pdf') => {
       format: 'a4'
     });
 
-    // Fit precisely onto single A4 page (210mm width x 297mm height)
-    pdf.addImage(imgData, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
+    const imgWidth = 210;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    // Fit precisely onto single A4 page without top/bottom clipping
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, 297), undefined, 'FAST');
     pdf.save(filename);
   } catch (error) {
     console.error('Failed to generate PDF via canvas, falling back to print:', error);
