@@ -47,11 +47,22 @@ export const downloadPDF = async (elementId, filename = 'invoice.pdf') => {
       format: 'a4'
     });
 
-    const imgWidth = 210;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pageWidth = 210;
+    const pageHeight = 297;
+    let renderWidth = pageWidth;
+    let renderHeight = (canvas.height * renderWidth) / canvas.width;
+    let xPos = 0;
+    let yPos = 0;
 
-    // Fit precisely onto single A4 page without top/bottom clipping
-    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, 297), undefined, 'FAST');
+    if (renderHeight > pageHeight) {
+      const scale = pageHeight / renderHeight;
+      renderWidth = pageWidth * scale;
+      renderHeight = pageHeight;
+      xPos = (pageWidth - renderWidth) / 2;
+    }
+
+    // Fit precisely onto A4 page without clipping top or bottom content
+    pdf.addImage(imgData, 'PNG', xPos, yPos, renderWidth, renderHeight, undefined, 'FAST');
     pdf.save(filename);
   } catch (error) {
     console.error('Failed to generate PDF via canvas, falling back to print:', error);

@@ -123,7 +123,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
 
         {/* Items Table */}
         <div className="mb-4" style={{ marginBottom: '16px' }}>
-          <table className="w-full text-left border-collapse" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <table className="w-full text-left" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ backgroundColor: '#4c40aa', color: '#ffffff', fontWeight: '700', fontSize: '10.5px', textTransform: 'uppercase' }}>
                 <th style={{ padding: '8px 4px', textAlign: 'center', width: '35px', borderTopLeftRadius: '4px', borderBottomLeftRadius: '4px' }}>Sr.</th>
