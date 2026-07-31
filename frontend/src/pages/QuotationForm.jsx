@@ -155,8 +155,13 @@ export const QuotationForm = () => {
         setValidUntil(valDate.toISOString().split('T')[0]);
 
         if (targetFY) {
-          const fyObj = financialYears.find(f => f.id === targetFY);
-          setQuotationNumber(`QT-${fyObj?.year || '2026-27'}/001`);
+          try {
+            const nextRes = await api.get(`/quotations/next-number?financialYearId=${targetFY}`);
+            setQuotationNumber(nextRes.quotationNumber);
+          } catch (e) {
+            const fyObj = financialYears.find(f => f.id === targetFY);
+            setQuotationNumber(`QT-${fyObj?.year || '2026-27'}/001`);
+          }
         }
       } catch (err) {
         console.error(err);
@@ -333,7 +338,7 @@ export const QuotationForm = () => {
               >
                 <option value="CGST_SGST">Include CGST + SGST (Intrastate)</option>
                 <option value="IGST">Include IGST (Interstate)</option>
-                <option value="NON_GST">Exclude GST (Non-GST / Estimate Quotation)</option>
+                <option value="NON_GST">Non-GST (Estimate Quotation)</option>
               </select>
             </div>
 
@@ -619,12 +624,6 @@ export const QuotationForm = () => {
               </div>
             )}
 
-            {gstType === 'NON_GST' && (
-              <div className="flex justify-between items-center py-1 text-amber-600 dark:text-amber-400 font-semibold">
-                <span>GST Status:</span>
-                <span>Excluded (Estimate Quotation)</span>
-              </div>
-            )}
 
             <div className="flex justify-between items-center py-2.5 px-3 rounded-xl bg-indigo-900 text-white font-extrabold text-sm">
               <span>Grand Total:</span>

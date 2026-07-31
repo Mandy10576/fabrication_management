@@ -1,6 +1,36 @@
 const { numberToWords } = require('../utils/numberToWords');
 const prisma = require('../config/prisma');
 
+const getNextQuotationNumber = async (req, res, next) => {
+  try {
+    const { financialYearId } = req.query;
+    if (!financialYearId) {
+      return res.status(400).json({ error: 'financialYearId is required' });
+    }
+
+    const [fy, count] = await Promise.all([
+      prisma.financialYear.findUnique({
+        where: { id: financialYearId },
+        select: { id: true, year: true }
+      }),
+      prisma.quotation.count({
+        where: { financialYearId }
+      })
+    ]);
+
+    if (!fy) {
+      return res.status(404).json({ error: 'Financial year not found' });
+    }
+
+    const nextSeq = String(count + 1).padStart(3, '0');
+    const quotationNumber = `QT-${fy.year}/${nextSeq}`;
+
+    res.json({ quotationNumber, sequence: count + 1 });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getQuotations = async (req, res, next) => {
   try {
     const { financialYearId, status, clientId, search, limit, cursor, all } = req.query;
@@ -119,9 +149,21 @@ const createQuotation = async (req, res, next) => {
     const fy = await prisma.financialYear.findUnique({ where: { id: financialYearId } });
     if (!fy) return res.status(400).json({ error: 'Invalid financial year' });
 
-    const count = await prisma.quotation.count({ where: { financialYearId } });
-    const nextSeq = String(count + 1).padStart(3, '0');
-    const quotationNumber = req.body.quotationNumber || `QT-${fy.year}/${nextSeq}`;
+    let quotationNumber = req.body.quotationNumber;
+    if (!quotationNumber) {
+      const count = await prisma.quotation.count({ where: { financialYearId } });
+      const nextSeq = String(count + 1).padStart(3, '0');
+      quotationNumber = `QT-${fy.year}/${nextSeq}`;
+    } else {
+      const existingQ = await prisma.quotation.findFirst({
+        where: { quotationNumber, financialYearId }
+      });
+      if (existingQ) {
+        const count = await prisma.quotation.count({ where: { financialYearId } });
+        const nextSeq = String(count + 1).padStart(3, '0');
+        quotationNumber = `QT-${fy.year}/${nextSeq}`;
+      }
+    }
 
     let subtotal = 0;
     const processedItems = items.map(item => {
@@ -281,6 +323,7 @@ const deleteQuotation = async (req, res, next) => {
 };
 
 module.exports = {
+  getNextQuotationNumber,
   getQuotations,
   getQuotationById,
   createQuotation,

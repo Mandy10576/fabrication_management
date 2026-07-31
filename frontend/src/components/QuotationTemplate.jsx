@@ -75,7 +75,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
         })()}
 
         <div className="border-t border-b border-slate-300 py-2 my-3 text-center" style={{ borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', paddingTop: '6px', paddingBottom: '6px', marginTop: '12px', marginBottom: '12px', textAlign: 'center' }}>
-          <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '15px', fontWeight: '800', letterSpacing: '0.2em', margin: 0 }}>
+          <h2 className="text-sm font-extrabold uppercase" style={{ color: '#4c40aa', fontSize: '18px', fontWeight: '800', letterSpacing: '0.1em', margin: 0 }}>
             Q U O T A T I O N
           </h2>
         </div>
@@ -205,12 +205,6 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
               </div>
             )}
 
-            {gstType === 'NON_GST' && (
-              <div className="flex justify-between py-1 border-b border-slate-100" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span className="text-slate-600 font-medium" style={{ color: '#475569' }}>GST Tax</span>
-                <span className="font-bold text-amber-600" style={{ fontWeight: '700', color: '#d97706' }}>Excluded (Estimate)</span>
-              </div>
-            )}
 
             {/* Total Fill Banner */}
             <div style={{ backgroundColor: '#4c40aa', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: '4px', fontWeight: '800', fontSize: '13px', margin: '6px 0' }}>

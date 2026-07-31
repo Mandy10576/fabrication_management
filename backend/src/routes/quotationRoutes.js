@@ -1,5 +1,6 @@
 const express = require('express');
 const {
+  getNextQuotationNumber,
   getQuotations,
   getQuotationById,
   createQuotation,
@@ -10,6 +11,7 @@ const { authenticate } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
+router.get('/next-number', authenticate, getNextQuotationNumber);
 router.get('/', authenticate, getQuotations);
 router.get('/:id', authenticate, getQuotationById);
 router.post('/', authenticate, createQuotation);
