@@ -10,10 +10,13 @@ const {
 } = require('../controllers/quotationController');
 const { authenticate } = require('../middleware/authMiddleware');
 
+const { downloadQuotationPDF } = require('../controllers/pdfController');
+
 const router = express.Router();
 
 router.get('/next-number', authenticate, getNextQuotationNumber);
 router.get('/', authenticate, getQuotations);
+router.get('/:id/pdf', authenticate, downloadQuotationPDF);
 router.get('/:id', authenticate, getQuotationById);
 router.post('/', authenticate, createQuotation);
 router.put('/:id', authenticate, updateQuotation);

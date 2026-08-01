@@ -252,7 +252,7 @@ export const Quotations = () => {
                   <span>Edit</span>
                 </Link>
                 <button
-                  onClick={() => downloadPDF('printable-quotation', `Quotation_${previewQuotation.quotationNumber}.pdf`)}
+                  onClick={() => downloadPDF('printable-quotation', `Quotation_${previewQuotation.quotationNumber}.pdf`, previewQuotation.id, 'quotation')}
                   className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs flex items-center gap-1"
                 >
                   <Download className="w-4 h-4" />
@@ -267,7 +267,11 @@ export const Quotations = () => {
               </div>
             </div>
 
-            <QuotationTemplate quotation={previewQuotation} id="printable-quotation" />
+            <div className="w-full overflow-x-auto pb-4 flex justify-center mt-2">
+              <div className="min-w-[210mm]">
+                <QuotationTemplate quotation={previewQuotation} id="printable-quotation" />
+              </div>
+            </div>
           </div>
         </div>
       )}

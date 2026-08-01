@@ -39,7 +39,7 @@ export const InvoiceView = () => {
 
   const handleDownloadPDF = () => {
     if (invoice) {
-      downloadPDF('printable-invoice', `Invoice_${invoice.invoiceNumber.replace('/', '_')}.pdf`);
+      downloadPDF('printable-invoice', `Invoice_${invoice.invoiceNumber.replace('/', '_')}.pdf`, invoice.id, 'invoice');
     }
   };
 

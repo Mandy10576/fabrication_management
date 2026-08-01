@@ -21,8 +21,8 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
   return (
     <div
       id={id}
-      className="a4-page bg-white text-slate-900 p-8 shadow-2xl rounded-xl max-w-[210mm] mx-auto text-xs leading-relaxed font-sans border border-slate-200 relative flex flex-col justify-between"
-      style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', backgroundColor: '#ffffff' }}
+      className="a4-page bg-white text-slate-900 p-[10mm] shadow-2xl rounded-xl w-[210mm] max-w-[210mm] mx-auto text-xs leading-relaxed font-sans border border-slate-200 relative flex flex-col justify-between box-border"
+      style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', backgroundColor: '#ffffff', color: '#0f172a' }}
     >
       <div>
         {/* Company Header */}
@@ -63,43 +63,56 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
         </div>
 
         {/* Bill To & Invoice Details Section */}
-        <div className="grid grid-cols-2 gap-4 mb-4 text-xs" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-          <div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
-              BILL TO
-            </div>
-            <div className="font-extrabold text-sm text-slate-900" style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
-              {client.companyName}
-            </div>
-            <div className="text-slate-600 whitespace-pre-line leading-snug mt-0.5 font-medium" style={{ color: '#475569', fontSize: '11px', whiteSpace: 'pre-line' }}>
-              {client.address ? client.address.replace(/\\n/g, '\n') : ''}
-            </div>
-            <div className="mt-1 space-y-0.5 text-slate-700 font-medium" style={{ fontSize: '11px', color: '#334155' }}>
-              {client.mobile && <div>Phone: <strong>{client.mobile}</strong></div>}
-              <div>State: <strong>{client.gstin ? '24 - Gujarat' : 'Gujarat'}</strong></div>
-            </div>
-          </div>
+        {(() => {
+          const clientAddressRaw = client.address ? client.address.replace(/\\n/g, '\n') : '';
+          const clientLines = clientAddressRaw.split('\n').map(l => l.trim()).filter(Boolean);
+          const clientAddressWithoutState = clientLines.filter(l => !l.toLowerCase().startsWith('state:'));
+          const existingStateLine = clientLines.find(l => l.toLowerCase().startsWith('state:'));
+          const defaultState = client.gstin ? 'State: 24 - Gujarat' : 'State: Gujarat';
+          const clientStateLine = existingStateLine || defaultState;
 
-          <div className="text-right flex flex-col justify-start items-end" style={{ textAlign: 'right' }}>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 w-full text-right" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
-              INVOICE DETAILS
+          return (
+            <div className="grid grid-cols-2 gap-4 mb-4 text-xs" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                  BILL TO
+                </div>
+                <div className="font-extrabold text-sm text-slate-900" style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                  {client.companyName}
+                </div>
+                <div className="text-slate-600 leading-snug mt-0.5 font-medium" style={{ color: '#475569', fontSize: '11px' }}>
+                  {clientAddressWithoutState.map((line, idx) => (
+                    <div key={idx}>{line}</div>
+                  ))}
+                </div>
+                <div className="mt-1 space-y-0.5 text-slate-700 font-medium" style={{ fontSize: '11px', color: '#334155' }}>
+                  {client.mobile && <div>Phone: <strong>{client.mobile}</strong></div>}
+                  <div><strong>{clientStateLine.startsWith('State:') ? clientStateLine : `State: ${clientStateLine}`}</strong></div>
+                </div>
+              </div>
+
+              <div className="text-right flex flex-col justify-start items-end" style={{ textAlign: 'right' }}>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 w-full text-right" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                  INVOICE DETAILS
+                </div>
+                <div className="w-56 space-y-1 text-slate-700" style={{ width: '220px', marginLeft: 'auto' }}>
+                  <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="text-slate-500" style={{ color: '#64748b' }}>Invoice No :</span>
+                    <strong className="font-bold text-slate-900 text-xs" style={{ color: '#0f172a', fontWeight: '700' }}>{invoice.invoiceNumber}</strong>
+                  </div>
+                  <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="text-slate-500" style={{ color: '#64748b' }}>Date :</span>
+                    <strong className="text-slate-900" style={{ color: '#0f172a' }}>{formatDate(invoice.date)}</strong>
+                  </div>
+                  <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="text-slate-500" style={{ color: '#64748b' }}>Place of Supply :</span>
+                    <strong className="text-slate-900" style={{ color: '#0f172a' }}>Gujarat</strong>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="w-56 space-y-1 text-slate-700" style={{ width: '220px', marginLeft: 'auto' }}>
-              <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="text-slate-500" style={{ color: '#64748b' }}>Invoice No :</span>
-                <strong className="font-bold text-slate-900 text-xs" style={{ color: '#0f172a', fontWeight: '700' }}>{invoice.invoiceNumber}</strong>
-              </div>
-              <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="text-slate-500" style={{ color: '#64748b' }}>Date :</span>
-                <strong className="text-slate-900" style={{ color: '#0f172a' }}>{formatDate(invoice.date)}</strong>
-              </div>
-              <div className="flex justify-between items-center" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="text-slate-500" style={{ color: '#64748b' }}>Place of Supply :</span>
-                <strong className="text-slate-900" style={{ color: '#0f172a' }}>Gujarat</strong>
-              </div>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Items Table */}
         <div className="mb-4" style={{ marginBottom: '16px' }}>

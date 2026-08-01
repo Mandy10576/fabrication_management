@@ -11,10 +11,13 @@ const {
 } = require('../controllers/invoiceController');
 const { authenticate } = require('../middleware/authMiddleware');
 
+const { downloadInvoicePDF } = require('../controllers/pdfController');
+
 const router = express.Router();
 
 router.get('/next-number', authenticate, getNextInvoiceNumber);
 router.get('/', authenticate, getInvoices);
+router.get('/:id/pdf', authenticate, downloadInvoicePDF);
 router.get('/:id', authenticate, getInvoiceById);
 router.post('/', authenticate, createInvoice);
 router.put('/:id', authenticate, updateInvoice);

@@ -16,6 +16,7 @@ const invoiceRoutes = require('./routes/invoiceRoutes');
 const quotationRoutes = require('./routes/quotationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const backupRoutes = require('./routes/backupRoutes');
+const pdfRoutes = require('./routes/pdfRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/quotations', quotationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/pdf', pdfRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

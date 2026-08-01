@@ -14,9 +14,6 @@ export default defineConfig({
             if (id.includes('recharts')) {
               return 'vendor-charts';
             }
-            if (id.includes('jspdf') || id.includes('html2canvas')) {
-              return 'vendor-pdf';
-            }
             if (id.includes('xlsx')) {
               return 'vendor-excel';
             }

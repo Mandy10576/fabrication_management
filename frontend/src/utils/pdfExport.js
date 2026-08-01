@@ -1,72 +1,65 @@
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-
-export const downloadPDF = async (elementId, filename = 'invoice.pdf') => {
-  const element = document.getElementById(elementId);
-  if (!element) {
-    console.error(`Element #${elementId} not found`);
-    return;
-  }
+/**
+ * Triggers React PDF-based PDF generation via backend API
+ * @param {string} elementId - DOM ID of printable element
+ * @param {string} filename - Desired output filename (.pdf)
+ * @param {string} [docId] - Optional document database ID
+ * @param {string} [docType] - Optional document type ('invoice' | 'quotation')
+ */
+export const downloadPDF = async (elementId, filename = 'document.pdf', docId = null, docType = null) => {
+  console.log(`🚀 [PDF Export] Initiating React PDF download for docType="${docType}", docId="${docId}", elementId="${elementId}"`);
 
   try {
-    // Render element into canvas with exact pixel scale & zero scroll offset
-    const canvas = await html2canvas(element, {
-      scale: 3, // High DPI clarity
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: element.scrollWidth || 1024,
-      onclone: (clonedDoc) => {
-        const clonedEl = clonedDoc.getElementById(elementId);
-        if (clonedEl) {
-          clonedEl.style.maxHeight = 'none';
-          clonedEl.style.overflow = 'visible';
-          clonedEl.style.transform = 'none';
-          clonedEl.style.margin = '0 auto';
-          let parent = clonedEl.parentElement;
-          while (parent) {
-            parent.scrollTop = 0;
-            parent.scrollLeft = 0;
-            if (parent.style) {
-              parent.style.maxHeight = 'none';
-              parent.style.overflow = 'visible';
-            }
-            parent = parent.parentElement;
-          }
-        }
-      }
-    });
+    const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? 'http://localhost:5000/api'
+      : '/api';
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
 
-    const pageWidth = 210;
-    const pageHeight = 297;
-    let renderWidth = pageWidth;
-    let renderHeight = (canvas.height * renderWidth) / canvas.width;
-    let xPos = 0;
-    let yPos = 0;
+    let response;
+    let requestUrl = '';
 
-    if (renderHeight > pageHeight) {
-      const scale = pageHeight / renderHeight;
-      renderWidth = pageWidth * scale;
-      renderHeight = pageHeight;
-      xPos = (pageWidth - renderWidth) / 2;
+    if (docType === 'invoice' && docId) {
+      requestUrl = `${API_BASE}/invoices/${docId}/pdf`;
+      console.log(`📡 [PDF Export] Fetching React PDF from backend endpoint: ${requestUrl}`);
+      response = await fetch(requestUrl, { headers });
+    } else if (docType === 'quotation' && docId) {
+      requestUrl = `${API_BASE}/quotations/${docId}/pdf`;
+      console.log(`📡 [PDF Export] Fetching React PDF from backend endpoint: ${requestUrl}`);
+      response = await fetch(requestUrl, { headers });
+    } else {
+      requestUrl = `${API_BASE}/pdf/render`;
+      console.log(`📡 [PDF Export] Posting request to React PDF endpoint: ${requestUrl}`);
+      response = await fetch(requestUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          filename
+        })
+      });
     }
 
-    // Fit precisely onto A4 page without clipping top or bottom content
-    pdf.addImage(imgData, 'PNG', xPos, yPos, renderWidth, renderHeight, undefined, 'FAST');
-    pdf.save(filename);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || 'Failed to generate PDF');
+    }
+
+    console.log(`✅ [PDF Export] Successfully generated PDF via React PDF engine. Downloading binary file: "${filename}"`);
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('Failed to generate PDF via canvas, falling back to print:', error);
-    window.print();
+    console.error('❌ [PDF Export] React PDF export failed:', error);
   }
 };
 
