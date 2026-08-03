@@ -16,6 +16,25 @@ const getHeaders = () => {
   };
 };
 
+const handleResponseError = async (res, defaultMsg = 'API Request failed') => {
+  let msg = '';
+  try {
+    const data = await res.json();
+    msg = data.error || data.message || data.detail || '';
+  } catch (e) {
+    try {
+      const text = await res.text();
+      if (text && text.length < 200 && !text.trim().startsWith('<')) {
+        msg = text.trim();
+      }
+    } catch (e2) {}
+  }
+  if (!msg) {
+    msg = res.statusText ? `Error ${res.status}: ${res.statusText}` : `Server Error (${res.status})`;
+  }
+  throw new Error(msg);
+};
+
 // In-memory & Session cache for sub-10ms instant page loads
 const cacheMap = new Map();
 const CACHE_TTL_MS = 60000; // 1 minute cache TTL
@@ -86,8 +105,7 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'API Request failed');
+      await handleResponseError(res);
     }
     const data = await res.json();
     setCachedData(endpoint, data);
@@ -103,8 +121,7 @@ export const api = {
       body: JSON.stringify(body)
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'API Request failed');
+      await handleResponseError(res);
     }
     return res.json();
   },
@@ -118,8 +135,7 @@ export const api = {
       body: JSON.stringify(body)
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'API Request failed');
+      await handleResponseError(res);
     }
     return res.json();
   },
@@ -133,8 +149,7 @@ export const api = {
       body: JSON.stringify(body)
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'API Request failed');
+      await handleResponseError(res);
     }
     return res.json();
   },
@@ -147,8 +162,7 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'API Request failed');
+      await handleResponseError(res);
     }
     return res.json();
   },
@@ -163,9 +177,9 @@ export const api = {
       body: formData
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'Upload failed');
+      await handleResponseError(res, 'Upload failed');
     }
     return res.json();
   }
 };
+

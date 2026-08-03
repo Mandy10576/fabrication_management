@@ -1,5 +1,4 @@
 const React = require('react');
-const ReactPDF = require('@react-pdf/renderer');
 const { InvoicePDFDocument, QuotationPDFDocument } = require('../utils/reactPdfTemplates');
 
 /**
@@ -9,6 +8,7 @@ const { InvoicePDFDocument, QuotationPDFDocument } = require('../utils/reactPdfT
  * @returns {Promise<Buffer>}
  */
 async function generateInvoicePDFBuffer(invoice, company) {
+  const ReactPDF = require('@react-pdf/renderer');
   const element = React.createElement(InvoicePDFDocument, { invoice, company });
   const buffer = await ReactPDF.renderToBuffer(element);
   return buffer;
@@ -21,6 +21,7 @@ async function generateInvoicePDFBuffer(invoice, company) {
  * @returns {Promise<Buffer>}
  */
 async function generateQuotationPDFBuffer(quotation, company) {
+  const ReactPDF = require('@react-pdf/renderer');
   const element = React.createElement(QuotationPDFDocument, { quotation, company });
   const buffer = await ReactPDF.renderToBuffer(element);
   return buffer;

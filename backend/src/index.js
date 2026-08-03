@@ -41,21 +41,26 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(uploadsDir));
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/financial-years', financialYearRoutes);
-app.use('/api/company', companyRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/rates', rateRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/quotations', quotationRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/backup', backupRoutes);
-app.use('/api/pdf', pdfRoutes);
+// API Routes (supports both /api/path and /path for Vercel serverless rewrites)
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/financial-years', '/financial-years'], financialYearRoutes);
+app.use(['/api/company', '/company'], companyRoutes);
+app.use(['/api/clients', '/clients'], clientRoutes);
+app.use(['/api/rates', '/rates'], rateRoutes);
+app.use(['/api/invoices', '/invoices'], invoiceRoutes);
+app.use(['/api/quotations', '/quotations'], quotationRoutes);
+app.use(['/api/dashboard', '/dashboard'], dashboardRoutes);
+app.use(['/api/backup', '/backup'], backupRoutes);
+app.use(['/api/pdf', '/pdf'], pdfRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({ status: 'ok', service: 'Fabrication Business Management API' });
+});
+
+// Fallback 404 handler for API routes
+app.use((req, res, next) => {
+  res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
 });
 
 // Error handling middleware
