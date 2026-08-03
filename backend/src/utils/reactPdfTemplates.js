@@ -1,34 +1,50 @@
 const React = require('react');
 const path = require('path');
-const { Document, Page, Text, View, StyleSheet, Font } = require('@react-pdf/renderer');
 
-// Register local Inter TTF font files for instant 0ms offline rendering without fallback
-const fontsDir = path.join(__dirname, '../assets/fonts');
+let reactPdfModule = null;
+let fontRegistered = false;
+let cachedStyles = null;
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: path.join(fontsDir, 'Inter-Regular.ttf'), fontWeight: 400 },
-    { src: path.join(fontsDir, 'Inter-SemiBold.ttf'), fontWeight: 600 },
-    { src: path.join(fontsDir, 'Inter-Bold.ttf'), fontWeight: 700 },
-    { src: path.join(fontsDir, 'Inter-ExtraBold.ttf'), fontWeight: 800 },
-  ]
-});
+function getReactPdf() {
+  if (!reactPdfModule) {
+    reactPdfModule = require('@react-pdf/renderer');
+  }
+  if (!fontRegistered) {
+    fontRegistered = true;
+    try {
+      const fontsDir = path.join(__dirname, '../assets/fonts');
+      reactPdfModule.Font.register({
+        family: 'Inter',
+        fonts: [
+          { src: path.join(fontsDir, 'Inter-Regular.ttf'), fontWeight: 400 },
+          { src: path.join(fontsDir, 'Inter-SemiBold.ttf'), fontWeight: 600 },
+          { src: path.join(fontsDir, 'Inter-Bold.ttf'), fontWeight: 700 },
+          { src: path.join(fontsDir, 'Inter-ExtraBold.ttf'), fontWeight: 800 },
+        ]
+      });
+    } catch (e) {
+      console.warn('Font registration notice:', e.message);
+    }
+  }
+  return reactPdfModule;
+}
 
-// Define styles using standard pt units matching the web template 1:1
-const styles = StyleSheet.create({
-  page: {
-    paddingTop: 28,
-    paddingBottom: 35,
-    paddingHorizontal: 32,
-    fontSize: 9,
-    fontFamily: 'Inter',
-    color: '#0F172A',
-    backgroundColor: '#FFFFFF',
-  },
-  headerContainer: {
-    marginBottom: 8,
-  },
+function getStyles() {
+  if (!cachedStyles) {
+    const { StyleSheet } = getReactPdf();
+    cachedStyles = StyleSheet.create({
+      page: {
+        paddingTop: 28,
+        paddingBottom: 35,
+        paddingHorizontal: 32,
+        fontSize: 9,
+        fontFamily: 'Inter',
+        color: '#0F172A',
+        backgroundColor: '#FFFFFF',
+      },
+      headerContainer: {
+        marginBottom: 8,
+      },
   companyName: {
     fontSize: 18,
     fontFamily: 'Inter',
@@ -250,6 +266,8 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   }
 });
+  return cachedStyles;
+}
 
 // Formatters
 function formatCurrency(amount) {
@@ -285,6 +303,9 @@ function parseAddress(addressStr) {
  * React PDF Document for Invoice
  */
 const InvoicePDFDocument = ({ invoice, company }) => {
+  const { Document, Page, Text, View } = getReactPdf();
+  const styles = getStyles();
+
   const comp = company || invoice.company || {
     companyName: 'Khodiyar Steel Fabrication',
     ownerName: 'Prayag Sharma',
@@ -467,6 +488,9 @@ const InvoicePDFDocument = ({ invoice, company }) => {
  * React PDF Document for Quotation
  */
 const QuotationPDFDocument = ({ quotation, company }) => {
+  const { Document, Page, Text, View } = getReactPdf();
+  const styles = getStyles();
+
   const comp = company || quotation.company || {
     companyName: 'Khodiyar Steel Fabrication',
     ownerName: 'Prayag Sharma',
