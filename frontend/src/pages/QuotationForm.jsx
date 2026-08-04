@@ -692,6 +692,22 @@ export const QuotationForm = () => {
             <span>{saving ? 'Saving...' : isEditing ? 'Update Quotation' : 'Save Quotation'}</span>
           </button>
         </div>
+
+        {/* Sticky Mobile Bar for quick save */}
+        <div className="md:hidden fixed bottom-14 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-md text-white p-3 border-t border-slate-800 flex items-center justify-between shadow-2xl">
+          <div>
+            <div className="text-[10px] text-slate-400 font-semibold uppercase">Estimated Total</div>
+            <div className="text-base font-extrabold text-white">{formatCurrency(grandTotal)}</div>
+          </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/40 flex items-center gap-1.5 transition-all transform active:scale-95 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            <span>{saving ? 'Saving...' : isEditing ? 'Update' : 'Save Quote'}</span>
+          </button>
+        </div>
       </form>
 
       {/* Quick Add Rate Master Modal */}

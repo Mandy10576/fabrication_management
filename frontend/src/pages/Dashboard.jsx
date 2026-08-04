@@ -292,7 +292,48 @@ export const Dashboard = () => {
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Recent Invoices Cards (< md screens) */}
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {recentInvoices.length === 0 ? (
+            <div className="py-6 text-center text-slate-400 text-xs">
+              No invoices found for this financial year.
+            </div>
+          ) : (
+            recentInvoices.map((inv) => (
+              <div key={inv.id} className="py-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Link to={`/invoices/${inv.id}`} className="font-bold text-xs text-brand-600 dark:text-brand-400 hover:underline">
+                      {inv.invoiceNumber}
+                    </Link>
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      {inv.client?.companyName}
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${getStatusBadgeClass(inv.status)}`}>
+                    {inv.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">{formatDate(inv.date)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(inv.grandTotal)}</span>
+                    <Link
+                      to={`/invoices/${inv.id}`}
+                      className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table (>= md screens) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">

@@ -6,6 +6,7 @@ import { FYProvider } from './context/FYContext';
 
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 // Lazy loaded page components for fast initial load
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
@@ -54,7 +55,7 @@ const ProtectedLayout = () => {
         <div className="flex flex-1">
           <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
 
-          <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-[1700px] 2xl:max-w-[1920px] mx-auto w-full overflow-x-hidden">
+          <main className="flex-1 p-3 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-[1700px] 2xl:max-w-[1920px] mx-auto w-full overflow-x-hidden">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
@@ -76,6 +77,8 @@ const ProtectedLayout = () => {
             </Suspense>
           </main>
         </div>
+
+        <MobileBottomNav />
       </div>
     </FYProvider>
   );

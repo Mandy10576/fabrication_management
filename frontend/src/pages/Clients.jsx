@@ -181,82 +181,164 @@ export const Clients = () => {
             <p className="text-xs">Click "Add New Client" to create your first client record.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Company Name</th>
-                  <th className="py-3.5 px-4">Contact Person</th>
-                  <th className="py-3.5 px-4">Phone / Mobile</th>
-                  <th className="py-3.5 px-4">GSTIN</th>
-                  <th className="py-3.5 px-4">Invoices / Quotes</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {clients.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">
-                      <Link to={`/clients/${c.id}`} className="hover:text-brand-500 transition-colors">
+          <>
+            {/* Mobile Card View (< md screens) */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+              {clients.map((c) => (
+                <div key={c.id} className="p-4 space-y-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <Link to={`/clients/${c.id}`} className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline">
                         {c.companyName}
                       </Link>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal line-clamp-1 mt-0.5">
-                        {c.address}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-slate-800 dark:text-slate-200">
-                      {c.contactPerson}
-                    </td>
-                    <td className="py-4 px-4 text-slate-600 dark:text-slate-300 font-mono">
-                      {c.mobile}
-                    </td>
-                    <td className="py-4 px-4">
-                      {c.gstin ? (
-                        <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                          {c.gstin}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">Non-GST</span>
+                      {c.contactPerson && (
+                        <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                          Contact: {c.contactPerson}
+                        </div>
                       )}
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex gap-2">
-                        <span className="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-semibold text-[10px]">
-                          {c._count?.invoices || 0} Invoices
-                        </span>
-                        <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
-                          {c._count?.quotations || 0} Quotes
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-right space-x-1">
+                    </div>
+
+                    {c.gstin ? (
+                      <span className="font-mono font-semibold text-[10px] text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0">
+                        {c.gstin}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic shrink-0">Non-GST</span>
+                    )}
+                  </div>
+
+                  {c.address && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {c.address}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex gap-1.5">
+                      <span className="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-semibold text-[10px]">
+                        {c._count?.invoices || 0} Invoices
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
+                        {c._count?.quotations || 0} Quotes
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {c.mobile && (
+                        <a
+                          href={`tel:${c.mobile}`}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs inline-flex items-center gap-1"
+                          title="Call Client"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call</span>
+                        </a>
+                      )}
                       <Link
                         to={`/clients/${c.id}`}
-                        className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-500 inline-flex items-center"
-                        title="View Client Details & History"
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                        title="View Details"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </Link>
                       <button
                         onClick={() => handleOpenEdit(c)}
-                        className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-500 inline-flex items-center"
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                         title="Edit Client"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(c.id, c.companyName)}
-                        className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 inline-flex items-center"
+                        className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
                         title="Delete Client"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Company Name</th>
+                    <th className="py-3.5 px-4">Contact Person</th>
+                    <th className="py-3.5 px-4">Phone / Mobile</th>
+                    <th className="py-3.5 px-4">GSTIN</th>
+                    <th className="py-3.5 px-4">Invoices / Quotes</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {clients.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">
+                        <Link to={`/clients/${c.id}`} className="hover:text-brand-500 transition-colors">
+                          {c.companyName}
+                        </Link>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal line-clamp-1 mt-0.5">
+                          {c.address}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-slate-800 dark:text-slate-200">
+                        {c.contactPerson}
+                      </td>
+                      <td className="py-4 px-4 text-slate-600 dark:text-slate-300 font-mono">
+                        {c.mobile}
+                      </td>
+                      <td className="py-4 px-4">
+                        {c.gstin ? (
+                          <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                            {c.gstin}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Non-GST</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex gap-2">
+                          <span className="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-semibold text-[10px]">
+                            {c._count?.invoices || 0} Invoices
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
+                            {c._count?.quotations || 0} Quotes
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-right space-x-1">
+                        <Link
+                          to={`/clients/${c.id}`}
+                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-500 inline-flex items-center"
+                          title="View Client Details & History"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleOpenEdit(c)}
+                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-500 inline-flex items-center"
+                          title="Edit Client"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c.id, c.companyName)}
+                          className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 inline-flex items-center"
+                          title="Delete Client"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {hasMore && (

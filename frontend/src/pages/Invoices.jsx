@@ -191,98 +191,183 @@ export const Invoices = () => {
             <p className="text-xs mt-1">Create an invoice for FY {selectedFY} to get started.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Invoice No</th>
-                  <th className="py-3.5 px-4">Client Company</th>
-                  <th className="py-3.5 px-4">Date</th>
-                  <th className="py-3.5 px-4">Tax Type</th>
-                  <th className="py-3.5 px-4 text-right">Grand Total</th>
-                  <th className="py-3.5 px-4 text-right">Received</th>
-                  <th className="py-3.5 px-4 text-right">Balance Due</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                      <Link to={`/invoices/${inv.id}`} className="hover:text-brand-500 transition-colors">
+          <>
+            {/* Mobile Card View (< md screens) */}
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+              {invoices.map((inv) => (
+                <div key={inv.id} className="p-4 space-y-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <Link to={`/invoices/${inv.id}`} className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline">
                         {inv.invoiceNumber}
                       </Link>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-800 dark:text-slate-200">
-                      {inv.client?.companyName}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                      {formatDate(inv.date)}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
-                      {inv.gstType?.replace('_', ' + ')}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white">
-                      {formatCurrency(inv.grandTotal)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(inv.amountReceived)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
-                      {formatCurrency(inv.balanceDue)}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => handleOpenPaymentModal(inv)}
-                        className={`px-2.5 py-0.5 rounded border text-[10px] font-bold uppercase ${getStatusBadgeClass(inv.status)} hover:opacity-80 transition-opacity`}
-                        title="Click to update payment"
-                      >
-                        {inv.status}
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-4 text-right space-x-1">
-                      <Link
-                        to={`/invoices/${inv.id}`}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-500 inline-flex items-center"
-                        title="View / Print A4 Invoice"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleOpenPaymentModal(inv)}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-emerald-500 inline-flex items-center"
-                        title="Record Payment"
-                      >
-                        <IndianRupee className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setShareInvoice(inv)}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-500 inline-flex items-center"
-                        title="Share via WhatsApp/Email"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDuplicate(inv.id)}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-purple-500 inline-flex items-center"
-                        title="Duplicate Invoice"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(inv.id, inv.invoiceNumber)}
-                        className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 inline-flex items-center"
-                        title="Delete Invoice"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
+                      <div className="text-xs font-semibold text-slate-900 dark:text-white mt-0.5">
+                        {inv.client?.companyName}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleOpenPaymentModal(inv)}
+                      className={`px-2.5 py-0.5 rounded border text-[10px] font-bold uppercase shrink-0 ${getStatusBadgeClass(inv.status)}`}
+                    >
+                      {inv.status}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>{formatDate(inv.date)}</span>
+                    <span className="font-medium text-slate-600 dark:text-slate-300">{inv.gstType?.replace('_', ' + ')}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Total</span>
+                      <strong className="text-slate-900 dark:text-white font-extrabold text-sm">{formatCurrency(inv.grandTotal)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Received</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{formatCurrency(inv.amountReceived)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Balance</span>
+                      <strong className="text-rose-600 dark:text-rose-400 font-extrabold">{formatCurrency(inv.balanceDue)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <Link
+                      to={`/invoices/${inv.id}`}
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs inline-flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </Link>
+                    <button
+                      onClick={() => handleOpenPaymentModal(inv)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs inline-flex items-center gap-1"
+                    >
+                      <IndianRupee className="w-3.5 h-3.5" />
+                      <span>Pay</span>
+                    </button>
+                    <button
+                      onClick={() => setShareInvoice(inv)}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold text-xs inline-flex items-center gap-1"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Share</span>
+                    </button>
+                    <button
+                      onClick={() => handleDuplicate(inv.id)}
+                      className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-purple-500"
+                      title="Duplicate"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(inv.id, inv.invoiceNumber)}
+                      className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Invoice No</th>
+                    <th className="py-3.5 px-4">Client Company</th>
+                    <th className="py-3.5 px-4">Date</th>
+                    <th className="py-3.5 px-4">Tax Type</th>
+                    <th className="py-3.5 px-4 text-right">Grand Total</th>
+                    <th className="py-3.5 px-4 text-right">Received</th>
+                    <th className="py-3.5 px-4 text-right">Balance Due</th>
+                    <th className="py-3.5 px-4 text-center">Status</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                        <Link to={`/invoices/${inv.id}`} className="hover:text-brand-500 transition-colors">
+                          {inv.invoiceNumber}
+                        </Link>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-800 dark:text-slate-200">
+                        {inv.client?.companyName}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                        {formatDate(inv.date)}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                        {inv.gstType?.replace('_', ' + ')}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white">
+                        {formatCurrency(inv.grandTotal)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(inv.amountReceived)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
+                        {formatCurrency(inv.balanceDue)}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          onClick={() => handleOpenPaymentModal(inv)}
+                          className={`px-2.5 py-0.5 rounded border text-[10px] font-bold uppercase ${getStatusBadgeClass(inv.status)} hover:opacity-80 transition-opacity`}
+                          title="Click to update payment"
+                        >
+                          {inv.status}
+                        </button>
+                      </td>
+                      <td className="py-3.5 px-4 text-right space-x-1">
+                        <Link
+                          to={`/invoices/${inv.id}`}
+                          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-500 inline-flex items-center"
+                          title="View / Print A4 Invoice"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleOpenPaymentModal(inv)}
+                          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-emerald-500 inline-flex items-center"
+                          title="Record Payment"
+                        >
+                          <IndianRupee className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setShareInvoice(inv)}
+                          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-500 inline-flex items-center"
+                          title="Share via WhatsApp/Email"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDuplicate(inv.id)}
+                          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-purple-500 inline-flex items-center"
+                          title="Duplicate Invoice"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(inv.id, inv.invoiceNumber)}
+                          className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 inline-flex items-center"
+                          title="Delete Invoice"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {hasMore && (

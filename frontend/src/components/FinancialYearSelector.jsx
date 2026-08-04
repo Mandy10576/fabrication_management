@@ -41,9 +41,9 @@ export const FinancialYearSelector = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2.5 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:border-brand-500 transition-all shadow-sm shrink-0"
+        className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:border-brand-500 transition-all shadow-sm shrink-0"
       >
-        <Calendar className="w-3.5 h-3.5 text-brand-500" />
+        <Calendar className="w-4 h-4 text-brand-500" />
         <span>{selectedYearLabel}</span>
         <span className="text-[10px] px-1 py-0.2 rounded bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 font-bold hidden sm:inline-block">
           FY

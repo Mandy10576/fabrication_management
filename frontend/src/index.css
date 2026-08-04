@@ -29,7 +29,12 @@
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200;
+    -webkit-tap-highlight-color: transparent;
   }
+}
+
+.safe-area-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 /* Custom Scrollbars */
