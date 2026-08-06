@@ -3,6 +3,7 @@ import { useFY } from '../context/FYContext';
 import { api } from '../services/api';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatters';
+import { RateMasterAutocomplete } from '../components/RateMasterAutocomplete';
 import {
   FileText,
   Plus,
@@ -504,46 +505,14 @@ export const InvoiceForm = () => {
                       </button>
                     </div>
 
-                    <div className="relative flex items-center">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Type custom description or click drop arrow..."
-                        value={item.description}
-                        onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                        className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-brand-500"
-                      />
-
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
-                        <select
-                          value=""
-                          title="Click to select Rate Master Preset"
-                          onChange={(e) => {
-                            if (e.target.value === '__ADD_NEW__') {
-                              handleOpenAddRateModal(idx);
-                            } else {
-                              const rItem = rateMaster.find(r => r.id === e.target.value);
-                              if (rItem) handleSelectRateMaster(idx, rItem);
-                            }
-                          }}
-                          className="w-8 h-8 opacity-0 cursor-pointer absolute inset-0 z-10"
-                        >
-                          <option value="" disabled>⚡ Select Rate Master Catalog Preset</option>
-                          <option value="__ADD_NEW__" className="font-bold text-brand-600 bg-brand-50 dark:bg-slate-800 dark:text-brand-400 py-1">
-                            ➕ + Add New Item to Rate Master Catalog...
-                          </option>
-                          {rateMaster.map(r => (
-                            <option key={r.id} value={r.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-slate-100 py-1">
-                              {r.serviceName} — ₹{r.rate} / {r.unit} (HSN: {r.hsnSac || '-'})
-                            </option>
-                          ))}
-                        </select>
-                        <div className="p-1.5 text-brand-500 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors cursor-pointer flex items-center gap-0.5">
-                          <Zap className="w-3.5 h-3.5 fill-brand-500" />
-                          <ChevronDown className="w-4 h-4" />
-                        </div>
-                      </div>
-                    </div>
+                    <RateMasterAutocomplete
+                      value={item.description}
+                      onChange={(val) => handleItemChange(idx, 'description', val)}
+                      rateMasterList={rateMaster}
+                      onSelectRateMaster={(rItem) => handleSelectRateMaster(idx, rItem)}
+                      onAddNew={() => handleOpenAddRateModal(idx)}
+                      themeColor="brand"
+                    />
                   </div>
 
                   <div className="col-span-6 md:col-span-2">
