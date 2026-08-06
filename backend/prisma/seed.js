@@ -4,13 +4,16 @@ const bcrypt = require('bcryptjs');
 async function main() {
   console.log('Seeding company & sample data for Khodiyar Steel Fabrication...');
 
-  // 1. Seed Admin User
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  // 1. Seed Admin User (Reads from .env or defaults to secure env vars)
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
   const user = await prisma.user.upsert({
-    where: { email: 'sharmaprayag78@gmail.com' },
+    where: { email: adminEmail },
     update: { password: hashedPassword, name: 'Prayag Sharma (Owner)' },
     create: {
-      email: 'sharmaprayag78@gmail.com',
+      email: adminEmail,
       password: hashedPassword,
       name: 'Prayag Sharma (Owner)',
       role: 'ADMIN'
