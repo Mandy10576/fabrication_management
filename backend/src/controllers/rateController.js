@@ -40,7 +40,7 @@ const createRate = async (req, res, next) => {
     const newRate = await prisma.rateMaster.create({
       data: {
         serviceName,
-        hsnSac: hsnSac || '9988',
+        hsnSac: hsnSac || '',
         unit: unit || 'sq ft',
         rate: parseFloat(rate),
         description: description || ''

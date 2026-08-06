@@ -173,7 +173,7 @@ const createQuotation = async (req, res, next) => {
       subtotal += amt;
       return {
         description: item.description,
-        hsnSac: item.hsnSac || '9988',
+        hsnSac: item.hsnSac || '',
         quantity: qty,
         unit: item.unit || 'sq ft',
         rate: rate,
@@ -338,7 +338,7 @@ const updateQuotation = async (req, res, next) => {
       subtotal += amt;
       return {
         description: item.description,
-        hsnSac: item.hsnSac || '9988',
+        hsnSac: item.hsnSac || '',
         quantity: qty,
         unit: item.unit || 'sq ft',
         rate: rate,

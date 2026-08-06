@@ -81,7 +81,8 @@ const getInvoices = async (req, res, next) => {
       clientId: true,
       client: true,
       financialYear: true,
-      items: true
+      items: true,
+      payments: { orderBy: { paymentDate: 'desc' } }
     };
 
     if (all === 'true') {
@@ -126,7 +127,8 @@ const getInvoiceById = async (req, res, next) => {
       include: {
         client: true,
         financialYear: true,
-        items: true
+        items: true,
+        payments: { orderBy: { paymentDate: 'desc' } }
       }
     });
 
@@ -179,7 +181,7 @@ const createInvoice = async (req, res, next) => {
       subtotal += amt;
       return {
         description: item.description,
-        hsnSac: item.hsnSac || '9988',
+        hsnSac: item.hsnSac || '',
         quantity: qty,
         unit: item.unit || 'sq ft',
         rate: rate,
@@ -248,9 +250,22 @@ const createInvoice = async (req, res, next) => {
       include: {
         client: true,
         financialYear: true,
-        items: true
+        items: true,
+        payments: { orderBy: { paymentDate: 'desc' } }
       }
     });
+
+    if (amtReceived > 0) {
+      await prisma.payment.create({
+        data: {
+          invoiceId: invoice.id,
+          amount: amtReceived,
+          paymentDate: date ? new Date(date) : new Date(),
+          paymentMode: req.body.paymentMode || 'CASH',
+          notes: 'Initial payment received upon invoice creation'
+        }
+      });
+    }
 
     res.status(201).json(invoice);
   } catch (error) {
@@ -283,7 +298,7 @@ const updateInvoice = async (req, res, next) => {
       subtotal += amt;
       return {
         description: item.description,
-        hsnSac: item.hsnSac || '9988',
+        hsnSac: item.hsnSac || '',
         quantity: qty,
         unit: item.unit || 'sq ft',
         rate: rate,
@@ -441,35 +456,179 @@ const duplicateInvoice = async (req, res, next) => {
   }
 };
 
-const updatePaymentStatus = async (req, res, next) => {
+const addPayment = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { amountReceived } = req.body;
+    const { amount, paymentDate, paymentMode, referenceNo, notes } = req.body;
 
     const invoice = await prisma.invoice.findUnique({ where: { id } });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
 
-    const amtReceived = parseFloat(amountReceived) || 0;
-    const balanceDue = Math.max(0, invoice.grandTotal - amtReceived);
+    const payAmount = parseFloat(amount);
+    if (isNaN(payAmount) || payAmount <= 0) {
+      return res.status(400).json({ error: 'Valid payment amount is required' });
+    }
 
+    await prisma.payment.create({
+      data: {
+        invoiceId: id,
+        amount: payAmount,
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        paymentMode: paymentMode || 'CASH',
+        referenceNo: referenceNo || null,
+        notes: notes || null
+      }
+    });
+
+    const paymentSum = await prisma.payment.aggregate({
+      where: { invoiceId: id },
+      _sum: { amount: true }
+    });
+
+    const totalReceived = paymentSum._sum.amount || 0;
+    const balanceDue = Math.max(0, invoice.grandTotal - totalReceived);
     let status = 'UNPAID';
-    if (amtReceived >= invoice.grandTotal) {
+    if (totalReceived >= invoice.grandTotal) {
       status = 'PAID';
-    } else if (amtReceived > 0) {
+    } else if (totalReceived > 0) {
       status = 'PARTIAL';
     }
 
     const updated = await prisma.invoice.update({
       where: { id },
       data: {
-        amountReceived: amtReceived,
+        amountReceived: totalReceived,
         balanceDue,
         status
       },
       include: {
         client: true,
         financialYear: true,
-        items: true
+        items: true,
+        payments: { orderBy: { paymentDate: 'desc' } }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deletePayment = async (req, res, next) => {
+  try {
+    const { id, paymentId } = req.params;
+
+    const payment = await prisma.payment.findFirst({
+      where: { id: paymentId, invoiceId: id }
+    });
+    if (!payment) return res.status(404).json({ error: 'Payment record not found' });
+
+    await prisma.payment.delete({ where: { id: paymentId } });
+
+    const paymentSum = await prisma.payment.aggregate({
+      where: { invoiceId: id },
+      _sum: { amount: true }
+    });
+
+    const invoice = await prisma.invoice.findUnique({ where: { id } });
+    const totalReceived = paymentSum._sum.amount || 0;
+    const balanceDue = Math.max(0, invoice.grandTotal - totalReceived);
+    let status = 'UNPAID';
+    if (totalReceived >= invoice.grandTotal) {
+      status = 'PAID';
+    } else if (totalReceived > 0) {
+      status = 'PARTIAL';
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id },
+      data: {
+        amountReceived: totalReceived,
+        balanceDue,
+        status
+      },
+      include: {
+        client: true,
+        financialYear: true,
+        items: true,
+        payments: { orderBy: { paymentDate: 'desc' } }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getInvoicePayments = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const payments = await prisma.payment.findMany({
+      where: { invoiceId: id },
+      orderBy: { paymentDate: 'desc' }
+    });
+    res.json(payments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updatePaymentStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { amountReceived, paymentDate, paymentMode, referenceNo, notes } = req.body;
+
+    const invoice = await prisma.invoice.findUnique({ where: { id } });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const amtReceived = parseFloat(amountReceived) || 0;
+    const diff = amtReceived - invoice.amountReceived;
+
+    if (diff > 0) {
+      await prisma.payment.create({
+        data: {
+          invoiceId: id,
+          amount: diff,
+          paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+          paymentMode: paymentMode || 'CASH',
+          referenceNo: referenceNo || null,
+          notes: notes || null
+        }
+      });
+    }
+
+    const paymentSum = await prisma.payment.aggregate({
+      where: { invoiceId: id },
+      _sum: { amount: true }
+    });
+
+    const finalReceived = (paymentSum._sum.amount !== null && paymentSum._sum.amount !== undefined && paymentSum._sum.amount > 0)
+      ? paymentSum._sum.amount
+      : amtReceived;
+
+    const balanceDue = Math.max(0, invoice.grandTotal - finalReceived);
+
+    let status = 'UNPAID';
+    if (finalReceived >= invoice.grandTotal) {
+      status = 'PAID';
+    } else if (finalReceived > 0) {
+      status = 'PARTIAL';
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id },
+      data: {
+        amountReceived: finalReceived,
+        balanceDue,
+        status
+      },
+      include: {
+        client: true,
+        financialYear: true,
+        items: true,
+        payments: { orderBy: { paymentDate: 'desc' } }
       }
     });
 
@@ -487,5 +646,8 @@ module.exports = {
   updateInvoice,
   deleteInvoice,
   duplicateInvoice,
-  updatePaymentStatus
+  updatePaymentStatus,
+  addPayment,
+  deletePayment,
+  getInvoicePayments
 };

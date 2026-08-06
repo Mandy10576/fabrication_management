@@ -84,7 +84,7 @@ export const InvoiceForm = () => {
     serviceName: '',
     rate: '',
     unit: 'sq ft',
-    hsnSac: '9988'
+    hsnSac: ''
   });
 
   const handleOpenAddRateModal = (index) => {
@@ -94,7 +94,7 @@ export const InvoiceForm = () => {
       serviceName: targetItem.description || '',
       rate: targetItem.rate || '',
       unit: targetItem.unit || 'sq ft',
-      hsnSac: targetItem.hsnSac || '9988'
+      hsnSac: targetItem.hsnSac || ''
     });
     setIsAddRateModalOpen(true);
   };
@@ -109,7 +109,7 @@ export const InvoiceForm = () => {
         serviceName: newRateData.serviceName,
         rate: parseFloat(newRateData.rate) || 0,
         unit: newRateData.unit || 'sq ft',
-        hsnSac: newRateData.hsnSac || '9988'
+        hsnSac: newRateData.hsnSac || ''
       });
 
       setRateMaster(prev => [createdRate, ...prev]);
@@ -135,7 +135,7 @@ export const InvoiceForm = () => {
   const [terms, setTerms] = useState('');
 
   const [items, setItems] = useState([
-    { description: '', hsnSac: '9988', quantity: 1, unit: 'sq ft', rate: 0, amount: 0 }
+    { description: '', hsnSac: '', quantity: 1, unit: 'sq ft', rate: 0, amount: 0 }
   ]);
 
   useEffect(() => {
@@ -175,7 +175,7 @@ export const InvoiceForm = () => {
           setTerms(inv.terms || '');
           setItems(inv.items.map(i => ({
             description: i.description,
-            hsnSac: i.hsnSac || '9988',
+            hsnSac: i.hsnSac || '',
             quantity: i.quantity,
             unit: i.unit,
             rate: i.rate,
@@ -213,7 +213,7 @@ export const InvoiceForm = () => {
   const handleAddItem = () => {
     setItems([
       ...items,
-      { description: '', hsnSac: '9988', quantity: 1, unit: 'sq ft', rate: 0, amount: 0 }
+      { description: '', hsnSac: '', quantity: 1, unit: 'sq ft', rate: 0, amount: 0 }
     ]);
   };
 
@@ -239,7 +239,7 @@ export const InvoiceForm = () => {
     if (!rateItem) return;
     const updated = [...items];
     updated[index].description = rateItem.serviceName;
-    updated[index].hsnSac = rateItem.hsnSac || '9988';
+    updated[index].hsnSac = rateItem.hsnSac || '';
     updated[index].unit = rateItem.unit || 'sq ft';
     updated[index].rate = rateItem.rate;
     const q = parseFloat(updated[index].quantity) || 1;
@@ -552,7 +552,7 @@ export const InvoiceForm = () => {
                     </label>
                     <input
                       type="text"
-                      placeholder="9988"
+                      placeholder="e.g. 9988"
                       value={item.hsnSac}
                       onChange={(e) => handleItemChange(idx, 'hsnSac', e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-center outline-none focus:ring-2 focus:ring-brand-500"
@@ -835,7 +835,7 @@ export const InvoiceForm = () => {
                 <label className="block font-bold uppercase text-slate-500 mb-1">HSN / SAC Code</label>
                 <input
                   type="text"
-                  placeholder="9988"
+                  placeholder="e.g. 9988"
                   value={newRateData.hsnSac}
                   onChange={(e) => setNewRateData({ ...newRateData, hsnSac: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono outline-none focus:ring-2 focus:ring-brand-500"

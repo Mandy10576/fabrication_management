@@ -133,7 +133,7 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
                 <tr key={idx} style={{ backgroundColor: idx % 2 === 1 ? '#f8fafc' : '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 4px', textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
                   <td style={{ padding: '8px 6px', fontWeight: '700', color: '#0f172a', wordBreak: 'break-word' }}>{item.description}</td>
-                  <td style={{ padding: '8px 4px', textAlign: 'center', color: '#64748b' }}>{item.hsnSac || '9988'}</td>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', color: '#64748b' }}>{item.hsnSac || ''}</td>
                   <td style={{ padding: '8px 4px', textAlign: 'center' }}>{item.quantity}</td>
                   <td style={{ padding: '8px 4px', textAlign: 'center' }}>{item.unit}</td>
                   <td style={{ padding: '8px 6px', textAlign: 'right' }}>{Number(item.rate).toFixed(2)}</td>

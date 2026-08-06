@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { InvoiceTemplate } from '../components/InvoiceTemplate';
 import { ShareModal } from '../components/ShareModal';
 import { downloadPDF, printElement } from '../utils/pdfExport';
+import { formatCurrency } from '../utils/formatters';
 import {
   ArrowLeft,
   Printer,
@@ -11,7 +12,9 @@ import {
   Share2,
   Copy,
   Edit2,
-  IndianRupee
+  IndianRupee,
+  History,
+  Calendar
 } from 'lucide-react';
 
 export const InvoiceView = () => {
@@ -123,6 +126,58 @@ export const InvoiceView = () => {
           <InvoiceTemplate invoice={invoice} company={invoice.company} id="printable-invoice" />
         </div>
       </div>
+
+      {/* Payment History Section (Screen view only) */}
+      {invoice.payments && invoice.payments.length > 0 && (
+        <div className="no-print p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <History className="w-5 h-5 text-emerald-600" />
+              <span>Payment History & Transaction Logs ({invoice.payments.length})</span>
+            </h3>
+            <div className="text-xs text-slate-500 font-medium">
+              Total Received: <strong className="text-emerald-600 font-mono text-sm">{formatCurrency(invoice.amountReceived)}</strong>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {invoice.payments.map((p) => (
+              <div
+                key={p.id}
+                className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-between text-xs"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      {new Date(p.paymentDate).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase">
+                      {p.paymentMode || 'CASH'}
+                    </span>
+                  </div>
+                  {(p.referenceNo || p.notes) && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {p.referenceNo && <span>Ref: <strong>{p.referenceNo}</strong> </span>}
+                      {p.notes && <span>• {p.notes}</span>}
+                    </div>
+                  )}
+                </div>
+                <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
+                  +{formatCurrency(p.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Share Modal */}
       {showShareModal && (

@@ -75,7 +75,7 @@ model Client {
 model RateMaster {
   id          String   @id @default(uuid())
   serviceName String
-  hsnSac      String   @default("9988")
+  hsnSac      String   @default("")
   unit        String   @default("sq ft")
   rate        Float
   description String?
@@ -112,6 +112,7 @@ model Invoice {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   items           InvoiceItem[]
+  payments        Payment[]
 
   @@index([financialYearId])
   @@index([clientId])
@@ -176,3 +177,20 @@ model QuotationItem {
 
   @@index([quotationId])
 }
+
+model Payment {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount      Float
+  paymentDate DateTime @default(now())
+  paymentMode String   @default("CASH") // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  referenceNo String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+}
+

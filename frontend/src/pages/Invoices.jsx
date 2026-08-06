@@ -16,7 +16,11 @@ import {
   IndianRupee,
   Filter,
   CheckCircle,
-  X
+  X,
+  Clock,
+  Calendar,
+  CreditCard,
+  History
 } from 'lucide-react';
 
 export const Invoices = () => {
@@ -33,7 +37,14 @@ export const Invoices = () => {
 
   const [shareInvoice, setShareInvoice] = useState(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState(null);
-  const [amountReceivedInput, setAmountReceivedInput] = useState('');
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentDate: '',
+    paymentMode: 'CASH',
+    referenceNo: '',
+    notes: ''
+  });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const fetchInvoices = async (isLoadMore = false) => {
     try {
@@ -88,22 +99,70 @@ export const Invoices = () => {
     }
   };
 
-  const handleOpenPaymentModal = (inv) => {
-    setPaymentModalInvoice(inv);
-    setAmountReceivedInput(inv.amountReceived || '');
+  const handleOpenPaymentModal = async (inv) => {
+    try {
+      const fullInv = await api.get(`/invoices/${inv.id}`);
+      setPaymentModalInvoice(fullInv);
+      const remaining = Math.max(0, fullInv.grandTotal - (fullInv.amountReceived || 0));
+      const now = new Date();
+      const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setPaymentForm({
+        amount: remaining > 0 ? String(remaining) : '',
+        paymentDate: localIso,
+        paymentMode: 'CASH',
+        referenceNo: '',
+        notes: ''
+      });
+    } catch (e) {
+      setPaymentModalInvoice(inv);
+    }
   };
 
-  const handleSavePayment = async (e) => {
+  const handleAddPayment = async (e) => {
     e.preventDefault();
     if (!paymentModalInvoice) return;
+    const amt = parseFloat(paymentForm.amount);
+    if (!amt || amt <= 0) {
+      alert('Please enter a valid payment amount');
+      return;
+    }
     try {
-      await api.patch(`/invoices/${paymentModalInvoice.id}/payment`, {
-        amountReceived: parseFloat(amountReceivedInput) || 0
+      setSavingPayment(true);
+      const updatedInv = await api.post(`/invoices/${paymentModalInvoice.id}/payments`, {
+        amount: amt,
+        paymentDate: paymentForm.paymentDate ? new Date(paymentForm.paymentDate).toISOString() : new Date().toISOString(),
+        paymentMode: paymentForm.paymentMode,
+        referenceNo: paymentForm.referenceNo,
+        notes: paymentForm.notes
       });
-      setPaymentModalInvoice(null);
-      fetchInvoices();
+      setPaymentModalInvoice(updatedInv);
+      setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, amountReceived: updatedInv.amountReceived, balanceDue: updatedInv.balanceDue, status: updatedInv.status, payments: updatedInv.payments } : item));
+      
+      const newRemaining = Math.max(0, updatedInv.grandTotal - (updatedInv.amountReceived || 0));
+      const now = new Date();
+      const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setPaymentForm({
+        amount: newRemaining > 0 ? String(newRemaining) : '',
+        paymentDate: localIso,
+        paymentMode: 'CASH',
+        referenceNo: '',
+        notes: ''
+      });
     } catch (err) {
-      alert(err.message || 'Failed to update payment');
+      alert(err.message || 'Failed to record payment');
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId) => {
+    if (!window.confirm('Are you sure you want to delete this payment entry?')) return;
+    try {
+      const updatedInv = await api.delete(`/invoices/${paymentModalInvoice.id}/payments/${paymentId}`);
+      setPaymentModalInvoice(updatedInv);
+      setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, amountReceived: updatedInv.amountReceived, balanceDue: updatedInv.balanceDue, status: updatedInv.status, payments: updatedInv.payments } : item));
+    } catch (err) {
+      alert(err.message || 'Failed to delete payment');
     }
   };
 
@@ -395,10 +454,10 @@ export const Invoices = () => {
         <ShareModal invoice={shareInvoice} onClose={() => setShareInvoice(null)} />
       )}
 
-      {/* Payment Recording Modal */}
+      {/* Payment Recording & History Modal */}
       {paymentModalInvoice && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setPaymentModalInvoice(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -406,57 +465,191 @@ export const Invoices = () => {
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-              Record Payment
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <History className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Payment Log & History
+              </h3>
+            </div>
             <p className="text-xs text-slate-500 mb-4">
-              Invoice #{paymentModalInvoice.invoiceNumber} • Grand Total: {formatCurrency(paymentModalInvoice.grandTotal)}
+              Invoice #{paymentModalInvoice.invoiceNumber} • {paymentModalInvoice.client?.companyName || ''}
             </p>
 
-            <form onSubmit={handleSavePayment} className="space-y-4 text-xs">
+            {/* Financial Summary Badges */}
+            <div className="grid grid-cols-3 gap-3 mb-5 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                <span className="text-[10px] font-semibold uppercase text-slate-500 block">Total Amount</span>
+                <strong className="text-sm text-slate-900 dark:text-white font-mono">
+                  {formatCurrency(paymentModalInvoice.grandTotal)}
+                </strong>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40">
+                <span className="text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 block">Total Received</span>
+                <strong className="text-sm text-emerald-700 dark:text-emerald-400 font-mono">
+                  {formatCurrency(paymentModalInvoice.amountReceived || 0)}
+                </strong>
+              </div>
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40">
+                <span className="text-[10px] font-semibold uppercase text-rose-600 dark:text-rose-400 block">Balance Due</span>
+                <strong className="text-sm text-rose-700 dark:text-rose-400 font-mono">
+                  {formatCurrency(Math.max(0, paymentModalInvoice.grandTotal - (paymentModalInvoice.amountReceived || 0)))}
+                </strong>
+              </div>
+            </div>
+
+            {/* Add New Payment Form */}
+            <form onSubmit={handleAddPayment} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-3 text-xs mb-6">
+              <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-emerald-600" />
+                Record New Payment Received
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Amount Received (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    placeholder="Enter amount"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Payment Date & Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={paymentForm.paymentDate}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Payment Mode
+                  </label>
+                  <select
+                    value={paymentForm.paymentMode}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMode: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                  >
+                    <option value="CASH">💵 Cash</option>
+                    <option value="UPI">📱 UPI / GPay / PhonePe</option>
+                    <option value="BANK_TRANSFER">🏦 Bank Transfer (NEFT/IMPS)</option>
+                    <option value="CHEQUE">📜 Cheque</option>
+                    <option value="OTHER">💳 Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Ref / Txn No. (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. UTR / Cheque / Txn ID"
+                    value={paymentForm.referenceNo}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, referenceNo: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none font-mono"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Total Amount Received So Far (₹)
+                <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Notes / Remarks (Optional)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={amountReceivedInput}
-                  onChange={(e) => setAmountReceivedInput(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-extrabold focus:ring-2 focus:ring-emerald-500 outline-none"
+                  type="text"
+                  placeholder="e.g. Paid part payment via GPay"
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1 text-slate-700 dark:text-slate-300">
-                <div className="flex justify-between">
-                  <span>Grand Total:</span>
-                  <strong>{formatCurrency(paymentModalInvoice.grandTotal)}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Calculated Balance Due:</span>
-                  <strong className="text-rose-600">
-                    {formatCurrency(Math.max(0, paymentModalInvoice.grandTotal - (parseFloat(amountReceivedInput) || 0)))}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentModalInvoice(null)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 font-semibold"
-                >
-                  Cancel
-                </button>
+              <div className="flex justify-end pt-1">
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-600/30"
+                  disabled={savingPayment}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md shadow-emerald-600/30 flex items-center gap-1.5 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  Update Payment
+                  <Plus className="w-4 h-4" />
+                  <span>{savingPayment ? 'Saving Payment...' : 'Record Payment Entry'}</span>
                 </button>
               </div>
             </form>
+
+            {/* Payment History List */}
+            <div>
+              <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs mb-2 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-slate-500" />
+                Payment Transaction Logs ({(paymentModalInvoice.payments || []).length})
+              </h4>
+
+              {(!paymentModalInvoice.payments || paymentModalInvoice.payments.length === 0) ? (
+                <div className="p-4 text-center text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+                  No payment history recorded yet. Add a payment entry above.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {paymentModalInvoice.payments.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 flex items-center justify-between gap-3 text-xs shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            {new Date(p.paymentDate).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase">
+                            {p.paymentMode || 'CASH'}
+                          </span>
+                        </div>
+                        {(p.referenceNo || p.notes) && (
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            {p.referenceNo && <span>Ref: <strong>{p.referenceNo}</strong></span>}
+                            {p.notes && <span>• {p.notes}</span>}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
+                          +{formatCurrency(p.amount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePayment(p.id)}
+                          title="Delete this payment record"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

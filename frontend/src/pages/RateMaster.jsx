@@ -69,7 +69,7 @@ export const RateMaster = () => {
 
   const [formData, setFormData] = useState({
     serviceName: '',
-    hsnSac: '9988',
+    hsnSac: '',
     unit: 'sq ft',
     rate: '',
     description: ''
@@ -97,7 +97,7 @@ export const RateMaster = () => {
     setEditingRate(null);
     setFormData({
       serviceName: '',
-      hsnSac: '9988',
+      hsnSac: '',
       unit: availableUnits[0] || 'sq ft',
       rate: '',
       description: ''
@@ -115,7 +115,7 @@ export const RateMaster = () => {
     }
     setFormData({
       serviceName: item.serviceName || '',
-      hsnSac: item.hsnSac || '9988',
+      hsnSac: item.hsnSac || '',
       unit: currentUnit,
       rate: item.rate || '',
       description: item.description || ''
@@ -222,9 +222,11 @@ export const RateMaster = () => {
                   <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                     {item.serviceName}
                   </h3>
-                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono font-semibold border border-slate-200 dark:border-slate-700 shrink-0">
-                    HSN: {item.hsnSac || '9988'}
-                  </span>
+                  {item.hsnSac ? (
+                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono font-semibold border border-slate-200 dark:border-slate-700 shrink-0">
+                      HSN: {item.hsnSac}
+                    </span>
+                  ) : null}
                 </div>
 
                 {item.description && (
@@ -310,8 +312,7 @@ export const RateMaster = () => {
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="9988"
+                    placeholder="e.g. 9988"
                     value={formData.hsnSac}
                     onChange={(e) => setFormData({ ...formData, hsnSac: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-mono"
