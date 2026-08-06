@@ -7,8 +7,8 @@ export const Login = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('admin@apexsteel.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -72,7 +72,7 @@ export const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none text-sm transition-all"
-                placeholder="admin@apexsteel.com"
+                placeholder="e.g. sharmaprayag78@gmail.com"
               />
             </div>
           </div>
@@ -103,12 +103,6 @@ export const Login = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Demo Credentials hint */}
-        <div className="mt-8 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[11px] text-slate-400 text-center">
-          <div className="font-semibold text-slate-300">Default Admin Credentials</div>
-          <div className="mt-0.5 font-mono text-brand-400">admin@apexsteel.com / admin123</div>
-        </div>
       </div>
     </div>
   );
