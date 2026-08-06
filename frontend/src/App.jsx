@@ -50,10 +50,14 @@ const ProtectedLayout = () => {
   return (
     <FYProvider>
       <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
-        <Navbar onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
+        <div className="no-print">
+          <Navbar onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
+        </div>
 
         <div className="flex flex-1">
-          <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+          <div className="no-print">
+            <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+          </div>
 
           <main className="flex-1 p-3 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-[1700px] 2xl:max-w-[1920px] mx-auto w-full overflow-x-hidden">
             <Suspense fallback={<PageLoader />}>
@@ -78,7 +82,9 @@ const ProtectedLayout = () => {
           </main>
         </div>
 
-        <MobileBottomNav />
+        <div className="no-print">
+          <MobileBottomNav />
+        </div>
       </div>
     </FYProvider>
   );

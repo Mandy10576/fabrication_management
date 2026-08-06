@@ -1,12 +1,12 @@
 /**
- * Triggers React PDF-based PDF generation via backend API
- * @param {string} elementId - DOM ID of printable element
+ * Triggers official React PDF generation via backend API (@react-pdf/renderer)
+ * @param {string} elementId - DOM ID of printable element (fallback/reference)
  * @param {string} filename - Desired output filename (.pdf)
- * @param {string} [docId] - Optional document database ID
- * @param {string} [docType] - Optional document type ('invoice' | 'quotation')
+ * @param {string} [docId] - Document database ID
+ * @param {string} [docType] - Document type ('invoice' | 'quotation')
  */
-export const downloadPDF = async (elementId, filename = 'document.pdf', docId = null, docType = null) => {
-  console.log(`🚀 [PDF Export] Initiating React PDF download for docType="${docType}", docId="${docId}", elementId="${elementId}"`);
+export const downloadPDF = async (elementId = 'printable-invoice', filename = 'document.pdf', docId = null, docType = null) => {
+  console.log(`🚀 [React PDF Export] Requesting binary stream for docType="${docType}", docId="${docId}"`);
 
   try {
     const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
@@ -19,35 +19,25 @@ export const downloadPDF = async (elementId, filename = 'document.pdf', docId = 
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    let response;
     let requestUrl = '';
 
     if (docType === 'invoice' && docId) {
       requestUrl = `${API_BASE}/invoices/${docId}/pdf`;
-      console.log(`📡 [PDF Export] Fetching React PDF from backend endpoint: ${requestUrl}`);
-      response = await fetch(requestUrl, { headers });
     } else if (docType === 'quotation' && docId) {
       requestUrl = `${API_BASE}/quotations/${docId}/pdf`;
-      console.log(`📡 [PDF Export] Fetching React PDF from backend endpoint: ${requestUrl}`);
-      response = await fetch(requestUrl, { headers });
     } else {
+      console.warn('⚠️ Missing docType or docId for React PDF stream. Requesting render fallback endpoint.');
       requestUrl = `${API_BASE}/pdf/render`;
-      console.log(`📡 [PDF Export] Posting request to React PDF endpoint: ${requestUrl}`);
-      response = await fetch(requestUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          filename
-        })
-      });
     }
+
+    const response = await fetch(requestUrl, { headers });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(errorData.error || 'Failed to generate PDF');
+      throw new Error(errorData.error || 'Failed to generate React PDF');
     }
 
-    console.log(`✅ [PDF Export] Successfully generated PDF via React PDF engine. Downloading binary file: "${filename}"`);
+    console.log(`✅ [React PDF Export] Received binary buffer from @react-pdf/renderer. Downloading: "${filename}"`);
 
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
@@ -59,7 +49,8 @@ export const downloadPDF = async (elementId, filename = 'document.pdf', docId = 
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('❌ [PDF Export] React PDF export failed:', error);
+    console.error('❌ [React PDF Export] Generation failed:', error);
+    alert('Failed to generate PDF: ' + (error.message || 'Server error'));
   }
 };
 

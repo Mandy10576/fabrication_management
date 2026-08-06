@@ -51,51 +51,62 @@
   @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
 }
 
-/* Print specific styles for exact A4 rendering & React PDF generation */
+/* Print specific styles for exact A4 rendering & PDF generation */
 @page {
   size: A4 portrait;
-  margin: 10mm;
+  margin: 0;
 }
 
 @media print {
+  .no-print, nav, aside, header, footer, button, .no-print * {
+    display: none !important;
+  }
+
   html, body {
     width: 100% !important;
+    height: auto !important;
     background: white !important;
     color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .no-print {
-    display: none !important;
-  }
-
-  .print-only {
-    display: block !important;
-  }
-
-  .a4-page {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: auto !important;
+  main {
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: white !important;
+    overflow: visible !important;
+  }
+
+  #printable-invoice, #printable-quotation, .a4-page {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm 10mm !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
     color: #0f172a !important;
+    box-sizing: border-box !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    page-break-inside: auto;
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
   }
 
   tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
+    page-break-inside: avoid !important;
   }
 
   thead {
@@ -104,10 +115,5 @@
 
   tfoot {
     display: table-footer-group;
-  }
-
-  .keep-together, .avoid-break, .company-header, .details-section, .totals-section, .terms-section, .signatory-section {
-    page-break-inside: avoid;
-    break-inside: avoid;
   }
 }

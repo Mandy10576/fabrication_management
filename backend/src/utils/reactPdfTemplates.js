@@ -45,227 +45,226 @@ function getStyles() {
       headerContainer: {
         marginBottom: 8,
       },
-  companyName: {
-    fontSize: 18,
-    fontFamily: 'Inter',
-    fontWeight: 800,
-    color: '#0F172A',
-    marginBottom: 3,
-  },
-  companyInfo: {
-    fontSize: 8.5,
-    color: '#1E293B',
-    fontWeight: 500,
-    lineHeight: 1.4,
-  },
-  titleBannerBorder: {
-    borderTopWidth: 1,
-    borderTopColor: '#CBD5E1',
-    borderBottomWidth: 1,
-    borderBottomColor: '#CBD5E1',
-    paddingVertical: 5,
-    marginVertical: 10,
-    textAlign: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleText: {
-    color: '#4C40AA',
-    fontSize: 15,
-    fontFamily: 'Inter',
-    fontWeight: 800,
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  detailsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  detailsColLeft: {
-    width: '52%',
-  },
-  detailsColRight: {
-    width: '44%',
-  },
-  sectionTitle: {
-    fontSize: 7.5,
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    color: '#64748B',
-    textTransform: 'uppercase',
-    marginBottom: 3,
-  },
-  clientName: {
-    fontSize: 11,
-    fontFamily: 'Inter',
-    fontWeight: 800,
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  clientText: {
-    fontSize: 8.5,
-    color: '#334155',
-    fontWeight: 500,
-    lineHeight: 1.35,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 3,
-  },
-  metaLabel: {
-    color: '#64748B',
-    fontSize: 8.5,
-  },
-  metaValue: {
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    color: '#0F172A',
-    fontSize: 8.5,
-  },
-  table: {
-    width: '100%',
-    marginVertical: 8,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#4C40AA',
-    borderRadius: 3,
-    paddingVertical: 5,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-  },
-  tableHeaderCell: {
-    color: '#FFFFFF',
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    fontSize: 8,
-    textTransform: 'uppercase',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E2E8F0',
-    paddingVertical: 5,
-    paddingHorizontal: 4,
-    minHeight: 20,
-    alignItems: 'center',
-  },
-  tableRowAlt: {
-    backgroundColor: '#F8FAFC',
-  },
-  tableCell: {
-    fontSize: 8.5,
-    color: '#1E293B',
-  },
-  tableCellBold: {
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    color: '#0F172A',
-  },
-  colSr: { width: '6%', textAlign: 'center' },
-  colItem: { width: '40%' },
-  colHsn: { width: '12%', textAlign: 'center' },
-  colQty: { width: '8%', textAlign: 'center' },
-  colUnit: { width: '8%', textAlign: 'center' },
-  colRate: { width: '13%', textAlign: 'right' },
-  colAmt: { width: '13%', textAlign: 'right' },
-
-  tableFooterRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1.5,
-    borderTopColor: '#CBD5E1',
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#CBD5E1',
-    paddingVertical: 5,
-    paddingHorizontal: 4,
-    marginTop: 2,
-    alignItems: 'center',
-  },
-
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  summaryLeft: {
-    width: '54%',
-  },
-  summaryRight: {
-    width: '42%',
-  },
-  boxBlock: {
-    marginBottom: 10,
-  },
-  boxTitle: {
-    fontSize: 7.5,
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    color: '#64748B',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  boxContent: {
-    fontSize: 8.5,
-    color: '#334155',
-    lineHeight: 1.35,
-  },
-  calcRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 2.5,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#F1F5F9',
-  },
-  totalBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#4C40AA',
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    borderRadius: 3,
-    marginVertical: 4,
-  },
-  totalBannerText: {
-    color: '#FFFFFF',
-    fontFamily: 'Inter',
-    fontWeight: 800,
-    fontSize: 10,
-  },
-  signatorySection: {
-    marginTop: 15,
-    alignItems: 'flex-end',
-  },
-  signatoryCompany: {
-    fontSize: 8.5,
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    color: '#0F172A',
-    marginBottom: 30,
-  },
-  signatoryLine: {
-    borderTopWidth: 1,
-    borderTopColor: '#94A3B8',
-    width: 140,
-    textAlign: 'center',
-    paddingTop: 3,
-    fontSize: 8.5,
-    fontFamily: 'Inter',
-    fontWeight: 700,
-    color: '#0F172A',
-  },
-  footerNote: {
-    position: 'absolute',
-    bottom: 15,
-    left: 32,
-    right: 32,
-    textAlign: 'center',
-    fontSize: 7.5,
-    color: '#94A3B8',
+      companyName: {
+        fontSize: 18,
+        fontFamily: 'Inter',
+        fontWeight: 800,
+        color: '#0F172A',
+        marginBottom: 3,
+      },
+      companyInfo: {
+        fontSize: 8.5,
+        color: '#1E293B',
+        fontWeight: 500,
+        lineHeight: 1.4,
+      },
+      titleBannerBorder: {
+        borderTopWidth: 1,
+        borderTopColor: '#CBD5E1',
+        borderBottomWidth: 1,
+        borderBottomColor: '#CBD5E1',
+        paddingVertical: 5,
+        marginVertical: 10,
+        textAlign: 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      titleText: {
+        color: '#4C40AA',
+        fontSize: 15,
+        fontFamily: 'Inter',
+        fontWeight: 800,
+        letterSpacing: 2,
+        textAlign: 'center',
+      },
+      detailsGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+      },
+      detailsColLeft: {
+        width: '52%',
+      },
+      detailsColRight: {
+        width: '44%',
+      },
+      sectionTitle: {
+        fontSize: 7.5,
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        color: '#64748B',
+        textTransform: 'uppercase',
+        marginBottom: 3,
+      },
+      clientName: {
+        fontSize: 11,
+        fontFamily: 'Inter',
+        fontWeight: 800,
+        color: '#0F172A',
+        marginBottom: 2,
+      },
+      clientText: {
+        fontSize: 8.5,
+        color: '#334155',
+        fontWeight: 500,
+        lineHeight: 1.35,
+      },
+      metaRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 3,
+      },
+      metaLabel: {
+        color: '#64748B',
+        fontSize: 8.5,
+      },
+      metaValue: {
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        color: '#0F172A',
+        fontSize: 8.5,
+      },
+      table: {
+        width: '100%',
+        marginVertical: 8,
+      },
+      tableHeader: {
+        flexDirection: 'row',
+        backgroundColor: '#4C40AA',
+        borderRadius: 3,
+        paddingVertical: 5,
+        paddingHorizontal: 4,
+        alignItems: 'center',
+      },
+      tableHeaderCell: {
+        color: '#FFFFFF',
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        fontSize: 8,
+        textTransform: 'uppercase',
+      },
+      tableRow: {
+        flexDirection: 'row',
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#E2E8F0',
+        paddingVertical: 5,
+        paddingHorizontal: 4,
+        minHeight: 20,
+        alignItems: 'center',
+      },
+      tableRowAlt: {
+        backgroundColor: '#F8FAFC',
+      },
+      tableCell: {
+        fontSize: 8.5,
+        color: '#1E293B',
+      },
+      tableCellBold: {
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        color: '#0F172A',
+      },
+      colSr: { width: '6%', textAlign: 'center' },
+      colItem: { width: '40%' },
+      colHsn: { width: '12%', textAlign: 'center' },
+      colQty: { width: '8%', textAlign: 'center' },
+      colUnit: { width: '8%', textAlign: 'center' },
+      colRate: { width: '13%', textAlign: 'right' },
+      colAmt: { width: '13%', textAlign: 'right' },
+      tableFooterRow: {
+        flexDirection: 'row',
+        borderTopWidth: 1.5,
+        borderTopColor: '#CBD5E1',
+        borderBottomWidth: 1.5,
+        borderBottomColor: '#CBD5E1',
+        paddingVertical: 5,
+        paddingHorizontal: 4,
+        marginTop: 2,
+        alignItems: 'center',
+      },
+      summaryGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+      },
+      summaryLeft: {
+        width: '54%',
+      },
+      summaryRight: {
+        width: '42%',
+      },
+      boxBlock: {
+        marginBottom: 10,
+      },
+      boxTitle: {
+        fontSize: 7.5,
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        color: '#64748B',
+        textTransform: 'uppercase',
+        marginBottom: 2,
+      },
+      boxContent: {
+        fontSize: 8.5,
+        color: '#334155',
+        lineHeight: 1.35,
+      },
+      calcRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 2.5,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#F1F5F9',
+      },
+      totalBanner: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#4C40AA',
+        paddingVertical: 5,
+        paddingHorizontal: 8,
+        borderRadius: 3,
+        marginVertical: 4,
+      },
+      totalBannerText: {
+        color: '#FFFFFF',
+        fontFamily: 'Inter',
+        fontWeight: 800,
+        fontSize: 10,
+      },
+      signatorySection: {
+        marginTop: 15,
+        alignItems: 'flex-end',
+      },
+      signatoryCompany: {
+        fontSize: 8.5,
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        color: '#0F172A',
+        marginBottom: 30,
+      },
+      signatoryLine: {
+        borderTopWidth: 1,
+        borderTopColor: '#94A3B8',
+        width: 140,
+        textAlign: 'center',
+        paddingTop: 3,
+        fontSize: 8.5,
+        fontFamily: 'Inter',
+        fontWeight: 700,
+        color: '#0F172A',
+      },
+      footerNote: {
+        position: 'absolute',
+        bottom: 15,
+        left: 32,
+        right: 32,
+        textAlign: 'center',
+        fontSize: 7.5,
+        color: '#94A3B8',
+      }
+    });
   }
-});
   return cachedStyles;
 }
 
@@ -323,7 +322,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
   const compAddr = parseAddress(comp.address);
   const clientAddr = parseAddress(client.address);
 
-  const titleText = invoice.gstType === 'NON_GST' ? 'I N V O I C E' : 'T A X    I N V O I C E';
+  const titleText = invoice.gstType === 'NON_GST' ? 'I N V O I C E' : 'T A X       I N V O I C E';
 
   return React.createElement(Document, null,
     React.createElement(Page, { size: 'A4', style: styles.page },
@@ -331,7 +330,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
       React.createElement(View, { style: styles.headerContainer },
         React.createElement(Text, { style: styles.companyName }, comp.companyName),
         React.createElement(View, { style: styles.companyInfo },
-          compAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
+          ...compAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
           comp.phone ? React.createElement(Text, null, `Phone no. : ${comp.phone}`) : null,
           comp.email ? React.createElement(Text, null, `Email : ${comp.email}`) : null,
           React.createElement(Text, null, `GSTIN: ${comp.gstin || 'N/A'} | PAN: ${comp.pan || 'N/A'}`),
@@ -350,7 +349,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           React.createElement(Text, { style: styles.sectionTitle }, 'BILL TO'),
           React.createElement(Text, { style: styles.clientName }, client.companyName || client.name || 'Client'),
           React.createElement(View, { style: styles.clientText },
-            clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
+            ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
             React.createElement(Text, null, clientAddr.stateLine),
             client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
@@ -394,7 +393,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           },
             React.createElement(Text, { style: [styles.tableCell, styles.colSr] }, idx + 1),
             React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colItem] }, item.description),
-            React.createElement(Text, { style: [styles.tableCell, styles.colHsn] }, item.hsnSac || ''),
+            React.createElement(Text, { style: [styles.tableCell, styles.colHsn] }, (item.hsnSac && item.hsnSac !== '9988') ? item.hsnSac : '-'),
             React.createElement(Text, { style: [styles.tableCell, styles.colQty] }, item.quantity),
             React.createElement(Text, { style: [styles.tableCell, styles.colUnit] }, item.unit),
             React.createElement(Text, { style: [styles.tableCell, styles.colRate] }, Number(item.rate).toFixed(2)),
@@ -438,16 +437,16 @@ const InvoicePDFDocument = ({ invoice, company }) => {
             React.createElement(Text, { style: [styles.metaValue, { color: '#E11D48' }] }, `- ${formatCurrency(invoice.discount)}`)
           ) : null,
 
-          invoice.gstType === 'CGST_SGST' ? React.createElement(React.Fragment, null,
-            React.createElement(View, { style: styles.calcRow },
+          ...(invoice.gstType === 'CGST_SGST' ? [
+            React.createElement(View, { key: 'cgst', style: styles.calcRow },
               React.createElement(Text, { style: styles.metaLabel }, `CGST (${(invoice.gstRate || 18) / 2}%)`),
               React.createElement(Text, { style: styles.metaValue }, formatCurrency(invoice.cgstAmount))
             ),
-            React.createElement(View, { style: styles.calcRow },
+            React.createElement(View, { key: 'sgst', style: styles.calcRow },
               React.createElement(Text, { style: styles.metaLabel }, `SGST (${(invoice.gstRate || 18) / 2}%)`),
               React.createElement(Text, { style: styles.metaValue }, formatCurrency(invoice.sgstAmount))
             )
-          ) : null,
+          ] : []),
 
           invoice.gstType === 'IGST' ? React.createElement(View, { style: styles.calcRow },
             React.createElement(Text, { style: styles.metaLabel }, `IGST (${invoice.gstRate || 18}%)`),
@@ -538,7 +537,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
       React.createElement(View, { style: styles.headerContainer },
         React.createElement(Text, { style: styles.companyName }, comp.companyName),
         React.createElement(View, { style: styles.companyInfo },
-          compAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
+          ...compAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
           comp.phone ? React.createElement(Text, null, `Phone no. : ${comp.phone}`) : null,
           comp.email ? React.createElement(Text, null, `Email : ${comp.email}`) : null,
           React.createElement(Text, null, `GSTIN: ${comp.gstin || 'N/A'} | PAN: ${comp.pan || 'N/A'}`),
@@ -546,18 +545,18 @@ const QuotationPDFDocument = ({ quotation, company }) => {
         )
       ),
 
-      // Title Banner with top and bottom border line matching HTML design 1:1
+      // Title Banner
       React.createElement(View, { style: styles.titleBannerBorder },
         React.createElement(Text, { style: styles.titleText }, 'Q U O T A T I O N')
       ),
 
-      // Details Grid (Quotation For + Quotation Details)
+      // Details Grid
       React.createElement(View, { style: styles.detailsGrid },
         React.createElement(View, { style: styles.detailsColLeft },
           React.createElement(Text, { style: styles.sectionTitle }, 'QUOTATION FOR'),
           React.createElement(Text, { style: styles.clientName }, client.companyName || client.name || 'Client'),
           React.createElement(View, { style: styles.clientText },
-            clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
+            ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
             React.createElement(Text, null, clientAddr.stateLine),
             client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
@@ -601,7 +600,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           },
             React.createElement(Text, { style: [styles.tableCell, styles.colSr] }, idx + 1),
             React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colItem] }, item.description),
-            React.createElement(Text, { style: [styles.tableCell, styles.colHsn] }, item.hsnSac || ''),
+            React.createElement(Text, { style: [styles.tableCell, styles.colHsn] }, (item.hsnSac && item.hsnSac !== '9988') ? item.hsnSac : '-'),
             React.createElement(Text, { style: [styles.tableCell, styles.colQty] }, item.quantity),
             React.createElement(Text, { style: [styles.tableCell, styles.colUnit] }, item.unit),
             React.createElement(Text, { style: [styles.tableCell, styles.colRate] }, Number(item.rate).toFixed(2)),
@@ -640,16 +639,16 @@ const QuotationPDFDocument = ({ quotation, company }) => {
             React.createElement(Text, { style: [styles.metaValue, { color: '#E11D48' }] }, `- ${formatCurrency(discount)}`)
           ) : null,
 
-          gstType === 'CGST_SGST' ? React.createElement(React.Fragment, null,
-            React.createElement(View, { style: styles.calcRow },
+          ...(gstType === 'CGST_SGST' ? [
+            React.createElement(View, { key: 'cgst', style: styles.calcRow },
               React.createElement(Text, { style: styles.metaLabel }, `CGST (${gstRate / 2}%)`),
               React.createElement(Text, { style: styles.metaValue }, formatCurrency(cgstAmount))
             ),
-            React.createElement(View, { style: styles.calcRow },
+            React.createElement(View, { key: 'sgst', style: styles.calcRow },
               React.createElement(Text, { style: styles.metaLabel }, `SGST (${gstRate / 2}%)`),
               React.createElement(Text, { style: styles.metaValue }, formatCurrency(sgstAmount))
             )
-          ) : null,
+          ] : []),
 
           gstType === 'IGST' ? React.createElement(View, { style: styles.calcRow },
             React.createElement(Text, { style: styles.metaLabel }, `IGST (${gstRate}%)`),
@@ -658,7 +657,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
 
           // Total Banner
           React.createElement(View, { style: styles.totalBanner },
-            React.createElement(Text, { style: styles.totalBannerText }, 'Grand Total'),
+            React.createElement(Text, { style: styles.totalBannerText }, 'Total'),
             React.createElement(Text, { style: styles.totalBannerText }, formatCurrency(quotation.grandTotal))
           ),
 

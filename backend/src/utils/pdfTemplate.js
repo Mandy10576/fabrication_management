@@ -178,13 +178,13 @@ function buildInvoiceHTML(invoice, company) {
   const { addressLines: compAddressLines, stateLine: compStateLine } = parseCompanyAddress(comp);
   const { addressLines: clientAddressLines, stateLine: clientStateLine } = parseClientAddress(client);
 
-  const titleText = invoice.gstType === 'NON_GST' ? 'I N V O I C E' : 'T A X &nbsp;&nbsp;&nbsp; I N V O I C E';
+  const titleText = invoice.gstType === 'NON_GST' ? 'I N V O I C E' : 'T A X &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; I N V O I C E';
 
   const itemsHTML = invoice.items && invoice.items.map((item, idx) => `
     <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
       <td style="padding: 8px 4px; text-align: center; color: #64748b;">${idx + 1}</td>
       <td style="padding: 8px 6px; font-weight: 700; color: #0f172a; word-break: break-word;">${item.description}</td>
-      <td style="padding: 8px 4px; text-align: center; color: #64748b;">${item.hsnSac || ''}</td>
+      <td style="padding: 8px 4px; text-align: center; color: #64748b;">${item.hsnSac && item.hsnSac !== '9988' ? item.hsnSac : '-'}</td>
       <td style="padding: 8px 4px; text-align: center;">${item.quantity}</td>
       <td style="padding: 8px 4px; text-align: center;">${item.unit}</td>
       <td style="padding: 8px 6px; text-align: right;">${Number(item.rate).toFixed(2)}</td>
@@ -428,7 +428,7 @@ function buildQuotationHTML(quotation, company) {
     <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
       <td style="padding: 8px 4px; text-align: center; color: #64748b;">${idx + 1}</td>
       <td style="padding: 8px 6px; font-weight: 700; color: #0f172a; word-break: break-word;">${item.description}</td>
-      <td style="padding: 8px 4px; text-align: center; color: #64748b;">${item.hsnSac || ''}</td>
+      <td style="padding: 8px 4px; text-align: center; color: #64748b;">${item.hsnSac && item.hsnSac !== '9988' ? item.hsnSac : '-'}</td>
       <td style="padding: 8px 4px; text-align: center;">${item.quantity}</td>
       <td style="padding: 8px 4px; text-align: center;">${item.unit}</td>
       <td style="padding: 8px 6px; text-align: right;">${Number(item.rate).toFixed(2)}</td>

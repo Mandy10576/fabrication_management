@@ -103,11 +103,10 @@ export const Invoices = () => {
     try {
       const fullInv = await api.get(`/invoices/${inv.id}`);
       setPaymentModalInvoice(fullInv);
-      const remaining = Math.max(0, fullInv.grandTotal - (fullInv.amountReceived || 0));
       const now = new Date();
       const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
       setPaymentForm({
-        amount: remaining > 0 ? String(remaining) : '',
+        amount: '',
         paymentDate: localIso,
         paymentMode: 'CASH',
         referenceNo: '',
@@ -138,11 +137,10 @@ export const Invoices = () => {
       setPaymentModalInvoice(updatedInv);
       setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, amountReceived: updatedInv.amountReceived, balanceDue: updatedInv.balanceDue, status: updatedInv.status, payments: updatedInv.payments } : item));
       
-      const newRemaining = Math.max(0, updatedInv.grandTotal - (updatedInv.amountReceived || 0));
       const now = new Date();
       const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
       setPaymentForm({
-        amount: newRemaining > 0 ? String(newRemaining) : '',
+        amount: '',
         paymentDate: localIso,
         paymentMode: 'CASH',
         referenceNo: '',
