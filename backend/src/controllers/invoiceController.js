@@ -8,24 +8,43 @@ const getNextInvoiceNumber = async (req, res, next) => {
       return res.status(400).json({ error: 'financialYearId is required' });
     }
 
-    const [fy, count] = await Promise.all([
-      prisma.financialYear.findUnique({
-        where: { id: financialYearId },
-        select: { id: true, year: true }
-      }),
-      prisma.invoice.count({
-        where: { financialYearId }
-      })
-    ]);
+    const fy = await prisma.financialYear.findUnique({
+      where: { id: financialYearId },
+      select: { id: true, year: true }
+    });
 
     if (!fy) {
       return res.status(404).json({ error: 'Financial year not found' });
     }
 
-    const nextSeq = String(count + 1).padStart(3, '0');
-    const invoiceNumber = `${fy.year}/${nextSeq}`;
+    const existingInvoices = await prisma.invoice.findMany({
+      where: { financialYearId },
+      select: { invoiceNumber: true }
+    });
 
-    res.json({ invoiceNumber, sequence: count + 1 });
+    let maxSeq = 0;
+    for (const inv of existingInvoices) {
+      if (inv.invoiceNumber) {
+        const match = inv.invoiceNumber.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    }
+
+    let candidateSeq = Math.max(maxSeq + 1, existingInvoices.length + 1);
+    let candidateNumber = `${fy.year}/${String(candidateSeq).padStart(3, '0')}`;
+
+    const existingNumbersSet = new Set(existingInvoices.map(i => i.invoiceNumber));
+    while (existingNumbersSet.has(candidateNumber)) {
+      candidateSeq++;
+      candidateNumber = `${fy.year}/${String(candidateSeq).padStart(3, '0')}`;
+    }
+
+    res.json({ invoiceNumber: candidateNumber, sequence: candidateSeq });
   } catch (error) {
     next(error);
   }
