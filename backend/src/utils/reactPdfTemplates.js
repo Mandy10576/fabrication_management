@@ -5,23 +5,36 @@ let reactPdfModule = null;
 let fontRegistered = false;
 let cachedStyles = null;
 
+function setReactPdfModule(m) {
+  if (m) {
+    reactPdfModule = m;
+  }
+}
+
 function getReactPdf() {
   if (!reactPdfModule) {
-    reactPdfModule = require('@react-pdf/renderer');
+    try {
+      reactPdfModule = require('@react-pdf/renderer');
+    } catch (e) {
+      console.warn('Sync require(@react-pdf/renderer) failed, module will be injected via setReactPdfModule:', e.message);
+    }
   }
-  if (!fontRegistered) {
+  if (reactPdfModule && !fontRegistered) {
     fontRegistered = true;
     try {
-      const fontsDir = path.join(__dirname, '../assets/fonts');
-      reactPdfModule.Font.register({
-        family: 'Inter',
-        fonts: [
-          { src: path.join(fontsDir, 'Inter-Regular.ttf'), fontWeight: 400 },
-          { src: path.join(fontsDir, 'Inter-SemiBold.ttf'), fontWeight: 600 },
-          { src: path.join(fontsDir, 'Inter-Bold.ttf'), fontWeight: 700 },
-          { src: path.join(fontsDir, 'Inter-ExtraBold.ttf'), fontWeight: 800 },
-        ]
-      });
+      const Font = reactPdfModule.Font || reactPdfModule.default?.Font;
+      if (Font && typeof Font.register === 'function') {
+        const fontsDir = path.join(__dirname, '../assets/fonts');
+        Font.register({
+          family: 'Inter',
+          fonts: [
+            { src: path.join(fontsDir, 'Inter-Regular.ttf'), fontWeight: 400 },
+            { src: path.join(fontsDir, 'Inter-SemiBold.ttf'), fontWeight: 600 },
+            { src: path.join(fontsDir, 'Inter-Bold.ttf'), fontWeight: 700 },
+            { src: path.join(fontsDir, 'Inter-ExtraBold.ttf'), fontWeight: 800 },
+          ]
+        });
+      }
     } catch (e) {
       console.warn('Font registration notice:', e.message);
     }
@@ -676,6 +689,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
 };
 
 module.exports = {
+  setReactPdfModule,
   InvoicePDFDocument,
   QuotationPDFDocument
 };
