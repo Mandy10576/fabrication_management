@@ -135,8 +135,8 @@ export const Invoices = () => {
         notes: paymentForm.notes
       });
       setPaymentModalInvoice(updatedInv);
-      setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, amountReceived: updatedInv.amountReceived, balanceDue: updatedInv.balanceDue, status: updatedInv.status, payments: updatedInv.payments } : item));
-      
+      setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, ...updatedInv } : item));
+
       const now = new Date();
       const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
       setPaymentForm({
@@ -146,6 +146,7 @@ export const Invoices = () => {
         referenceNo: '',
         notes: ''
       });
+      fetchInvoices();
     } catch (err) {
       alert(err.message || 'Failed to record payment');
     } finally {
@@ -158,7 +159,8 @@ export const Invoices = () => {
     try {
       const updatedInv = await api.delete(`/invoices/${paymentModalInvoice.id}/payments/${paymentId}`);
       setPaymentModalInvoice(updatedInv);
-      setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, amountReceived: updatedInv.amountReceived, balanceDue: updatedInv.balanceDue, status: updatedInv.status, payments: updatedInv.payments } : item));
+      setInvoices(prev => prev.map(item => item.id === updatedInv.id ? { ...item, ...updatedInv } : item));
+      fetchInvoices();
     } catch (err) {
       alert(err.message || 'Failed to delete payment');
     }

@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
 import { Link, useNavigate } from 'react-router-dom';
 import { QuotationTemplate } from '../components/QuotationTemplate';
+import { ResponsivePdfViewer } from '../components/ResponsivePdfViewer';
 import { downloadPDF } from '../utils/pdfExport';
 import {
   Quote,
@@ -333,10 +334,10 @@ export const Quotations = () => {
               </div>
             </div>
 
-            <div className="w-full overflow-x-auto pb-4 flex justify-center mt-2">
-              <div className="min-w-[210mm]">
+            <div className="w-full mt-2">
+              <ResponsivePdfViewer documentTitle={`Quotation #${previewQuotation.quotationNumber}`}>
                 <QuotationTemplate quotation={previewQuotation} id="printable-quotation" />
-              </div>
+              </ResponsivePdfViewer>
             </div>
           </div>
         </div>

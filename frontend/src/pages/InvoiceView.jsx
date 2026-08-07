@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { InvoiceTemplate } from '../components/InvoiceTemplate';
+import { ResponsivePdfViewer } from '../components/ResponsivePdfViewer';
 import { ShareModal } from '../components/ShareModal';
 import { downloadPDF, printElement } from '../utils/pdfExport';
 import { formatCurrency } from '../utils/formatters';
@@ -66,29 +67,28 @@ export const InvoiceView = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 px-2 sm:px-4">
-      {/* Top Action Bar - Mobile Friendly Flex Wrap */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Link
-          to="/invoices"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Invoices</span>
-        </Link>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-          <button
-            onClick={handlePrint}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
+    <div className="space-y-4 max-w-5xl mx-auto pb-12 px-2 sm:px-4">
+      {/* Top Navigation & Action Header */}
+      <div className="no-print p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            to="/invoices"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <Printer className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-            <span>Print</span>
-          </button>
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Invoices</span>
+          </Link>
 
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">
+            #{invoice.invoiceNumber}
+          </span>
+        </div>
+
+        {/* Action Button Row - Touch Scrollable on Mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-semibold">
           <button
             onClick={handleDownloadPDF}
-            className="px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white shadow-md shadow-brand-600/30 flex items-center gap-1.5 transition-all"
+            className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-md shadow-brand-600/30 flex items-center gap-1.5 transition-all"
           >
             <Download className="w-4 h-4" />
             <span>Download PDF</span>
@@ -96,15 +96,23 @@ export const InvoiceView = () => {
 
           <button
             onClick={() => setShowShareModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all"
+            className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all"
           >
             <Share2 className="w-4 h-4" />
             <span>Share</span>
           </button>
 
           <button
+            onClick={handlePrint}
+            className="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
+          >
+            <Printer className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            <span>Print</span>
+          </button>
+
+          <button
             onClick={handleDuplicate}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
+            className="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
           >
             <Copy className="w-4 h-4 text-purple-500" />
             <span>Duplicate</span>
@@ -112,7 +120,7 @@ export const InvoiceView = () => {
 
           <Link
             to={`/invoices/${id}/edit`}
-            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-1.5 transition-colors shadow-sm"
+            className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-1.5 transition-colors shadow-sm ml-auto sm:ml-0"
           >
             <Edit2 className="w-4 h-4" />
             <span>Edit</span>
@@ -120,12 +128,10 @@ export const InvoiceView = () => {
         </div>
       </div>
 
-      {/* Touch-Scrollable A4 Document Container for Mobile */}
-      <div className="w-full overflow-x-auto pb-4 flex justify-center">
-        <div className="min-w-[210mm]">
-          <InvoiceTemplate invoice={invoice} company={invoice.company} id="printable-invoice" />
-        </div>
-      </div>
+      {/* Mobile-Responsive Auto-Scaled PDF Viewer */}
+      <ResponsivePdfViewer documentTitle={`Invoice #${invoice.invoiceNumber}`}>
+        <InvoiceTemplate invoice={invoice} company={invoice.company} id="printable-invoice" />
+      </ResponsivePdfViewer>
 
       {/* Payment History Section (Screen view only) */}
       {invoice.payments && invoice.payments.length > 0 && (
