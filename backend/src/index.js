@@ -17,6 +17,12 @@ const quotationRoutes = require('./routes/quotationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const backupRoutes = require('./routes/backupRoutes');
 const pdfRoutes = require('./routes/pdfRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
+const advanceRoutes = require('./routes/advanceRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const workLogRoutes = require('./routes/workLogRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -52,6 +58,12 @@ app.use(['/api/quotations', '/quotations'], quotationRoutes);
 app.use(['/api/dashboard', '/dashboard'], dashboardRoutes);
 app.use(['/api/backup', '/backup'], backupRoutes);
 app.use(['/api/pdf', '/pdf'], pdfRoutes);
+app.use(['/api/employees', '/employees'], employeeRoutes);
+app.use(['/api/attendance', '/attendance'], attendanceRoutes);
+app.use(['/api/salary', '/salary'], salaryRoutes);
+app.use(['/api/advances', '/advances'], advanceRoutes);
+app.use(['/api/projects', '/projects'], projectRoutes);
+app.use(['/api/worklogs', '/worklogs'], workLogRoutes);
 
 // Health check
 app.get(['/api/health', '/health'], (req, res) => {

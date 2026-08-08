@@ -67,6 +67,7 @@ model Client {
   updatedAt       DateTime      @updatedAt
   invoices        Invoice[]
   quotations      Quotation[]
+  projects        Project[]
 
   @@index([financialYearId])
   @@index([companyName])
@@ -192,5 +193,159 @@ model Payment {
 
   @@index([invoiceId])
   @@index([paymentDate])
+}
+
+model Employee {
+  id                  String   @id @default(uuid())
+  name                String
+  mobile              String
+  address             String?
+  joiningDate         DateTime
+  monthlySalary       Float
+  salaryCycleStartDay Int      @default(1) // 1-31, day-of-month cycle starts
+  deductionBasis      String   @default("CALENDAR_DAYS") // CALENDAR_DAYS, WORKING_DAYS
+  isActive            Boolean  @default(true)
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  attendance     Attendance[]
+  advances       Advance[]
+  salaryPayments SalaryPayment[]
+  workLogs       WorkLog[]
+
+  @@index([isActive])
+  @@index([name])
+}
+
+model Attendance {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime // UTC-midnight-normalized calendar day
+  status     String // PRESENT, ABSENT, PAID_LEAVE, UNPAID_LEAVE, HOLIDAY
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+}
+
+model Advance {
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  amount      Float
+  advanceDate DateTime @default(now())
+  paymentMode String   @default("CASH") // CASH, UPI, BANK_TRANSFER, OTHER
+  referenceNo String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([advanceDate])
+}
+
+model SalaryPayment {
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycleStart  DateTime // identifies which salary cycle this payment applies to
+  amount      Float
+  paymentDate DateTime @default(now())
+  paymentMode String   @default("CASH") // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  referenceNo String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([employeeId, cycleStart])
+  @@index([paymentDate])
+}
+
+model Project {
+  id                 String     @id @default(uuid())
+  clientId           String
+  client             Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  name               String
+  siteAddress        String
+  contactNumber      String?
+  startDate          DateTime
+  expectedCompletion DateTime?
+  status             String     @default("ACTIVE") // ACTIVE, COMPLETED, ON_HOLD
+  notes              String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  workItems          WorkItem[]
+  workLogs           WorkLog[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([name])
+}
+
+model WorkItem {
+  id         String   @id @default(uuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String // e.g. "Main Gate", "Shed Structure"
+  status     String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([projectId, status])
+}
+
+model WorkLog {
+  id              String    @id @default(uuid())
+  projectId       String
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  visitDate       DateTime // UTC-midnight-normalized calendar date
+  visitTime       String? // free-text "HH:mm"
+  workDone        String?
+  workInProgress  String?
+  workPending     String?
+  amount          Float     @default(0) // work value for this visit
+  paymentReceived Float     @default(0)
+  paymentMode     String    @default("CASH") // CASH, UPI, BANK, OTHER
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employees       Employee[] // implicit m:n - "employees who worked"
+  materials       MaterialUsed[]
+  photos          WorkLogPhoto[]
+
+  @@index([projectId])
+  @@index([projectId, visitDate])
+  @@index([visitDate])
+}
+
+model MaterialUsed {
+  id           String  @id @default(uuid())
+  workLogId    String
+  workLog      WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  materialName String
+  quantity     Float
+  unit         String
+
+  @@index([workLogId])
+}
+
+model WorkLogPhoto {
+  id        String   @id @default(uuid())
+  workLogId String
+  workLog   WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  url       String // "/uploads/worklog_<timestamp>_<n>.<ext>"
+  createdAt DateTime @default(now())
+
+  @@index([workLogId])
 }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { useToast, useConfirm } from '../context/ToastContext';
 import { InvoiceTemplate } from '../components/InvoiceTemplate';
 import { ResponsivePdfViewer } from '../components/ResponsivePdfViewer';
 import { ShareModal } from '../components/ShareModal';
@@ -13,7 +14,7 @@ import {
   Share2,
   Copy,
   Edit2,
-  IndianRupee,
+  FileText,
   History,
   Calendar
 } from 'lucide-react';
@@ -21,17 +22,24 @@ import {
 export const InvoiceView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
   const fetchInvoice = async () => {
     try {
       setLoading(true);
+      setFailed(false);
       const res = await api.get(`/invoices/${id}`);
       setInvoice(res);
     } catch (err) {
       console.error('Failed to load invoice:', err);
+      setFailed(true);
+      toast.error(err.message || 'Failed to load invoice');
     } finally {
       setLoading(false);
     }
@@ -52,75 +60,91 @@ export const InvoiceView = () => {
   };
 
   const handleDuplicate = async () => {
-    if (!window.confirm('Duplicate this invoice into a new invoice?')) return;
+    const ok = await confirm({
+      title: 'Duplicate this invoice?',
+      message: 'A new invoice will be created with the same line items and totals.',
+      confirmText: 'Duplicate',
+      tone: 'default'
+    });
+    if (!ok) return;
+
     try {
       const duplicated = await api.post(`/invoices/${id}/duplicate`);
-      alert(`Invoice duplicated! New Invoice #${duplicated.invoiceNumber}`);
+      toast.success(`Duplicated as invoice #${duplicated.invoiceNumber}`);
       navigate(`/invoices/${duplicated.id}`);
     } catch (err) {
-      alert(err.message || 'Failed to duplicate invoice');
+      toast.error(err.message || 'Failed to duplicate invoice');
     }
   };
 
-  if (loading || !invoice) {
-    return <div className="p-8 text-center text-slate-500">Loading invoice document...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4 max-w-5xl mx-auto" role="status" aria-label="Loading invoice">
+        <div className="skeleton h-28 rounded-2xl" />
+        <div className="skeleton h-[28rem] rounded-2xl" />
+        <span className="sr-only">Loading invoice document…</span>
+      </div>
+    );
+  }
+
+  // Previously a failed fetch left "Loading invoice document..." on screen forever.
+  if (failed || !invoice) {
+    return (
+      <div className="card p-10 sm:p-16 text-center max-w-lg mx-auto">
+        <FileText className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+        <div className="font-semibold text-slate-700 dark:text-slate-300">Invoice not found</div>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          This invoice may have been deleted, or the link is no longer valid.
+        </p>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-center gap-2 mt-5">
+          <Link to="/invoices" className="btn btn-secondary">Back to Invoices</Link>
+          <button onClick={fetchInvoice} className="btn btn-primary">Try Again</button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto pb-12 px-2 sm:px-4">
-      {/* Top Navigation & Action Header */}
-      <div className="no-print p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-3">
+    <div className="space-y-4 max-w-5xl mx-auto">
+      {/* Actions */}
+      <div className="no-print card p-3 sm:p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <Link
-            to="/invoices"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
+          <Link to="/invoices" className="btn btn-sm btn-ghost -ml-2">
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Invoices</span>
           </Link>
 
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">
+          <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 font-mono truncate">
             #{invoice.invoiceNumber}
           </span>
         </div>
 
-        {/* Action Button Row - Touch Scrollable on Mobile */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-semibold">
-          <button
-            onClick={handleDownloadPDF}
-            className="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-md shadow-brand-600/30 flex items-center gap-1.5 transition-all"
-          >
+        {/* Horizontally scrollable on narrow screens so buttons stay full size
+            instead of squashing. */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
+          <button onClick={handleDownloadPDF} className="btn btn-sm btn-primary shrink-0">
             <Download className="w-4 h-4" />
             <span>Download PDF</span>
           </button>
 
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all"
-          >
+          <button onClick={() => setShowShareModal(true)} className="btn btn-sm btn-emerald shrink-0">
             <Share2 className="w-4 h-4" />
             <span>Share</span>
           </button>
 
-          <button
-            onClick={handlePrint}
-            className="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
-          >
-            <Printer className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+          <button onClick={handlePrint} className="btn btn-sm btn-secondary shrink-0">
+            <Printer className="w-4 h-4" />
             <span>Print</span>
           </button>
 
-          <button
-            onClick={handleDuplicate}
-            className="shrink-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
-          >
+          <button onClick={handleDuplicate} className="btn btn-sm btn-secondary shrink-0">
             <Copy className="w-4 h-4 text-purple-500" />
             <span>Duplicate</span>
           </button>
 
           <Link
             to={`/invoices/${id}/edit`}
-            className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white flex items-center gap-1.5 transition-colors shadow-sm ml-auto sm:ml-0"
+            className="btn btn-sm bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/25 shrink-0 sm:ml-auto"
           >
             <Edit2 className="w-4 h-4" />
             <span>Edit</span>
@@ -128,34 +152,37 @@ export const InvoiceView = () => {
         </div>
       </div>
 
-      {/* Mobile-Responsive Auto-Scaled PDF Viewer */}
+      {/* A4 document */}
       <ResponsivePdfViewer documentTitle={`Invoice #${invoice.invoiceNumber}`}>
         <InvoiceTemplate invoice={invoice} company={invoice.company} id="printable-invoice" />
       </ResponsivePdfViewer>
 
-      {/* Payment History Section (Screen view only) */}
+      {/* Payment history (screen only) */}
       {invoice.payments && invoice.payments.length > 0 && (
-        <div className="no-print p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-emerald-600" />
-              <span>Payment History & Transaction Logs ({invoice.payments.length})</span>
+        <div className="no-print card overflow-hidden">
+          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <History className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>Payment History ({invoice.payments.length})</span>
             </h3>
-            <div className="text-xs text-slate-500 font-medium">
-              Total Received: <strong className="text-emerald-600 font-mono text-sm">{formatCurrency(invoice.amountReceived)}</strong>
+            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium shrink-0">
+              Total Received:{' '}
+              <strong className="text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(invoice.amountReceived)}
+              </strong>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <ul className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-4 sm:p-5">
             {invoice.payments.map((p) => (
-              <div
+              <li
                 key={p.id}
-                className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-between text-xs"
+                className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-start justify-between gap-3"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       {new Date(p.paymentDate).toLocaleString('en-IN', {
                         day: '2-digit',
                         month: 'short',
@@ -165,30 +192,26 @@ export const InvoiceView = () => {
                         hour12: true
                       })}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase">
-                      {p.paymentMode || 'CASH'}
-                    </span>
+                    <span className="badge badge-neutral">{p.paymentMode || 'CASH'}</span>
                   </div>
                   {(p.referenceNo || p.notes) && (
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {p.referenceNo && <span>Ref: <strong>{p.referenceNo}</strong> </span>}
-                      {p.notes && <span>• {p.notes}</span>}
+                    <div className="text-xs text-slate-500 dark:text-slate-400 break-words">
+                      {p.referenceNo && <span>Ref: <strong>{p.referenceNo}</strong></span>}
+                      {p.referenceNo && p.notes && <span aria-hidden="true"> • </span>}
+                      {p.notes && <span>{p.notes}</span>}
                     </div>
                   )}
                 </div>
-                <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
+                <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 shrink-0">
                   +{formatCurrency(p.amount)}
                 </span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
-      {/* Share Modal */}
-      {showShareModal && (
-        <ShareModal invoice={invoice} onClose={() => setShowShareModal(false)} />
-      )}
+      {showShareModal && <ShareModal invoice={invoice} onClose={() => setShowShareModal(false)} />}
     </div>
   );
 };

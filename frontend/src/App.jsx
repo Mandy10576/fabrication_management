@@ -1,12 +1,15 @@
-import React, { useState, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, BrowserRouter } from 'react-router-dom';
+import React, { useEffect, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, BrowserRouter, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { FYProvider } from './context/FYContext';
+import { ToastProvider } from './context/ToastContext';
+import { Wrench } from 'lucide-react';
 
 import { Navbar } from './components/Navbar';
-import { Sidebar } from './components/Sidebar';
+import { AppSidebar } from './components/Sidebar';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 // Lazy loaded page components for fast initial load
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
@@ -22,25 +25,58 @@ const QuotationForm = lazy(() => import('./pages/QuotationForm').then(m => ({ de
 const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
 const CompanySettings = lazy(() => import('./pages/CompanySettings').then(m => ({ default: m.CompanySettings })));
 const BackupRestore = lazy(() => import('./pages/BackupRestore').then(m => ({ default: m.BackupRestore })));
+const Employees = lazy(() => import('./pages/Employees').then(m => ({ default: m.Employees })));
+const EmployeeDetail = lazy(() => import('./pages/EmployeeDetail').then(m => ({ default: m.EmployeeDetail })));
+const EmployeeAttendance = lazy(() => import('./pages/EmployeeAttendance').then(m => ({ default: m.EmployeeAttendance })));
+const EmployeeSalary = lazy(() => import('./pages/EmployeeSalary').then(m => ({ default: m.EmployeeSalary })));
+const EmployeeAdvances = lazy(() => import('./pages/EmployeeAdvances').then(m => ({ default: m.EmployeeAdvances })));
+const Projects = lazy(() => import('./pages/Projects').then(m => ({ default: m.Projects })));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const WorkHistory = lazy(() => import('./pages/WorkHistory').then(m => ({ default: m.WorkHistory })));
 
+/**
+ * Skeleton rather than a spinner: it reserves the same shape the page is about
+ * to take, so the layout doesn't jump when the chunk finishes loading.
+ */
 const PageLoader = () => (
-  <div className="p-8 sm:p-12 flex flex-col items-center justify-center min-h-[300px] text-slate-400 dark:text-slate-500">
-    <div className="w-8 h-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-    <span className="text-xs font-semibold">Loading page module...</span>
+  <div className="space-y-4 sm:space-y-6" role="status" aria-label="Loading page">
+    <div className="skeleton h-24 sm:h-28 rounded-2xl" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="skeleton h-28 rounded-2xl" />
+      ))}
+    </div>
+    <div className="skeleton h-64 rounded-2xl" />
+    <span className="sr-only">Loading page…</span>
   </div>
 );
 
+const FullScreenLoader = ({ label = 'Loading…' }) => (
+  <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-brand-600/25">
+      <Wrench className="w-7 h-7" />
+    </div>
+    <div className="flex items-center gap-2.5 text-slate-500 dark:text-slate-400">
+      <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm font-semibold">{label}</span>
+    </div>
+  </div>
+);
+
+/** Scrolls back to the top whenever the route changes. */
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [pathname]);
+  return null;
+};
+
 const ProtectedLayout = () => {
   const { user, loading } = useAuth();
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-semibold gap-3">
-        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-sm">Loading Fabrication Management...</span>
-      </div>
-    );
+    return <FullScreenLoader label="Loading Fabrication Management…" />;
   }
 
   if (!user) {
@@ -49,17 +85,27 @@ const ProtectedLayout = () => {
 
   return (
     <FYProvider>
-      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
-        <div className="no-print">
-          <Navbar onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
+      {/* shadcn sidebar layout: the rail lives outside the inset, and
+          SidebarInset owns the header + scrollable content column.
+          Desktop collapse state persists in a cookie; Ctrl/Cmd+B toggles it. */}
+      <SidebarProvider className="font-sans">
+        {/* Sidebar hardcodes its own className on the desktop branch, so the
+            print-hiding class has to go on a wrapper. `contents` keeps it out
+            of the flex layout. */}
+        <div className="no-print contents">
+          <AppSidebar />
         </div>
 
-        <div className="flex flex-1">
+        {/* SidebarInset already renders the page's single <main> element — the
+            content column below is a plain div so we don't nest <main>. */}
+        <SidebarInset className="min-w-0 bg-slate-50 dark:bg-slate-950">
           <div className="no-print">
-            <Sidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+            <Navbar />
           </div>
 
-          <main className="flex-1 p-3 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-[1700px] 2xl:max-w-[1920px] mx-auto w-full overflow-x-hidden">
+          {/* min-w-0 is what actually lets wide tables scroll inside their own
+              container instead of stretching this flex child and the page. */}
+          <div className="flex-1 min-w-0 w-full max-w-[1700px] 2xl:max-w-[1920px] mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6 pb-nav md:pb-8">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
@@ -73,19 +119,28 @@ const ProtectedLayout = () => {
                 <Route path="/clients" element={<Clients />} />
                 <Route path="/clients/:id" element={<ClientDetail />} />
                 <Route path="/rates" element={<RateMaster />} />
+                <Route path="/employees" element={<Employees />} />
+                <Route path="/employees/:id" element={<EmployeeDetail />} />
+                <Route path="/attendance" element={<EmployeeAttendance />} />
+                <Route path="/salary" element={<EmployeeSalary />} />
+                <Route path="/advances" element={<EmployeeAdvances />} />
+                <Route path="/projects/active" element={<Projects fixedStatus="ACTIVE" />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:id" element={<ProjectDetail />} />
+                <Route path="/work-history" element={<WorkHistory />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/company" element={<CompanySettings />} />
                 <Route path="/backup" element={<BackupRestore />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-          </main>
-        </div>
+          </div>
 
-        <div className="no-print">
-          <MobileBottomNav />
-        </div>
-      </div>
+          <div className="no-print">
+            <MobileBottomNav />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </FYProvider>
   );
 };
@@ -94,18 +149,17 @@ export const App = () => {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
-          <Suspense fallback={
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white text-xs">
-              Loading Application...
-            </div>
-          }>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/*" element={<ProtectedLayout />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <ScrollToTop />
+            <Suspense fallback={<FullScreenLoader label="Loading Application…" />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/*" element={<ProtectedLayout />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

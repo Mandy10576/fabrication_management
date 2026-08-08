@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useRef, useEffect } from 'react';
 import { useFY } from '../context/FYContext';
-import { Calendar, Plus, Check } from 'lucide-react';
+import { Calendar, Plus, Check, ChevronDown } from 'lucide-react';
 import { api } from '../services/api';
+import { Modal } from './ui/Modal';
 
 export const FinancialYearSelector = () => {
   const { financialYears, selectedFY, setSelectedFY, fetchFYs } = useFY();
@@ -12,11 +12,38 @@ export const FinancialYearSelector = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const containerRef = useRef(null);
+
+  // The dropdown used to stay open until you clicked it again — even after
+  // navigating or tapping elsewhere on the page.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const onPointerDown = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isOpen]);
 
   const handleCreateFY = async (e) => {
     e.preventDefault();
     setError('');
     try {
+      setSaving(true);
       await api.post('/financial-years', {
         year: newYear,
         startDate,
@@ -30,6 +57,8 @@ export const FinancialYearSelector = () => {
       setEndDate('');
     } catch (err) {
       setError(err.message || 'Failed to create financial year');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -37,35 +66,45 @@ export const FinancialYearSelector = () => {
     ? 'All FY'
     : financialYears.find(f => f.id === selectedFY)?.year || 'FY';
 
+  const optionClass = (active) =>
+    `w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm text-left transition-colors ${
+      active
+        ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 font-semibold'
+        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+    }`;
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:border-brand-500 transition-all shadow-sm shrink-0"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className="flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-xl text-xs sm:text-sm font-bold
+                   border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800
+                   text-slate-800 dark:text-slate-200 hover:border-brand-500 transition-colors shrink-0"
       >
-        <Calendar className="w-4 h-4 text-brand-500" />
-        <span>{selectedYearLabel}</span>
-        <span className="text-[10px] px-1 py-0.2 rounded bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 font-bold hidden sm:inline-block">
-          FY
-        </span>
+        <Calendar className="w-4 h-4 text-brand-500 shrink-0" />
+        <span className="max-w-[5.5rem] truncate">{selectedYearLabel}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 sm:w-64 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 p-2 text-xs">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 py-1.5">
-            Switch Financial Year
-          </div>
-          
+        <div
+          role="listbox"
+          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto
+                     rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800
+                     shadow-pop z-50 p-2 animate-scale-in"
+        >
+          <div className="px-3 py-1.5 section-label">Switch Financial Year</div>
+
           <button
+            role="option"
+            aria-selected={selectedFY === 'ALL'}
             onClick={() => { setSelectedFY('ALL'); setIsOpen(false); }}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-              selectedFY === 'ALL'
-                ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-300 font-semibold'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+            className={optionClass(selectedFY === 'ALL')}
           >
             <span>All Financial Years</span>
-            {selectedFY === 'ALL' && <Check className="w-4 h-4" />}
+            {selectedFY === 'ALL' && <Check className="w-4 h-4 shrink-0" />}
           </button>
 
           <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
@@ -73,22 +112,20 @@ export const FinancialYearSelector = () => {
           {financialYears.map(fy => (
             <button
               key={fy.id}
+              role="option"
+              aria-selected={selectedFY === fy.id}
               onClick={() => { setSelectedFY(fy.id); setIsOpen(false); }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-                selectedFY === fy.id
-                  ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/50 dark:text-brand-300 font-semibold'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={optionClass(selectedFY === fy.id)}
             >
-              <div className="flex items-center gap-2">
-                <span>{fy.year}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="truncate">{fy.year}</span>
                 {fy.isCurrent && (
-                  <span className="text-[9px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1 py-0.2 rounded font-medium">
+                  <span className="badge bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
                     Active
                   </span>
                 )}
-              </div>
-              {selectedFY === fy.id && <Check className="w-4 h-4" />}
+              </span>
+              {selectedFY === fy.id && <Check className="w-4 h-4 shrink-0" />}
             </button>
           ))}
 
@@ -96,7 +133,7 @@ export const FinancialYearSelector = () => {
 
           <button
             onClick={() => { setShowAddModal(true); setIsOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors font-medium"
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 rounded-lg transition-colors font-semibold"
           >
             <Plus className="w-4 h-4" />
             <span>Add Financial Year</span>
@@ -104,79 +141,71 @@ export const FinancialYearSelector = () => {
         </div>
       )}
 
-      {/* Modal for adding new financial year */}
-      {showAddModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-4">Add Financial Year</h3>
-
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-xs">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateFY} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
-                  Financial Year String (e.g. 2027-28)
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="2027-28"
-                  value={newYear}
-                  onChange={e => setNewYear(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold shadow-lg shadow-brand-600/30 transition-all"
-                >
-                  Create FY
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Financial Year"
+        icon={Calendar}
+        size="md"
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button type="button" onClick={() => setShowAddModal(false)} className="btn btn-secondary sm:min-w-[7rem]">
+              Cancel
+            </button>
+            <button type="submit" form="add-fy-form" disabled={saving} className="btn btn-primary sm:min-w-[7rem]">
+              {saving ? 'Creating…' : 'Create FY'}
+            </button>
           </div>
-        </div>,
-        document.body
-      )}
+        }
+      >
+        {error && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form id="add-fy-form" onSubmit={handleCreateFY} className="space-y-4">
+          <div>
+            <label htmlFor="fy-year" className="label">Financial Year (e.g. 2027-28)</label>
+            <input
+              id="fy-year"
+              type="text"
+              required
+              data-autofocus
+              placeholder="2027-28"
+              value={newYear}
+              onChange={e => setNewYear(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="fy-start" className="label">Start Date</label>
+              <input
+                id="fy-start"
+                type="date"
+                required
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="fy-end" className="label">End Date</label>
+              <input
+                id="fy-end"
+                type="date"
+                required
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="input"
+              />
+            </div>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

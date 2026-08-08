@@ -1,38 +1,37 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
+import { useToast, useConfirm } from '../context/ToastContext';
 import {
   DatabaseBackup,
   Download,
   Upload,
-  ShieldCheck,
-  CheckCircle,
+  FileJson,
   AlertTriangle
 } from 'lucide-react';
 
 export const BackupRestore = () => {
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [downloading, setDownloading] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreFile, setRestoreFile] = useState(null);
-  const [msg, setMsg] = useState('');
-  const [error, setError] = useState('');
 
   const handleExportBackup = async () => {
     setDownloading(true);
-    setMsg('');
-    setError('');
     try {
       const data = await api.get('/backup/export');
       const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
       const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", jsonString);
-      downloadAnchor.setAttribute("download", `fabrication_backup_${new Date().toISOString().split('T')[0]}.json`);
+      downloadAnchor.setAttribute('href', jsonString);
+      downloadAnchor.setAttribute('download', `fabrication_backup_${new Date().toISOString().split('T')[0]}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
 
-      setMsg('Full database backup exported successfully!');
+      toast.success('Full database backup exported successfully');
     } catch (err) {
-      setError(err.message || 'Failed to export backup');
+      toast.error(err.message || 'Failed to export backup');
     } finally {
       setDownloading(false);
     }
@@ -41,109 +40,124 @@ export const BackupRestore = () => {
   const handleRestoreBackup = async (e) => {
     e.preventDefault();
     if (!restoreFile) {
-      setError('Please select a JSON backup file first');
+      toast.warning('Please select a JSON backup file first');
       return;
     }
 
-    if (!window.confirm('WARNING: Restoring backup will overwrite or update existing database records. Do you wish to continue?')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Restore from backup?',
+      message: 'Restoring will overwrite or update existing database records. Export a fresh backup first if you are unsure.',
+      confirmText: 'Restore data'
+    });
+    if (!ok) return;
 
     setRestoring(true);
-    setMsg('');
-    setError('');
 
     try {
       const reader = new FileReader();
+      reader.onerror = () => {
+        toast.error('Failed to read the selected file');
+        setRestoring(false);
+      };
       reader.onload = async (evt) => {
         try {
           const parsed = JSON.parse(evt.target.result);
           await api.post('/backup/restore', parsed);
-          setMsg('Database backup restored successfully!');
+          toast.success('Database backup restored successfully');
         } catch (err) {
-          setError(err.message || 'Failed to parse or restore backup JSON file');
+          toast.error(err.message || 'Failed to parse or restore the backup file');
         } finally {
           setRestoring(false);
         }
       };
       reader.readAsText(restoreFile);
     } catch (err) {
-      setError('Failed to read file');
+      toast.error('Failed to read file');
       setRestoring(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-6xl 2xl:max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <DatabaseBackup className="w-6 h-6 text-brand-500" />
-          <span>System Backup & Restore</span>
+        <h2 className="page-title flex items-center gap-2">
+          <DatabaseBackup className="w-6 h-6 text-brand-500 shrink-0" />
+          <span>Backup & Restore</span>
         </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Safeguard company invoices, client history, rate catalog, and financial data with JSON backups
+        <p className="page-subtitle">
+          Safeguard invoices, client history, rate catalog, and financial data with JSON backups
         </p>
       </div>
 
-      {msg && (
-        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 text-emerald-600 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" />
-          <span>{msg}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Export Card */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs flex flex-col justify-between">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Export */}
+        <div className="card card-pad flex flex-col justify-between gap-5">
           <div>
             <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-300 flex items-center justify-center mb-3">
               <Download className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
               Export System Backup
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              Download a complete JSON snapshot containing all clients, financial years, fabrication rate master items, tax invoices, and quotations.
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              Download a complete JSON snapshot containing all clients, financial years, rate master items,
+              tax invoices, and quotations.
             </p>
           </div>
 
-          <button
-            onClick={handleExportBackup}
-            disabled={downloading}
-            className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2 transition-all"
-          >
-            <Download className="w-4 h-4" />
-            <span>{downloading ? 'Exporting...' : 'Download Complete Backup JSON'}</span>
+          <button onClick={handleExportBackup} disabled={downloading} className="btn btn-primary w-full">
+            {downloading ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                <span>Exporting…</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Download Backup JSON</span>
+              </>
+            )}
           </button>
         </div>
 
-        {/* Restore Card */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs flex flex-col justify-between">
+        {/* Restore */}
+        <div className="card card-pad flex flex-col justify-between gap-5">
           <div>
             <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300 flex items-center justify-center mb-3">
               <Upload className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
               Restore System Data
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               Upload a previously exported JSON backup file to restore system records.
             </p>
 
+            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                This overwrites existing records. Export a fresh backup before restoring.
+              </p>
+            </div>
+
             <form id="restore-form" onSubmit={handleRestoreBackup} className="mt-4">
+              <label htmlFor="restore-file" className="label">Backup file (.json)</label>
               <input
+                id="restore-file"
                 type="file"
-                accept=".json"
-                onChange={(e) => setRestoreFile(e.target.files[0])}
-                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                accept=".json,application/json"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-slate-500 dark:text-slate-400 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5
+                           file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
+                           file:bg-amber-50 file:text-amber-700 dark:file:bg-amber-950/60 dark:file:text-amber-300
+                           hover:file:bg-amber-100 dark:hover:file:bg-amber-900/50 file:cursor-pointer"
               />
+              {restoreFile && (
+                <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5 min-w-0">
+                  <FileJson className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span className="truncate">{restoreFile.name}</span>
+                </p>
+              )}
             </form>
           </div>
 
@@ -151,10 +165,19 @@ export const BackupRestore = () => {
             type="submit"
             form="restore-form"
             disabled={restoring || !restoreFile}
-            className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            className="btn w-full bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/25"
           >
-            <Upload className="w-4 h-4" />
-            <span>{restoring ? 'Restoring Backup...' : 'Restore Data from File'}</span>
+            {restoring ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                <span>Restoring…</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                <span>Restore Data from File</span>
+              </>
+            )}
           </button>
         </div>
       </div>

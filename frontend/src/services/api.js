@@ -1,11 +1,18 @@
-const getApiBase = () => {
-  if (typeof window !== 'undefined') {
-    // If running on localhost development server (e.g., port 3000), target backend port 5000
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000/api';
-    }
-  }
-  return '/api';
+/**
+ * Single source of truth for the API origin.
+ *
+ * Always relative by default: in development Vite proxies `/api` to the backend
+ * (see `server.proxy` in vite.config.js), and in production vercel.json routes
+ * it to the serverless function. Previously this hardcoded
+ * `http://localhost:5000` on localhost, which bypassed the proxy entirely and
+ * duplicated the port across three files — so when something else grabbed 5000,
+ * requests silently went to that other server instead of failing loudly.
+ *
+ * Set VITE_API_BASE_URL to point at a backend on another host/port.
+ */
+export const getApiBase = () => {
+  const override = import.meta.env?.VITE_API_BASE_URL;
+  return override ? override.replace(/\/$/, '') : '/api';
 };
 
 const getHeaders = () => {

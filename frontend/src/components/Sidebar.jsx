@@ -1,116 +1,283 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
+import {
+  Sidebar as SidebarRoot,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail,
+  useSidebar,
+} from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
   Layers,
   FileText,
   Quote,
   BarChart3,
   Building2,
   DatabaseBackup,
-  PlusCircle
+  PlusCircle,
+  Wrench,
+  ChevronDown,
+  CalendarCheck,
+  Wallet,
+  HandCoins,
+  Construction,
+  CheckCircle2,
+  ListChecks,
 } from 'lucide-react';
 
-export const Sidebar = ({ isOpen, onClose }) => {
-  const navItems = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Invoices', path: '/invoices', icon: FileText },
-    { label: 'Quotations', path: '/quotations', icon: Quote },
-    { label: 'Clients', path: '/clients', icon: Users },
-    { label: 'Rate Master', path: '/rates', icon: Layers },
-    { label: 'Reports & GST', path: '/reports', icon: BarChart3 },
-    { label: 'Company Settings', path: '/company', icon: Building2 },
-    { label: 'Backup & Restore', path: '/backup', icon: DatabaseBackup },
-  ];
+const NAV_GROUPS = [
+  {
+    title: 'Main Menu',
+    items: [
+      { label: 'Dashboard', path: '/', icon: LayoutDashboard, end: true },
+      {
+        label: 'Bill',
+        icon: FileText,
+        children: [
+          { label: 'Invoices', path: '/invoices', icon: FileText },
+          { label: 'Quotations', path: '/quotations', icon: Quote },
+        ],
+      },
+      { label: 'Clients', path: '/clients', icon: Users },
+      {
+        label: 'Employees',
+        icon: UsersRound,
+        children: [
+          { label: 'Employee List', path: '/employees', icon: Users },
+          { label: 'Attendance', path: '/attendance', icon: CalendarCheck },
+          { label: 'Salary', path: '/salary', icon: Wallet },
+          { label: 'Advances', path: '/advances', icon: HandCoins },
+        ],
+      },
+      {
+        label: 'Projects / Sites',
+        icon: Construction,
+        children: [
+          { label: 'All Projects', path: '/projects', icon: Construction, end: true },
+          { label: 'Active Projects', path: '/projects/active', icon: CheckCircle2 },
+          { label: 'Work History', path: '/work-history', icon: ListChecks },
+        ],
+      },
+      { label: 'Rate Master', path: '/rates', icon: Layers },
+      { label: 'Reports & GST', path: '/reports', icon: BarChart3 },
+    ],
+  },
+  {
+    title: 'Settings',
+    items: [
+      { label: 'Company Settings', path: '/company', icon: Building2 },
+      { label: 'Backup & Restore', path: '/backup', icon: DatabaseBackup },
+    ],
+  },
+];
 
-  const handlePrefetch = (path) => {
-    try {
-      const fy = localStorage.getItem('khodiyar_selected_fy') || 'ALL';
-      if (path === '/invoices') api.get(`/invoices?financialYearId=${fy}&status=ALL&gstType=ALL&search=&limit=20`);
-      else if (path === '/quotations') api.get(`/quotations?financialYearId=${fy}&search=&limit=20`);
-      else if (path === '/clients') api.get(`/clients?financialYearId=${fy}&search=&limit=20`);
-      else if (path === '/rates') api.get('/rates?search=');
-    } catch (e) {}
+/** Warms the API cache on hover so the page is already loaded when clicked. */
+const prefetch = (path) => {
+  try {
+    const fy = localStorage.getItem('khodiyar_selected_fy') || 'ALL';
+    if (path === '/invoices') api.get(`/invoices?financialYearId=${fy}&status=ALL&gstType=ALL&search=&limit=20`);
+    else if (path === '/quotations') api.get(`/quotations?financialYearId=${fy}&search=&limit=20`);
+    else if (path === '/clients') api.get(`/clients?financialYearId=${fy}&search=&limit=20`);
+    else if (path === '/rates') api.get('/rates?search=');
+    else if (path === '/employees') api.get('/employees?status=ACTIVE&search=&limit=20');
+    else if (path === '/attendance') api.get('/attendance?status=ACTIVE&search=');
+    else if (path === '/salary') api.get('/salary?status=ACTIVE&search=');
+    else if (path === '/advances') api.get('/advances?search=');
+    else if (path === '/projects') api.get('/projects?status=ALL&search=&limit=20');
+    else if (path === '/projects/active') api.get('/projects?status=ACTIVE&search=&limit=20');
+    else if (path === '/work-history') api.get('/worklogs?limit=20');
+  } catch (e) {}
+};
+
+/** A top-level nav item that expands into a submenu instead of navigating itself. */
+const CollapsibleGroupItem = ({ item, isActive, closeOnMobile }) => {
+  const { state: sidebarState, setOpen: setSidebarOpen } = useSidebar();
+  const Icon = item.icon;
+  const isChildActive = item.children.some((child) => isActive(child));
+  const [open, setOpen] = useState(isChildActive);
+
+  // Auto-expand when a child becomes active (e.g. the header's "Create
+  // Invoice" CTA navigating to /invoices/new) — but never auto-collapse, so a
+  // manual expand/collapse survives unrelated navigation.
+  useEffect(() => {
+    if (isChildActive) setOpen(true);
+  }, [isChildActive]);
+
+  const handleTriggerClick = () => {
+    if (sidebarState === 'collapsed') {
+      // Icon-only rail: expand the whole sidebar first so the submenu is visible.
+      setSidebarOpen(true);
+      setOpen(true);
+      return;
+    }
+    setOpen((prev) => !prev);
   };
 
-  const sidebarContent = (
-    <div className="h-full flex flex-col justify-between py-4 px-3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
-      <div className="space-y-6">
-        {/* Quick Action Button */}
-        <div className="px-2">
-          <NavLink
-            to="/invoices/new"
-            onClick={onClose}
-            onMouseEnter={() => handlePrefetch('/invoices')}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-brand-500/25 transition-all transform active:scale-95"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Create Invoice</span>
-          </NavLink>
-        </div>
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        type="button"
+        onClick={handleTriggerClick}
+        isActive={isChildActive}
+        tooltip={item.label}
+      >
+        <Icon />
+        <span>{item.label}</span>
+        <ChevronDown className={`ml-auto size-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </SidebarMenuButton>
 
-        {/* Nav Links */}
-        <nav className="space-y-1">
-          <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Main Menu
-          </div>
-
-          {navItems.map((item) => {
-            const Icon = item.icon;
+      {open && (
+        <SidebarMenuSub>
+          {item.children.map((child) => {
+            const ChildIcon = child.icon;
             return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/'}
-                onClick={onClose}
-                onMouseEnter={() => handlePrefetch(item.path)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                    isActive
-                      ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-300 font-semibold shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`
-                }
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
-              </NavLink>
+              <SidebarMenuSubItem key={child.path}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={isActive(child)}
+                >
+                  <NavLink
+                    to={child.path}
+                    onClick={closeOnMobile}
+                    onMouseEnter={() => prefetch(child.path)}
+                  >
+                    <ChildIcon />
+                    <span>{child.label}</span>
+                  </NavLink>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
             );
           })}
-        </nav>
-      </div>
-
-      {/* Footer Info */}
-      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1">
-        <div className="font-semibold text-slate-700 dark:text-slate-300">
-          Khodiyar Steel Fabrication v1.0
-        </div>
-        <div>Owner Admin Access Only</div>
-      </div>
-    </div>
+        </SidebarMenuSub>
+      )}
+    </SidebarMenuItem>
   );
+};
+
+export const AppSidebar = (props) => {
+  const location = useLocation();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // Selecting an item should dismiss the mobile sheet, but must not touch the
+  // desktop collapsed/expanded state (that's the user's persisted preference).
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
+
+  const isActive = (item) =>
+    item.end ? location.pathname === item.path : location.pathname.startsWith(item.path);
 
   return (
-    <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-64 shrink-0 h-[calc(100vh-61px)] sticky top-[61px]">
-        {sidebarContent}
-      </aside>
-
-      {/* Mobile Drawer */}
-      {isOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-          />
-          <div className="relative w-64 max-w-xs h-full z-10">
-            {sidebarContent}
+    <SidebarRoot collapsible="icon" {...props}>
+      <SidebarHeader className="gap-2">
+        {/* Brand — collapses to just the mark in icon mode. */}
+        <div className="flex items-center gap-2.5 px-1 py-1">
+          <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 text-white shadow-md shadow-brand-600/25">
+            <Wrench className="size-4" />
+          </div>
+          <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-extrabold text-sidebar-foreground">
+              Khodiyar Steel
+            </span>
+            <span className="truncate text-[11px] text-muted-foreground">
+              Fabrication Management
+            </span>
           </div>
         </div>
-      )}
-    </>
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip="Create Invoice"
+              className="bg-gradient-to-r from-brand-600 to-indigo-600 text-white shadow-lg shadow-brand-600/25
+                         hover:from-brand-500 hover:to-indigo-500 hover:text-white
+                         active:from-brand-500 active:to-indigo-500 active:text-white
+                         focus-visible:ring-sidebar-ring"
+            >
+              <NavLink
+                to="/invoices/new"
+                onClick={closeOnMobile}
+                onMouseEnter={() => prefetch('/invoices')}
+              >
+                <PlusCircle />
+                <span className="font-semibold">Create Invoice</span>
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      <SidebarContent>
+        {NAV_GROUPS.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  if (item.children) {
+                    return (
+                      <CollapsibleGroupItem
+                        key={item.label}
+                        item={item}
+                        isActive={isActive}
+                        closeOnMobile={closeOnMobile}
+                      />
+                    );
+                  }
+
+                  const Icon = item.icon;
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item)}
+                        tooltip={item.label}
+                      >
+                        <NavLink
+                          to={item.path}
+                          end={item.end}
+                          onClick={closeOnMobile}
+                          onMouseEnter={() => prefetch(item.path)}
+                        >
+                          <Icon />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+
+      <SidebarFooter>
+        <div className="rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+          <div className="font-semibold text-sidebar-foreground">
+            Khodiyar Steel Fabrication v1.0
+          </div>
+          <div>Owner Admin Access Only</div>
+        </div>
+      </SidebarFooter>
+
+      {/* Drag handle / click target on the sidebar edge to collapse. */}
+      <SidebarRail />
+    </SidebarRoot>
   );
 };

@@ -165,16 +165,16 @@ const deleteClient = async (req, res, next) => {
     const { id } = req.params;
     const existing = await prisma.client.findUnique({
       where: { id },
-      include: { _count: { select: { invoices: true, quotations: true } } }
+      include: { _count: { select: { invoices: true, quotations: true, projects: true } } }
     });
 
     if (!existing) {
       return res.status(404).json({ error: 'Client not found or already deleted' });
     }
 
-    if (existing._count?.invoices > 0 || existing._count?.quotations > 0) {
+    if (existing._count?.invoices > 0 || existing._count?.quotations > 0 || existing._count?.projects > 0) {
       return res.status(400).json({
-        error: `Cannot delete '${existing.companyName}' because they have ${existing._count.invoices} invoice(s) and ${existing._count.quotations} quotation(s) linked.`
+        error: `Cannot delete '${existing.companyName}' because they have ${existing._count.invoices} invoice(s), ${existing._count.quotations} quotation(s), and ${existing._count.projects} project(s) linked.`
       });
     }
 

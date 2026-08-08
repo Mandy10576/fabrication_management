@@ -28,7 +28,6 @@ export const RateMasterAutocomplete = ({
 
   const handleInputChange = (e) => {
     onChange(e.target.value);
-    if (!isOpen) setIsOpen(true);
   };
 
   const handleSelect = (rItem) => {
@@ -71,7 +70,6 @@ export const RateMasterAutocomplete = ({
           placeholder={placeholder}
           value={value}
           onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
           className={`w-full pl-3 pr-11 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none ${activeFocusRing}`}
         />
 

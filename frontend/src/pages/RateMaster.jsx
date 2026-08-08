@@ -1,32 +1,47 @@
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
+import { useToast, useConfirm } from '../context/ToastContext';
 import { formatCurrency } from '../utils/formatters';
+import { Modal } from '../components/ui/Modal';
 import {
   Layers,
   Search,
   Plus,
   Edit2,
   Trash2,
-  Tag,
-  IndianRupee,
   X,
   Wrench,
   Settings,
-  ChevronDown
+  ChevronDown,
+  AlertCircle
 } from 'lucide-react';
 
 const DEFAULT_UNITS = ['sq ft', 'meter', 'kg', 'pcs', 'hrs', 'ton', 'set', 'lot', 'nos', 'mm', 'inch', 'sq mtr', 'job'];
 
+const EMPTY_FORM = {
+  serviceName: '',
+  hsnSac: '',
+  unit: 'sq ft',
+  rate: '',
+  description: ''
+};
+
 export const RateMaster = () => {
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [rates, setRates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingRate, setEditingRate] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
   const [showManageUnitsModal, setShowManageUnitsModal] = useState(false);
   const [newUnitInput, setNewUnitInput] = useState('');
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [error, setError] = useState('');
+  const unitDropdownRef = useRef(null);
 
   // Persistent managed units list saved in browser storage
   const [availableUnits, setAvailableUnits] = useState(() => {
@@ -47,16 +62,20 @@ export const RateMaster = () => {
     } catch (e) {
       console.error('Failed to save units:', e);
     }
+    return newUnitsList;
   };
 
   const handleAddUnitOption = (newUnitName) => {
-    if (!newUnitName) return;
-    const trimmed = newUnitName.trim();
+    const trimmed = (newUnitName || '').trim();
     if (!trimmed) return;
-    if (!availableUnits.some(u => u.toLowerCase() === trimmed.toLowerCase())) {
-      const updated = [...availableUnits, trimmed];
-      saveAvailableUnits(updated);
-    }
+    setAvailableUnits((prev) => {
+      if (prev.some((u) => u.toLowerCase() === trimmed.toLowerCase())) return prev;
+      const updated = [...prev, trimmed];
+      try {
+        localStorage.setItem('khodiyar_managed_units', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   const handleRemoveUnitOption = (unitToRemove) => {
@@ -67,15 +86,17 @@ export const RateMaster = () => {
     }
   };
 
-  const [formData, setFormData] = useState({
-    serviceName: '',
-    hsnSac: '',
-    unit: 'sq ft',
-    rate: '',
-    description: ''
-  });
-
-  const [error, setError] = useState('');
+  // Close the unit dropdown when clicking elsewhere.
+  useEffect(() => {
+    if (!isUnitDropdownOpen) return undefined;
+    const onPointerDown = (e) => {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(e.target)) {
+        setIsUnitDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [isUnitDropdownOpen]);
 
   const fetchRates = async () => {
     try {
@@ -84,6 +105,7 @@ export const RateMaster = () => {
       setRates(res);
     } catch (err) {
       console.error('Failed to load rates:', err);
+      toast.error(err.message || 'Failed to load rate catalog');
     } finally {
       setLoading(false);
     }
@@ -95,13 +117,7 @@ export const RateMaster = () => {
 
   const handleOpenAdd = () => {
     setEditingRate(null);
-    setFormData({
-      serviceName: '',
-      hsnSac: '',
-      unit: availableUnits[0] || 'sq ft',
-      rate: '',
-      description: ''
-    });
+    setFormData({ ...EMPTY_FORM, unit: availableUnits[0] || 'sq ft' });
     setIsUnitDropdownOpen(false);
     setError('');
     setShowModal(true);
@@ -135,129 +151,170 @@ export const RateMaster = () => {
       return;
     }
 
-    // Save custom unit to persistent options list
-    saveCustomUnit(finalUnit);
+    // Keep any newly typed unit in the persistent dropdown list.
+    // (This previously called an undefined `saveCustomUnit`, which threw
+    // before the request was ever sent.)
+    handleAddUnitOption(finalUnit);
 
-    const payload = {
-      ...formData,
-      unit: finalUnit
-    };
+    const payload = { ...formData, unit: finalUnit };
 
     try {
+      setSaving(true);
       if (editingRate) {
         await api.put(`/rates/${editingRate.id}`, payload);
+        toast.success(`${payload.serviceName} updated`);
       } else {
         await api.post('/rates', payload);
+        toast.success(`${payload.serviceName} added to catalog`);
       }
       setShowModal(false);
       fetchRates();
     } catch (err) {
       setError(err.message || 'Failed to save rate item');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete service "${name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${name}"?`,
+      message: 'This removes the service from your rate catalog. Existing invoices are not affected.',
+      confirmText: 'Delete service'
+    });
+    if (!ok) return;
+
     try {
       await api.delete(`/rates/${id}`);
+      toast.success(`${name} deleted`);
       fetchRates();
     } catch (err) {
-      alert(err.message || 'Failed to delete service');
+      toast.error(err.message || 'Failed to delete service');
     }
   };
 
+  const addUnitFromInput = (alsoSelect = false) => {
+    const trimmed = newUnitInput.trim();
+    if (!trimmed) return;
+    handleAddUnitOption(trimmed);
+    if (alsoSelect) setFormData((prev) => ({ ...prev, unit: trimmed }));
+    setNewUnitInput('');
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers className="w-6 h-6 text-brand-500" />
-            <span>Rate Master (Fabrication Services Catalog)</span>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="page-title flex items-center gap-2">
+            <Layers className="w-6 h-6 text-brand-500 shrink-0" />
+            <span>Rate Master</span>
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure standard fabrication services, HSN/SAC codes, and editable rates per unit
+          <p className="page-subtitle">
+            Standard fabrication services, HSN/SAC codes, and rates per unit
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-2 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Fabrication Service</span>
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => setShowManageUnitsModal(true)}
+            className="btn btn-secondary"
+            title="Manage the units dropdown list"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden xs:inline">Units</span>
+          </button>
+          <button onClick={handleOpenAdd} className="btn btn-primary flex-1 sm:flex-none">
+            <Plus className="w-4 h-4" />
+            <span>Add Service</span>
+          </button>
+        </div>
       </div>
 
       {/* Search */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-        <Search className="w-5 h-5 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search by service name, HSN code, or description..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-transparent text-sm text-slate-900 dark:text-white outline-none placeholder-slate-400"
-        />
+      <div className="card card-pad">
+        <div className="search-field">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+          <input
+            type="search"
+            aria-label="Search rate catalog"
+            placeholder="Search by service name, HSN code, or description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
-      {/* Grid of Rate Items */}
+      {/* Catalog grid */}
       {loading ? (
-        <div className="p-8 text-center text-slate-500">Loading catalog...</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="skeleton h-40 rounded-2xl" />
+          ))}
+        </div>
       ) : rates.length === 0 ? (
-        <div className="p-12 text-center text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <Wrench className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-          <div className="font-semibold text-slate-700 dark:text-slate-300">No Fabrication Services Configured</div>
-          <p className="text-xs mt-1">Add items like Laser Cutting, Welding, MS Pipe, SS Railing to auto-select while creating invoices.</p>
+        <div className="card p-10 sm:p-16 text-center">
+          <Wrench className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+          <div className="font-semibold text-slate-700 dark:text-slate-300">No services configured</div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+            {search
+              ? 'No services match your search.'
+              : 'Add items like Laser Cutting, Welding, MS Pipe or SS Railing so they auto-fill while creating invoices.'}
+          </p>
+          <button onClick={handleOpenAdd} className="btn btn-primary mt-5">
+            <Plus className="w-4 h-4" />
+            <span>Add Service</span>
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {rates.map((item) => (
-            <div
-              key={item.id}
-              className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
-            >
-              <div>
+            <div key={item.id} className="card card-interactive p-4 sm:p-5 flex flex-col justify-between gap-4">
+              <div className="min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white break-words min-w-0">
                     {item.serviceName}
                   </h3>
-                  {item.hsnSac ? (
-                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono font-semibold border border-slate-200 dark:border-slate-700 shrink-0">
-                      HSN: {item.hsnSac}
+                  {item.hsnSac && (
+                    <span className="badge badge-neutral font-mono normal-case shrink-0">
+                      HSN {item.hsnSac}
                     </span>
-                  ) : null}
+                  )}
                 </div>
 
                 {item.description && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-3">
                     {item.description}
                   </p>
                 )}
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-semibold uppercase">Standard Rate</div>
-                  <div className="text-base font-extrabold text-brand-600 dark:text-brand-400 flex items-baseline gap-1">
-                    <span>{formatCurrency(item.rate)}</span>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                    Standard Rate
+                  </div>
+                  <div className="font-extrabold text-brand-600 dark:text-brand-400 flex flex-wrap items-baseline gap-1">
+                    <span className="text-base break-words">{formatCurrency(item.rate)}</span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-normal">
                       / {item.unit}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleOpenEdit(item)}
-                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-500 transition-colors"
+                    className="btn-icon btn-icon-soft hover:text-amber-500"
+                    aria-label={`Edit ${item.serviceName}`}
                     title="Edit Rate"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(item.id, item.serviceName)}
-                    className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-colors"
+                    className="btn-icon btn-danger-soft"
+                    aria-label={`Delete ${item.serviceName}`}
                     title="Delete Service"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -269,294 +326,248 @@ export const RateMaster = () => {
         </div>
       )}
 
-      {/* Add / Edit Rate Modal */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="w-5 h-5" />
+      {/* Add / Edit service */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        size="lg"
+        title={editingRate ? 'Edit Fabrication Service' : 'Add Fabrication Service'}
+        icon={Wrench}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary sm:min-w-[7rem]">
+              Cancel
             </button>
+            <button type="submit" form="rate-form" disabled={saving} className="btn btn-primary sm:min-w-[9rem]">
+              {saving ? 'Saving…' : editingRate ? 'Save Changes' : 'Add Service'}
+            </button>
+          </div>
+        }
+      >
+        {error && (
+          <div
+            role="alert"
+            className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-sm flex items-start gap-2.5"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="min-w-0 break-words">{error}</span>
+          </div>
+        )}
 
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              {editingRate ? 'Edit Fabrication Service' : 'Add Fabrication Service'}
-            </h3>
+        <form id="rate-form" onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="rate-name" className="label">Service Name *</label>
+            <input
+              id="rate-name"
+              type="text"
+              required
+              data-autofocus
+              placeholder="e.g. CNC Fiber Laser Cutting"
+              value={formData.serviceName}
+              onChange={(e) => setFormData({ ...formData, serviceName: e.target.value })}
+              className="input"
+            />
+          </div>
 
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 text-rose-600 text-xs">
-                {error}
-              </div>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="rate-hsn" className="label">HSN / SAC Code</label>
+              <input
+                id="rate-hsn"
+                type="text"
+                placeholder="e.g. 9988"
+                value={formData.hsnSac}
+                onChange={(e) => setFormData({ ...formData, hsnSac: e.target.value })}
+                className="input font-mono"
+              />
+            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Service Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. CNC Fiber Laser Cutting"
-                  value={formData.serviceName}
-                  onChange={(e) => setFormData({ ...formData, serviceName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    HSN / SAC Code
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 9988"
-                    value={formData.hsnSac}
-                    onChange={(e) => setFormData({ ...formData, hsnSac: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-mono"
-                  />
-                </div>
-
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400">
-                      Unit *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowManageUnitsModal(true)}
-                      className="text-[10px] text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1"
-                    >
-                      <Settings className="w-3 h-3" />
-                      <span>Edit List</span>
-                    </button>
-                  </div>
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold flex items-center justify-between outline-none"
-                    >
-                      <span>{formData.unit || '-- Select Unit --'}</span>
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    </button>
-
-                    {isUnitDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 space-y-1 max-h-60 overflow-y-auto">
-                        {availableUnits.map((u) => (
-                          <div
-                            key={u}
-                            className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer font-medium transition-colors ${
-                              formData.unit === u
-                                ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-bold'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <span
-                              className="flex-1"
-                              onClick={() => {
-                                setFormData({ ...formData, unit: u });
-                                setIsUnitDropdownOpen(false);
-                              }}
-                            >
-                              {u}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveUnitOption(u);
-                              }}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
-                              title={`Delete "${u}" from dropdown list`}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-
-                        <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800 flex gap-1.5 p-1">
-                          <input
-                            type="text"
-                            placeholder="+ Add custom unit..."
-                            value={newUnitInput}
-                            onChange={(e) => setNewUnitInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                if (newUnitInput.trim()) {
-                                  handleAddUnitOption(newUnitInput);
-                                  setFormData({ ...formData, unit: newUnitInput.trim() });
-                                  setNewUnitInput('');
-                                }
-                              }
-                            }}
-                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (newUnitInput.trim()) {
-                                handleAddUnitOption(newUnitInput);
-                                setFormData({ ...formData, unit: newUnitInput.trim() });
-                                setNewUnitInput('');
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shrink-0"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Rate per Unit (₹) *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="e.g. 45.00"
-                  value={formData.rate}
-                  onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Service Description / Spec
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Technical specification or thickness range..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
+            <div ref={unitDropdownRef}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="label mb-0">Unit *</span>
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 font-semibold"
+                  onClick={() => setShowManageUnitsModal(true)}
+                  className="text-[11px] text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold shadow-lg shadow-brand-600/30"
-                >
-                  {editingRate ? 'Save Changes' : 'Add Service'}
+                  <Settings className="w-3 h-3" />
+                  <span>Edit list</span>
                 </button>
               </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-      {/* Manage Units Catalog Modal */}
-      {showManageUnitsModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Settings className="w-5 h-5 text-brand-500" />
-                <span>Manage Units Options</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowManageUnitsModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Add custom units or click the trash icon next to any unit option to permanently remove it from your dropdown list.
-            </p>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter unit name (e.g. bundle, CFT, pair)"
-                value={newUnitInput}
-                onChange={(e) => setNewUnitInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (newUnitInput.trim()) {
-                      handleAddUnitOption(newUnitInput);
-                      setNewUnitInput('');
-                    }
-                  }
-                }}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (newUnitInput.trim()) {
-                    handleAddUnitOption(newUnitInput);
-                    setNewUnitInput('');
-                  }
-                }}
-                className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shrink-0"
-              >
-                + Add Unit
-              </button>
-            </div>
-
-            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
-              {availableUnits.map(u => (
-                <div
-                  key={u}
-                  className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200"
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
+                  aria-haspopup="listbox"
+                  aria-expanded={isUnitDropdownOpen}
+                  className="input flex items-center justify-between text-left font-semibold"
                 >
-                  <span>{u}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveUnitOption(u)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
-                    title={`Delete "${u}" option`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                  <span className="truncate">{formData.unit || 'Select unit'}</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isUnitDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-            <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => {
-                  saveAvailableUnits(DEFAULT_UNITS);
-                }}
-                className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold underline"
-              >
-                Reset Standard Defaults
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowManageUnitsModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-xs"
-              >
-                Done
-              </button>
+                {isUnitDropdownOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-pop p-2 space-y-0.5 max-h-56 overflow-y-auto animate-scale-in"
+                  >
+                    {availableUnits.map((u) => (
+                      <div
+                        key={u}
+                        className={`flex items-center gap-1 rounded-lg transition-colors ${
+                          formData.unit === u
+                            ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={formData.unit === u}
+                          className="flex-1 text-left px-3 py-2 text-sm font-medium min-w-0 truncate"
+                          onClick={() => {
+                            setFormData({ ...formData, unit: u });
+                            setIsUnitDropdownOpen(false);
+                          }}
+                        >
+                          {u}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUnitOption(u)}
+                          className="btn-icon w-8 h-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+                          aria-label={`Remove ${u} from list`}
+                          title={`Delete "${u}" from dropdown list`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800 flex gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Add custom unit…"
+                        value={newUnitInput}
+                        onChange={(e) => setNewUnitInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addUnitFromInput(true);
+                          }
+                        }}
+                        className="input py-1.5 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addUnitFromInput(true)}
+                        className="btn btn-sm btn-primary shrink-0"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          <div>
+            <label htmlFor="rate-value" className="label">Rate per Unit (₹) *</label>
+            <input
+              id="rate-value"
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              required
+              placeholder="e.g. 45.00"
+              value={formData.rate}
+              onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
+              className="input font-semibold"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="rate-desc" className="label">Service Description / Spec</label>
+            <textarea
+              id="rate-desc"
+              rows={3}
+              placeholder="Technical specification or thickness range…"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="textarea"
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Manage units */}
+      <Modal
+        open={showManageUnitsModal}
+        onClose={() => setShowManageUnitsModal(false)}
+        size="md"
+        title="Manage Units"
+        icon={Settings}
+        footer={
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => saveAvailableUnits(DEFAULT_UNITS)}
+              className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold underline"
+            >
+              Reset defaults
+            </button>
+            <button type="button" onClick={() => setShowManageUnitsModal(false)} className="btn btn-primary min-w-[6rem]">
+              Done
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+          Add custom units, or remove any you don't use. This list is stored in this browser.
+        </p>
+
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            aria-label="New unit name"
+            placeholder="e.g. bundle, CFT, pair"
+            value={newUnitInput}
+            onChange={(e) => setNewUnitInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addUnitFromInput(false);
+              }
+            }}
+            className="input"
+          />
+          <button type="button" onClick={() => addUnitFromInput(false)} className="btn btn-primary shrink-0">
+            Add
+          </button>
         </div>
-      )}
+
+        <ul className="space-y-1.5">
+          {availableUnits.map(u => (
+            <li
+              key={u}
+              className="flex items-center justify-between gap-2 pl-3.5 pr-1.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700 text-sm font-semibold text-slate-800 dark:text-slate-200"
+            >
+              <span className="truncate">{u}</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveUnitOption(u)}
+                className="btn-icon text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60"
+                aria-label={`Delete ${u}`}
+                title={`Delete "${u}" option`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Modal>
     </div>
   );
 };

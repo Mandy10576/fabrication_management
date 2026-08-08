@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { useToast } from '../context/ToastContext';
 import {
   Building2,
-  Upload,
   Save,
   Lock,
-  CheckCircle,
   CreditCard,
-  ShieldCheck
+  ImagePlus
 } from 'lucide-react';
 
 export const CompanySettings = () => {
+  const toast = useToast();
+
   const [company, setCompany] = useState({
     companyName: '',
     ownerName: '',
@@ -36,10 +37,6 @@ export const CompanySettings = () => {
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
 
-  const [msg, setMsg] = useState('');
-  const [passMsg, setPassMsg] = useState('');
-  const [error, setError] = useState('');
-
   const fetchCompany = async () => {
     try {
       const res = await api.get('/company');
@@ -47,6 +44,7 @@ export const CompanySettings = () => {
       if (res.logoUrl) setLogoPreview(res.logoUrl);
     } catch (err) {
       console.error('Failed to load company details:', err);
+      toast.error(err.message || 'Failed to load company details');
     }
   };
 
@@ -57,8 +55,6 @@ export const CompanySettings = () => {
   const handleCompanySubmit = async (e) => {
     e.preventDefault();
     setSavingCompany(true);
-    setMsg('');
-    setError('');
     try {
       await api.put('/company', company);
 
@@ -67,12 +63,13 @@ export const CompanySettings = () => {
         formData.append('logo', logoFile);
         const logoRes = await api.upload('/company/logo', formData);
         setLogoPreview(logoRes.logoUrl);
+        setLogoFile(null);
       }
 
-      setMsg('Company details updated successfully!');
+      toast.success('Company details updated successfully');
       fetchCompany();
     } catch (err) {
-      setError(err.message || 'Failed to update company profile');
+      toast.error(err.message || 'Failed to update company profile');
     } finally {
       setSavingCompany(false);
     }
@@ -81,320 +78,292 @@ export const CompanySettings = () => {
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setSavingPass(true);
-    setPassMsg('');
     try {
       await api.post('/auth/change-password', { currentPassword, newPassword });
-      setPassMsg('Admin password updated successfully!');
+      toast.success('Admin password updated successfully');
       setCurrentPassword('');
       setNewPassword('');
     } catch (err) {
-      alert(err.message || 'Failed to change password');
+      toast.error(err.message || 'Failed to change password');
     } finally {
       setSavingPass(false);
     }
   };
 
+  const setField = (key) => (e) => setCompany((prev) => ({ ...prev, [key]: e.target.value }));
+  const setUpperField = (key) => (e) =>
+    setCompany((prev) => ({ ...prev, [key]: e.target.value.toUpperCase() }));
+
   return (
-    <div className="space-y-6 max-w-6xl 2xl:max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">
       <div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Building2 className="w-6 h-6 text-brand-500" />
-          <span>Company & Owner Settings</span>
+        <h2 className="page-title flex items-center gap-2">
+          <Building2 className="w-6 h-6 text-brand-500 shrink-0" />
+          <span>Company Settings</span>
         </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Configure company GSTIN, PAN, bank details, logo, and default invoice terms
+        <p className="page-subtitle">
+          Configure GSTIN, PAN, bank details, logo, and default invoice terms
         </p>
       </div>
 
-      {msg && (
-        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 text-emerald-600 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" />
-          <span>{msg}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs">
-          {error}
-        </div>
-      )}
-
-      {/* Company Form */}
-      <form onSubmit={handleCompanySubmit} className="space-y-6">
-        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
-          <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider">
-            Business Details
-          </h3>
+      {/* Company form */}
+      <form onSubmit={handleCompanySubmit} className="space-y-4 sm:space-y-6">
+        <div className="card card-pad space-y-4">
+          <h3 className="section-label">Business Details</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Company Name *
-              </label>
+              <label htmlFor="co-name" className="label">Company Name *</label>
               <input
+                id="co-name"
                 type="text"
                 required
                 value={company.companyName || ''}
-                onChange={(e) => setCompany({ ...company, companyName: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold outline-none"
+                onChange={setField('companyName')}
+                className="input font-bold"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Owner Name *
-              </label>
+              <label htmlFor="co-owner" className="label">Owner Name *</label>
               <input
+                id="co-owner"
                 type="text"
                 required
                 value={company.ownerName || ''}
-                onChange={(e) => setCompany({ ...company, ownerName: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold outline-none"
+                onChange={setField('ownerName')}
+                className="input font-semibold"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                GSTIN (GST Number)
-              </label>
+              <label htmlFor="co-gstin" className="label">GSTIN (GST Number)</label>
               <input
+                id="co-gstin"
                 type="text"
                 placeholder="27AAACA1234B1Z5"
                 value={company.gstin || ''}
-                onChange={(e) => setCompany({ ...company, gstin: e.target.value.toUpperCase() })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold outline-none"
+                onChange={setUpperField('gstin')}
+                className="input font-mono font-bold"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                PAN Number
-              </label>
+              <label htmlFor="co-pan" className="label">PAN Number</label>
               <input
+                id="co-pan"
                 type="text"
                 placeholder="AAACA1234B"
                 value={company.pan || ''}
-                onChange={(e) => setCompany({ ...company, pan: e.target.value.toUpperCase() })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold outline-none"
+                onChange={setUpperField('pan')}
+                className="input font-mono font-bold"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Business Phone / Mobile
-              </label>
+              <label htmlFor="co-phone" className="label">Business Phone / Mobile</label>
               <input
-                type="text"
+                id="co-phone"
+                type="tel"
+                inputMode="tel"
                 value={company.phone || ''}
-                onChange={(e) => setCompany({ ...company, phone: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+                onChange={setField('phone')}
+                className="input font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Official Email
-              </label>
+              <label htmlFor="co-email" className="label">Official Email</label>
               <input
+                id="co-email"
                 type="email"
+                inputMode="email"
                 value={company.email || ''}
-                onChange={(e) => setCompany({ ...company, email: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+                onChange={setField('email')}
+                className="input"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-              Registered Factory / Office Address
-            </label>
+            <label htmlFor="co-address" className="label">Registered Factory / Office Address</label>
             <textarea
+              id="co-address"
               rows={3}
               value={company.address || ''}
-              onChange={(e) => setCompany({ ...company, address: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              onChange={setField('address')}
+              className="textarea"
             />
           </div>
 
-          {/* Logo Upload */}
-          <div className="pt-2">
-            <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-2">
-              Company Logo (For A4 GST Invoices)
-            </label>
-            <div className="flex items-center gap-4">
+          {/* Logo */}
+          <div className="pt-1">
+            <label htmlFor="co-logo" className="label">Company Logo (printed on A4 invoices)</label>
+            <div className="flex flex-col xs:flex-row xs:items-center gap-4">
               {logoPreview ? (
-                <img src={logoPreview} alt="Company Logo" className="w-16 h-16 object-contain rounded-xl border border-slate-200 dark:border-slate-700 p-1" />
+                <img
+                  src={logoPreview}
+                  alt="Company logo preview"
+                  className="w-16 h-16 shrink-0 object-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-1"
+                />
               ) : (
-                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-bold">
-                  LOGO
+                <div className="w-16 h-16 shrink-0 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400">
+                  <ImagePlus className="w-6 h-6" />
                 </div>
               )}
               <input
+                id="co-logo"
                 type="file"
                 accept="image/*"
                 onChange={(e) => {
-                  if (e.target.files[0]) {
-                    setLogoFile(e.target.files[0]);
-                    setLogoPreview(URL.createObjectURL(e.target.files[0]));
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setLogoFile(file);
+                    setLogoPreview(URL.createObjectURL(file));
                   }
                 }}
-                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
+                className="min-w-0 w-full text-sm text-slate-500 dark:text-slate-400 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5
+                           file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
+                           file:bg-brand-50 file:text-brand-700 dark:file:bg-brand-950/60 dark:file:text-brand-300
+                           hover:file:bg-brand-100 dark:hover:file:bg-brand-900/50 file:cursor-pointer"
               />
             </div>
           </div>
         </div>
 
-        {/* Bank Details Card */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
-          <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+        {/* Bank details */}
+        <div className="card card-pad space-y-4">
+          <h3 className="section-label flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-brand-500" />
-            <span>Bank Account Details (Printed on Invoice)</span>
+            <span>Bank Account Details (printed on invoice)</span>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Bank Name
-              </label>
+              <label htmlFor="co-bank" className="label">Bank Name</label>
               <input
+                id="co-bank"
                 type="text"
                 placeholder="HDFC Bank Ltd"
                 value={company.bankName || ''}
-                onChange={(e) => setCompany({ ...company, bankName: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+                onChange={setField('bankName')}
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Account Number
-              </label>
+              <label htmlFor="co-account" className="label">Account Number</label>
               <input
+                id="co-account"
                 type="text"
+                inputMode="numeric"
                 placeholder="50200012345678"
                 value={company.accountNumber || ''}
-                onChange={(e) => setCompany({ ...company, accountNumber: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono outline-none"
+                onChange={setField('accountNumber')}
+                className="input font-mono"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                IFSC Code
-              </label>
+              <label htmlFor="co-ifsc" className="label">IFSC Code</label>
               <input
+                id="co-ifsc"
                 type="text"
                 placeholder="HDFC0000123"
                 value={company.ifscCode || ''}
-                onChange={(e) => setCompany({ ...company, ifscCode: e.target.value.toUpperCase() })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono outline-none"
+                onChange={setUpperField('ifscCode')}
+                className="input font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                Branch Name
-              </label>
+              <label htmlFor="co-branch" className="label">Branch Name</label>
               <input
+                id="co-branch"
                 type="text"
                 placeholder="Chakan Industrial Estate"
                 value={company.branch || ''}
-                onChange={(e) => setCompany({ ...company, branch: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+                onChange={setField('branch')}
+                className="input"
               />
             </div>
 
-            <div>
-              <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                UPI ID (QR / Payment)
-              </label>
+            <div className="sm:col-span-2 lg:col-span-1">
+              <label htmlFor="co-upi" className="label">UPI ID (QR / Payment)</label>
               <input
+                id="co-upi"
                 type="text"
-                placeholder="apexsteel@hdfcbank"
+                placeholder="business@hdfcbank"
                 value={company.upiId || ''}
-                onChange={(e) => setCompany({ ...company, upiId: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono outline-none"
+                onChange={setField('upiId')}
+                className="input font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-              Default Terms & Conditions
-            </label>
+            <label htmlFor="co-terms" className="label">Default Terms & Conditions</label>
             <textarea
+              id="co-terms"
               rows={3}
               value={company.termsConditions || ''}
-              onChange={(e) => setCompany({ ...company, termsConditions: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              onChange={setField('termsConditions')}
+              className="textarea"
             />
           </div>
         </div>
 
         <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={savingCompany}
-            className="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-xl shadow-brand-600/30 flex items-center gap-2 transition-all"
-          >
+          <button type="submit" disabled={savingCompany} className="btn btn-primary w-full sm:w-auto">
             <Save className="w-4 h-4" />
-            <span>{savingCompany ? 'Saving Profile...' : 'Save Company Details'}</span>
+            <span>{savingCompany ? 'Saving…' : 'Save Company Details'}</span>
           </button>
         </div>
       </form>
 
-      {/* Change Password Card */}
-      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
-        <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+      {/* Password */}
+      <div className="card card-pad space-y-4">
+        <h3 className="section-label flex items-center gap-2">
           <Lock className="w-4 h-4 text-rose-500" />
           <span>Change Owner Password</span>
         </h3>
 
-        {passMsg && (
-          <div className="p-3 rounded-lg bg-emerald-50 text-emerald-600 font-semibold">
-            {passMsg}
-          </div>
-        )}
-
         <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
           <div>
-            <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-              Current Password
-            </label>
+            <label htmlFor="co-curpass" className="label">Current Password</label>
             <input
+              id="co-curpass"
               type="password"
               required
+              autoComplete="current-password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              className="input"
             />
           </div>
 
           <div>
-            <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-              New Password
-            </label>
+            <label htmlFor="co-newpass" className="label">New Password</label>
             <input
+              id="co-newpass"
               type="password"
               required
+              autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+              className="input"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={savingPass}
-            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs shadow-md"
-          >
-            {savingPass ? 'Updating Password...' : 'Update Password'}
+          <button type="submit" disabled={savingPass} className="btn btn-secondary w-full sm:w-auto">
+            <Lock className="w-4 h-4" />
+            <span>{savingPass ? 'Updating…' : 'Update Password'}</span>
           </button>
         </form>
       </div>

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useFY } from '../context/FYContext';
 import { api } from '../services/api';
+import { useToast, useConfirm } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
+import { Modal } from '../components/ui/Modal';
 import {
   Users,
   Search,
@@ -11,13 +13,25 @@ import {
   Eye,
   Building2,
   Phone,
-  Mail,
-  FileText,
-  X
+  AlertCircle
 } from 'lucide-react';
+
+const EMPTY_FORM = {
+  companyName: '',
+  contactPerson: '',
+  mobile: '',
+  email: '',
+  gstin: '',
+  pan: '',
+  address: '',
+  notes: ''
+};
 
 export const Clients = () => {
   const { selectedFY } = useFY();
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const [clients, setClients] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -26,18 +40,8 @@ export const Clients = () => {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
-
-  const [formData, setFormData] = useState({
-    companyName: '',
-    contactPerson: '',
-    mobile: '',
-    email: '',
-    gstin: '',
-    pan: '',
-    address: '',
-    notes: ''
-  });
-
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
 
   const fetchClients = async (isLoadMore = false) => {
@@ -61,6 +65,7 @@ export const Clients = () => {
       setHasMore(newHasMore);
     } catch (err) {
       console.error('Failed to load clients:', err);
+      toast.error(err.message || 'Failed to load clients');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -73,16 +78,7 @@ export const Clients = () => {
 
   const handleOpenAdd = () => {
     setEditingClient(null);
-    setFormData({
-      companyName: '',
-      contactPerson: '',
-      mobile: '',
-      email: '',
-      gstin: '',
-      pan: '',
-      address: '',
-      notes: ''
-    });
+    setFormData(EMPTY_FORM);
     setError('');
     setShowModal(true);
   };
@@ -107,231 +103,275 @@ export const Clients = () => {
     e.preventDefault();
     setError('');
     try {
+      setSaving(true);
       if (editingClient) {
         await api.put(`/clients/${editingClient.id}`, {
           ...formData,
           financialYearId: editingClient.financialYearId || selectedFY
         });
+        toast.success(`${formData.companyName} updated`);
       } else {
         await api.post('/clients', {
           ...formData,
           financialYearId: selectedFY === 'ALL' ? 'current' : selectedFY
         });
+        toast.success(`${formData.companyName} added`);
       }
       setShowModal(false);
       fetchClients();
     } catch (err) {
       setError(err.message || 'Operation failed');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete client "${name}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${name}"?`,
+      message: 'This permanently removes the client record. Invoices and quotations linked to this client may be affected.',
+      confirmText: 'Delete client'
+    });
+    if (!ok) return;
+
     try {
       await api.delete(`/clients/${id}`);
+      toast.success(`${name} deleted`);
       fetchClients();
     } catch (err) {
-      alert(err.message || 'Failed to delete client');
+      toast.error(err.message || 'Failed to delete client');
     }
   };
 
+  const setField = (key) => (e) => setFormData((prev) => ({ ...prev, [key]: e.target.value }));
+  const setUpperField = (key) => (e) =>
+    setFormData((prev) => ({ ...prev, [key]: e.target.value.toUpperCase() }));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-6 h-6 text-brand-500" />
-            <span>Client Directory</span>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="page-title flex items-center gap-2">
+            <Users className="w-6 h-6 text-brand-500 shrink-0" />
+            <span>Clients</span>
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="page-subtitle">
             Manage company clients, contact info, GSTIN, and transaction history
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-2 transition-all"
-        >
+        <button onClick={handleOpenAdd} className="btn btn-primary w-full sm:w-auto shrink-0">
           <Plus className="w-4 h-4" />
-          <span>Add New Client</span>
+          <span>Add Client</span>
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
-        <Search className="w-5 h-5 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search by company name, contact person, mobile number, or GSTIN..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-transparent text-sm text-slate-900 dark:text-white outline-none placeholder-slate-400"
-        />
+      {/* Search */}
+      <div className="card card-pad">
+        <div className="search-field">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+          <input
+            type="search"
+            aria-label="Search clients"
+            placeholder="Search company, contact, mobile, or GSTIN…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
-      {/* Client List Table */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      {/* List */}
+      <div className="card overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading clients...</div>
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-4 p-4">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="skeleton h-4 w-1/3" />
+                  <div className="skeleton h-3 w-1/2" />
+                </div>
+                <div className="skeleton h-6 w-24 shrink-0" />
+              </div>
+            ))}
+          </div>
         ) : clients.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 space-y-2">
-            <Building2 className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
-            <div className="font-semibold text-slate-700 dark:text-slate-300">No Clients Found</div>
-            <p className="text-xs">Click "Add New Client" to create your first client record.</p>
+          <div className="p-10 sm:p-16 text-center">
+            <Building2 className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+            <div className="font-semibold text-slate-700 dark:text-slate-300">No clients found</div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+              {search ? 'No clients match your search.' : 'Add your first client to start creating invoices.'}
+            </p>
+            <button onClick={handleOpenAdd} className="btn btn-primary mt-5">
+              <Plus className="w-4 h-4" />
+              <span>Add Client</span>
+            </button>
           </div>
         ) : (
           <>
-            {/* Mobile Card View (< md screens) */}
-            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+            {/* Card view up to lg */}
+            <ul className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
               {clients.map((c) => (
-                <div key={c.id} className="p-4 space-y-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <Link to={`/clients/${c.id}`} className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline">
+                <li key={c.id} className="p-4 space-y-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        to={`/clients/${c.id}`}
+                        className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline break-words"
+                      >
                         {c.companyName}
                       </Link>
                       {c.contactPerson && (
-                        <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          Contact: {c.contactPerson}
+                        <div className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">
+                          {c.contactPerson}
+                        </div>
+                      )}
+                      {c.mobile && (
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                          {c.mobile}
                         </div>
                       )}
                     </div>
 
                     {c.gstin ? (
-                      <span className="font-mono font-semibold text-[10px] text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0">
-                        {c.gstin}
-                      </span>
+                      <span className="badge badge-neutral font-mono normal-case shrink-0">{c.gstin}</span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 italic shrink-0">Non-GST</span>
+                      <span className="badge badge-neutral shrink-0">Non-GST</span>
                     )}
                   </div>
 
                   {c.address && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
-                      {c.address}
-                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{c.address}</p>
                   )}
 
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="flex gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-semibold text-[10px]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="badge bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-900/60">
                         {c._count?.invoices || 0} Invoices
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
+                      <span className="badge bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900/60">
                         {c._count?.quotations || 0} Quotes
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 ml-auto">
                       {c.mobile && (
                         <a
                           href={`tel:${c.mobile}`}
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold text-xs inline-flex items-center gap-1"
+                          className="btn-icon bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                          aria-label={`Call ${c.companyName}`}
                           title="Call Client"
                         >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>Call</span>
+                          <Phone className="w-4 h-4" />
                         </a>
                       )}
                       <Link
                         to={`/clients/${c.id}`}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                        className="btn-icon btn-icon-soft"
+                        aria-label={`View ${c.companyName}`}
                         title="View Details"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-4 h-4" />
                       </Link>
                       <button
                         onClick={() => handleOpenEdit(c)}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                        className="btn-icon btn-icon-soft"
+                        aria-label={`Edit ${c.companyName}`}
                         title="Edit Client"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(c.id, c.companyName)}
-                        className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+                        className="btn-icon btn-danger-soft"
+                        aria-label={`Delete ${c.companyName}`}
                         title="Delete Client"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
 
-            {/* Desktop Table (>= md screens) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            {/* Desktop table */}
+            <div className="hidden lg:block table-wrap">
+              <table className="data-table">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-                    <th className="py-3.5 px-4">Company Name</th>
-                    <th className="py-3.5 px-4">Contact Person</th>
-                    <th className="py-3.5 px-4">Phone / Mobile</th>
-                    <th className="py-3.5 px-4">GSTIN</th>
-                    <th className="py-3.5 px-4">Invoices / Quotes</th>
-                    <th className="py-3.5 px-4 text-right">Actions</th>
+                  <tr>
+                    <th scope="col">Company Name</th>
+                    <th scope="col">Contact Person</th>
+                    <th scope="col">Phone / Mobile</th>
+                    <th scope="col">GSTIN</th>
+                    <th scope="col">Invoices / Quotes</th>
+                    <th scope="col" className="text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                <tbody>
                   {clients.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-4 px-4 font-bold text-slate-900 dark:text-white">
-                        <Link to={`/clients/${c.id}`} className="hover:text-brand-500 transition-colors">
-                          {c.companyName}
-                        </Link>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal line-clamp-1 mt-0.5">
-                          {c.address}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-slate-800 dark:text-slate-200">
-                        {c.contactPerson}
-                      </td>
-                      <td className="py-4 px-4 text-slate-600 dark:text-slate-300 font-mono">
-                        {c.mobile}
-                      </td>
-                      <td className="py-4 px-4">
-                        {c.gstin ? (
-                          <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                            {c.gstin}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 italic">Non-GST</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex gap-2">
-                          <span className="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-semibold text-[10px]">
-                            {c._count?.invoices || 0} Invoices
-                          </span>
-                          <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
-                            {c._count?.quotations || 0} Quotes
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-right space-x-1">
+                    <tr key={c.id}>
+                      <td className="max-w-[20rem]">
                         <Link
                           to={`/clients/${c.id}`}
-                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-500 inline-flex items-center"
-                          title="View Client Details & History"
+                          className="font-bold text-slate-900 dark:text-white hover:text-brand-500 transition-colors"
                         >
-                          <Eye className="w-4 h-4" />
+                          {c.companyName}
                         </Link>
-                        <button
-                          onClick={() => handleOpenEdit(c)}
-                          className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-amber-500 inline-flex items-center"
-                          title="Edit Client"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c.id, c.companyName)}
-                          className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 inline-flex items-center"
-                          title="Delete Client"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {c.address && (
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-normal line-clamp-1 mt-0.5">
+                            {c.address}
+                          </div>
+                        )}
+                      </td>
+                      <td className="text-slate-800 dark:text-slate-200">{c.contactPerson || '—'}</td>
+                      <td className="text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">
+                        {c.mobile || '—'}
+                      </td>
+                      <td>
+                        {c.gstin ? (
+                          <span className="badge badge-neutral font-mono normal-case">{c.gstin}</span>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">Non-GST</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="badge bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-900/60">
+                            {c._count?.invoices || 0} Inv
+                          </span>
+                          <span className="badge bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900/60">
+                            {c._count?.quotations || 0} Quo
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            to={`/clients/${c.id}`}
+                            className="btn-icon btn-icon-soft hover:text-brand-500"
+                            aria-label={`View ${c.companyName}`}
+                            title="View Client Details & History"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleOpenEdit(c)}
+                            className="btn-icon btn-icon-soft hover:text-amber-500"
+                            aria-label={`Edit ${c.companyName}`}
+                            title="Edit Client"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c.id, c.companyName)}
+                            className="btn-icon btn-danger-soft"
+                            aria-label={`Delete ${c.companyName}`}
+                            title="Delete Client"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -342,16 +382,12 @@ export const Clients = () => {
         )}
 
         {hasMore && (
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
-            <button
-              onClick={() => fetchClients(true)}
-              disabled={loadingMore}
-              className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-all border border-slate-200 dark:border-slate-700 inline-flex items-center gap-2"
-            >
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 text-center">
+            <button onClick={() => fetchClients(true)} disabled={loadingMore} className="btn btn-secondary">
               {loadingMore ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Loading More Clients...</span>
+                  <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                  <span>Loading…</span>
                 </>
               ) : (
                 <span>Load More Clients</span>
@@ -361,158 +397,142 @@ export const Clients = () => {
         )}
       </div>
 
-      {/* Add / Edit Client Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="w-5 h-5" />
+      {/* Add / Edit client */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        size="2xl"
+        title={editingClient ? 'Edit Client' : 'Add New Client'}
+        icon={Building2}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary sm:min-w-[7rem]">
+              Cancel
             </button>
-
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-              {editingClient ? 'Edit Client Details' : 'Add New Client'}
-            </h3>
-
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 text-rose-600 text-xs">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Company / Business Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Mahindra Engineering Pvt Ltd"
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    Contact Person (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Suresh Patil"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 9822011223"
-                    value={formData.mobile}
-                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="client@company.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                    GST Number (GSTIN)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="27AAAAA0000A1Z5"
-                    value={formData.gstin}
-                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  PAN Number
-                </label>
-                <input
-                  type="text"
-                  placeholder="ABCDE1234F"
-                  value={formData.pan}
-                  onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Billing Address *
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Full office or factory address..."
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                  Internal Notes
-                </label>
-                <input
-                  type="text"
-                  placeholder="Key corporate client, advance terms, etc."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold shadow-lg shadow-brand-600/30"
-                >
-                  {editingClient ? 'Save Changes' : 'Create Client'}
-                </button>
-              </div>
-            </form>
+            <button type="submit" form="client-form" disabled={saving} className="btn btn-primary sm:min-w-[9rem]">
+              {saving ? 'Saving…' : editingClient ? 'Save Changes' : 'Create Client'}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        {error && (
+          <div
+            role="alert"
+            className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-sm flex items-start gap-2.5"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="min-w-0 break-words">{error}</span>
+          </div>
+        )}
+
+        <form id="client-form" onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="cl-company" className="label">Company / Business Name *</label>
+            <input
+              id="cl-company"
+              type="text"
+              required
+              data-autofocus
+              placeholder="e.g. Mahindra Engineering Pvt Ltd"
+              value={formData.companyName}
+              onChange={setField('companyName')}
+              className="input"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="cl-contact" className="label">Contact Person</label>
+              <input
+                id="cl-contact"
+                type="text"
+                placeholder="e.g. Suresh Patil"
+                value={formData.contactPerson}
+                onChange={setField('contactPerson')}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="cl-mobile" className="label">Mobile Number *</label>
+              <input
+                id="cl-mobile"
+                type="tel"
+                inputMode="tel"
+                required
+                placeholder="e.g. 9822011223"
+                value={formData.mobile}
+                onChange={setField('mobile')}
+                className="input font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="cl-email" className="label">Email Address</label>
+              <input
+                id="cl-email"
+                type="email"
+                inputMode="email"
+                placeholder="client@company.com"
+                value={formData.email}
+                onChange={setField('email')}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="cl-gstin" className="label">GST Number (GSTIN)</label>
+              <input
+                id="cl-gstin"
+                type="text"
+                placeholder="27AAAAA0000A1Z5"
+                value={formData.gstin}
+                onChange={setUpperField('gstin')}
+                className="input font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="cl-pan" className="label">PAN Number</label>
+            <input
+              id="cl-pan"
+              type="text"
+              placeholder="ABCDE1234F"
+              value={formData.pan}
+              onChange={setUpperField('pan')}
+              className="input font-mono"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="cl-address" className="label">Billing Address *</label>
+            <textarea
+              id="cl-address"
+              rows={3}
+              required
+              placeholder="Full office or factory address…"
+              value={formData.address}
+              onChange={setField('address')}
+              className="textarea"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="cl-notes" className="label">Internal Notes</label>
+            <input
+              id="cl-notes"
+              type="text"
+              placeholder="Key corporate client, advance terms, etc."
+              value={formData.notes}
+              onChange={setField('notes')}
+              className="input"
+            />
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
