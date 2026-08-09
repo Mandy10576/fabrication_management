@@ -3,6 +3,11 @@ const { computeAttendanceForRange, summarizeDays } = require('./attendanceServic
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Monthly salary always divides by a fixed 30, never by the cycle's real length, so
+ * the daily rate is stable across 28/29/30/31-day cycles. A longer cycle therefore
+ * pays proportionally more than the headline monthly figure, and a shorter one less. */
+const SALARY_DAY_BASIS = 30;
+
 /** Rounds to 2 decimal places (rupees/paise) and collapses floating-point noise like 3.6e-12. */
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -29,16 +34,16 @@ async function computeCycleSummary(prisma, employee, cycleStart, cycleEnd) {
   const earnableDays = knownDays.filter((d) => d.date.getTime() >= employableStart.getTime());
   const counts = summarizeDays(earnableDays);
 
-  let perDayRate = 0;
+  // Kept at full precision on purpose - rounding the rate before multiplying would
+  // turn a 31-day cycle on a 20,000 salary into 20,666.77 instead of 20,666.67.
+  const perDayRate = employee.monthlySalary / SALARY_DAY_BASIS;
   let earned = 0;
   let workingDaysInCycle = null;
 
   if (employee.deductionBasis === 'WORKING_DAYS') {
     workingDaysInCycle = Math.max(0, totalDaysInCycle - holidayCount);
-    perDayRate = workingDaysInCycle > 0 ? employee.monthlySalary / workingDaysInCycle : 0;
     earned = perDayRate * (counts.present + counts.paidLeave);
   } else {
-    perDayRate = totalDaysInCycle > 0 ? employee.monthlySalary / totalDaysInCycle : 0;
     earned = perDayRate * (counts.present + counts.paidLeave + counts.holiday);
   }
 
