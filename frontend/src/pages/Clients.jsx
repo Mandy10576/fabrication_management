@@ -175,7 +175,7 @@ export const Clients = () => {
       </div>
 
       {/* Search */}
-      <div className="card card-pad space-y-2.5">
+      <div className="space-y-2.5">
         <div className="search-field">
           <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
           <input

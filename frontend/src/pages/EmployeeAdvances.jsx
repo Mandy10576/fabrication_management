@@ -149,7 +149,7 @@ export const EmployeeAdvances = () => {
         </div>
       </div>
 
-      <div className="card card-pad flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="search-field flex-1">
           <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
           <input

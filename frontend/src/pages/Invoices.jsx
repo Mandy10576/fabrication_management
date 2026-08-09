@@ -208,7 +208,7 @@ export const Invoices = () => {
       </div>
 
       {/* Search & Filters */}
-      <div className="card card-pad grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3">
         <div className="search-field">
           <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
           <input

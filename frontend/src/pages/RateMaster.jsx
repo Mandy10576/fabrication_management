@@ -232,17 +232,15 @@ export const RateMaster = () => {
       </div>
 
       {/* Search */}
-      <div className="card card-pad">
-        <div className="search-field">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-          <input
-            type="search"
-            aria-label="Search rate catalog"
-            placeholder="Search by service name, HSN code, or description…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="search-field">
+        <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+        <input
+          type="search"
+          aria-label="Search rate catalog"
+          placeholder="Search by service name, HSN code, or description…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Catalog grid */}
