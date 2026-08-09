@@ -11,12 +11,12 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
     pan: 'N/A',
     email: 'khodiyarsteelandfabrication@gmail.com',
     phone: '9825534229 / 8128209488',
-    address: 'Shop-11, Meet Darshan Apartment, Navo Mahollo, Singapore Road, Surat \nCity: Surat\nPincode: 395004\nState: Gujarat',
+    address: 'Shop-11, Meet Darshan Apartment, Navo Mahollo, Singapore Road, Surat \nCity: Surat\nPincode: 395004',
+    state: 'Gujarat',
     termsConditions: 'Thank you for doing business with us!'
   };
 
   const client = quotation.client || {};
-  const totalQuantity = quotation.items ? quotation.items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) : 0;
 
   const subtotal = quotation.subtotal || 0;
   const discount = quotation.discount || 0;
@@ -45,14 +45,14 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
   const addressText = comp.address ? comp.address.replace(/\\n/g, '\n') : '';
   const lines = addressText.split('\n').filter(l => l.trim());
   const addressWithoutState = lines.filter(l => !l.toLowerCase().startsWith('state:'));
-  const stateLine = lines.find(l => l.toLowerCase().startsWith('state:')) || 'State: Gujarat';
+  const parsedCompState = lines.find(l => l.toLowerCase().startsWith('state:'))?.replace(/^state:\s*/i, '').trim();
+  const resolvedCompState = comp.state || parsedCompState || 'N/A';
 
   const clientAddressRaw = client.address ? client.address.replace(/\\n/g, '\n') : '';
   const clientLines = clientAddressRaw.split('\n').map(l => l.trim()).filter(Boolean);
   const clientAddressWithoutState = clientLines.filter(l => !l.toLowerCase().startsWith('state:'));
-  const existingStateLine = clientLines.find(l => l.toLowerCase().startsWith('state:'));
-  const defaultState = client.gstin ? 'State: 24 - Gujarat' : 'State: Gujarat';
-  const clientStateLine = existingStateLine || defaultState;
+  const parsedClientState = clientLines.find(l => l.toLowerCase().startsWith('state:'))?.replace(/^state:\s*/i, '').trim();
+  const resolvedState = quotation.state || client.state || parsedClientState || 'N/A';
 
   return (
     <div
@@ -80,7 +80,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
             {comp.phone && <div>Phone no. : {comp.phone}</div>}
             {comp.email && <div>Email : {comp.email}</div>}
             <div>GSTIN: {comp.gstin || 'N/A'} | PAN: {comp.pan || 'N/A'}</div>
-            <div>{stateLine.startsWith('State:') ? stateLine : `State: ${stateLine}`}</div>
+            <div>State: {resolvedCompState}</div>
           </div>
         </div>
 
@@ -110,7 +110,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
                 </div>
                 <div style={{ fontSize: '11px', color: '#334155', marginTop: '4px' }}>
                   {client.mobile && <div>Phone: <strong>{client.mobile}</strong></div>}
-                  <div><strong>{clientStateLine.startsWith('State:') ? clientStateLine : `State: ${clientStateLine}`}</strong></div>
+                  <div><strong>State: {resolvedState}</strong></div>
                 </div>
               </td>
 
@@ -135,6 +135,10 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
                         <td style={{ color: '#0f172a', fontWeight: '600', padding: '2px 0', textAlign: 'right' }}>{formatDate(quotation.validUntil)}</td>
                       </tr>
                     )}
+                    <tr>
+                      <td style={{ color: '#64748b', padding: '2px 0', textAlign: 'left' }}>Place of Supply :</td>
+                      <td style={{ color: '#0f172a', fontWeight: '600', padding: '2px 0', textAlign: 'right' }}>{resolvedState}</td>
+                    </tr>
                   </tbody>
                 </table>
               </td>
@@ -173,7 +177,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
             <tfoot>
               <tr style={{ borderTop: '2px solid #cbd5e1', borderBottom: '2px solid #cbd5e1', fontWeight: '700', fontSize: '11px', color: '#0f172a' }}>
                 <td colSpan={3} style={{ padding: '8px 6px', fontWeight: '800', textTransform: 'uppercase' }}>Total</td>
-                <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '800' }}>{totalQuantity}</td>
+                <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '800' }}></td>
                 <td colSpan={2}></td>
                 <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '800', fontSize: '13px' }}>{Number(quotation.subtotal).toFixed(2)}</td>
               </tr>

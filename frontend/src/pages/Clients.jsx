@@ -4,6 +4,8 @@ import { api } from '../services/api';
 import { useToast, useConfirm } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import { Modal } from '../components/ui/Modal';
+import { StateSelect } from '../components/StateSelect';
+import { INDIAN_STATES } from '../utils/indianStates';
 import {
   Users,
   Search,
@@ -24,6 +26,7 @@ const EMPTY_FORM = {
   gstin: '',
   pan: '',
   address: '',
+  state: 'Gujarat',
   notes: ''
 };
 
@@ -93,6 +96,7 @@ export const Clients = () => {
       gstin: client.gstin || '',
       pan: client.pan || '',
       address: client.address || '',
+      state: client.state || '',
       notes: client.notes || ''
     });
     setError('');
@@ -517,6 +521,17 @@ export const Clients = () => {
               value={formData.address}
               onChange={setField('address')}
               className="textarea"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="cl-state" className="label">State</label>
+            <StateSelect
+              id="cl-state"
+              options={INDIAN_STATES}
+              value={formData.state}
+              onChange={(val) => setFormData((prev) => ({ ...prev, state: val }))}
+              placeholder="Select or type a state"
             />
           </div>
 

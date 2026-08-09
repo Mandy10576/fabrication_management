@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { StateSelect } from '../components/StateSelect';
+import { INDIAN_STATES } from '../utils/indianStates';
 import {
   Building2,
   Save,
@@ -20,6 +22,7 @@ export const CompanySettings = () => {
     email: '',
     phone: '',
     address: '',
+    state: 'Gujarat',
     bankName: '',
     accountNumber: '',
     ifscCode: '',
@@ -197,6 +200,17 @@ export const CompanySettings = () => {
               value={company.address || ''}
               onChange={setField('address')}
               className="textarea"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="co-state" className="label">State</label>
+            <StateSelect
+              id="co-state"
+              options={INDIAN_STATES}
+              value={company.state || ''}
+              onChange={(val) => setCompany((prev) => ({ ...prev, state: val }))}
+              placeholder="Select or type a state"
             />
           </div>
 

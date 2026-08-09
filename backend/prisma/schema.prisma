@@ -28,6 +28,7 @@ model CompanyDetails {
   email           String?
   phone           String?
   address         String?
+  state           String?
   bankName        String?
   accountNumber   String?
   ifscCode        String?
@@ -60,6 +61,7 @@ model Client {
   gstin           String?
   pan             String?
   address         String
+  state           String?
   notes           String?
   financialYearId String
   financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
@@ -95,6 +97,7 @@ model Invoice {
   client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   date            DateTime
   dueDate         DateTime?
+  state           String? // Place of Supply, snapshotted at creation (independent of the client's current profile)
   gstType         String        @default("CGST_SGST") // CGST_SGST, IGST, NON_GST
   gstRate         Float         @default(18.0)
   subtotal        Float
@@ -145,6 +148,7 @@ model Quotation {
   client             Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   date               DateTime
   validUntil         DateTime?
+  state              String? // Place of Supply, snapshotted at creation (independent of the client's current profile)
   gstType            String          @default("CGST_SGST") // CGST_SGST, IGST, NON_GST
   gstRate            Float           @default(18.0)
   subtotal           Float

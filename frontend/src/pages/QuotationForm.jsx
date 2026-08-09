@@ -5,8 +5,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatters';
 import { RateMasterAutocomplete } from '../components/RateMasterAutocomplete';
 import { UnitSelect } from '../components/UnitSelect';
+import { StateSelect } from '../components/StateSelect';
+import { GstModeSelect } from '../components/GstModeSelect';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../context/ToastContext';
+import { INDIAN_STATES } from '../utils/indianStates';
+
+/** Auto-derives GST mode from a state comparison, but never auto-switches
+ * into/out of Non-GST (a deliberate manual choice) and leaves the current
+ * mode untouched until both states are known. */
+const applyAutoGstMode = (newState, companyState, currentGstType) => {
+  if (currentGstType === 'NON_GST') return currentGstType;
+  if (!newState || !companyState) return currentGstType;
+  return newState.trim().toLowerCase() === companyState.trim().toLowerCase() ? 'CGST_SGST' : 'IGST';
+};
 import {
   Quote,
   Plus,
@@ -121,6 +133,8 @@ export const QuotationForm = () => {
   const [quotationNumber, setQuotationNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState('');
+  const [state, setState] = useState('Gujarat');
+  const [companyState, setCompanyState] = useState('');
   const [gstType, setGstType] = useState('CGST_SGST');
   const [gstRate, setGstRate] = useState(18);
   const [discount, setDiscount] = useState(0);
@@ -142,6 +156,7 @@ export const QuotationForm = () => {
         ]);
         setClients(Array.isArray(clientsRes) ? clientsRes : (clientsRes?.items || []));
         setRateMaster(Array.isArray(ratesRes) ? ratesRes : (ratesRes?.items || []));
+        setCompanyState(companyRes.state || '');
 
         const targetFY = selectedFY === 'ALL'
           ? (financialYears.find(f => f.isCurrent)?.id || financialYears[0]?.id)
@@ -165,6 +180,7 @@ export const QuotationForm = () => {
           setQuotationNumber(q.quotationNumber);
           setDate(q.date ? q.date.split('T')[0] : '');
           setValidUntil(q.validUntil ? q.validUntil.split('T')[0] : '');
+          setState(q.state || '');
           setGstType(q.gstType || 'CGST_SGST');
           setGstRate(q.gstRate ?? 18);
           setDiscount(q.discount || 0);
@@ -261,6 +277,7 @@ export const QuotationForm = () => {
         clientId,
         date,
         validUntil: validUntil || null,
+        state,
         gstType,
         gstRate,
         discount: disc,
@@ -346,7 +363,14 @@ export const QuotationForm = () => {
                 id="qt-client"
                 required
                 value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                onChange={(e) => {
+                  const newClientId = e.target.value;
+                  setClientId(newClientId);
+                  const selectedClient = clients.find((c) => c.id === newClientId);
+                  const clientState = selectedClient?.state || 'Gujarat';
+                  setState(clientState);
+                  setGstType((prev) => applyAutoGstMode(clientState, companyState, prev));
+                }}
                 className="select font-semibold"
               >
                 <option value="">— Choose Client —</option>
@@ -371,19 +395,10 @@ export const QuotationForm = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div>
-              <label htmlFor="qt-gsttype" className="label">GST Tax Inclusion *</label>
-              <select
-                id="qt-gsttype"
-                value={gstType}
-                onChange={(e) => setGstType(e.target.value)}
-                className="select font-semibold"
-              >
-                <option value="CGST_SGST">Include CGST + SGST (Intrastate)</option>
-                <option value="IGST">Include IGST (Interstate)</option>
-                <option value="NON_GST">Non-GST (Estimate Quotation)</option>
-              </select>
+              <label htmlFor="qt-gsttype" className="label">GST Tax Mode *</label>
+              <GstModeSelect id="qt-gsttype" value={gstType} onChange={setGstType} />
             </div>
 
             <div>
@@ -403,7 +418,21 @@ export const QuotationForm = () => {
               </select>
             </div>
 
-            <div className="sm:col-span-2 lg:col-span-1">
+            <div>
+              <label htmlFor="qt-state" className="label">State / Place of Supply</label>
+              <StateSelect
+                id="qt-state"
+                options={INDIAN_STATES}
+                value={state}
+                onChange={(newState) => {
+                  setState(newState);
+                  setGstType((prev) => applyAutoGstMode(newState, companyState, prev));
+                }}
+                placeholder="Select or type a state"
+              />
+            </div>
+
+            <div>
               <label htmlFor="qt-valid" className="label">Valid Until</label>
               <input
                 id="qt-valid"

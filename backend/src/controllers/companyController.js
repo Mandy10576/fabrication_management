@@ -15,7 +15,8 @@ const getCompany = async (req, res, next) => {
           companyName: 'My Fabrication Works',
           ownerName: 'Owner Name',
           email: 'owner@fabrication.com',
-          phone: '+91 99999 99999'
+          phone: '+91 99999 99999',
+          state: 'Gujarat'
         }
       });
     }

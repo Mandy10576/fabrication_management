@@ -28,6 +28,7 @@ const getClients = async (req, res, next) => {
       gstin: true,
       pan: true,
       address: true,
+      state: true,
       notes: true,
       financialYearId: true,
       createdAt: true,
@@ -106,7 +107,7 @@ const getClientById = async (req, res, next) => {
 
 const createClient = async (req, res, next) => {
   try {
-    const { companyName, contactPerson, mobile, email, gstin, pan, address, notes, financialYearId } = req.body;
+    const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId } = req.body;
 
     if (!companyName || !mobile || !address || !financialYearId) {
       return res.status(400).json({ error: 'Company Name, Mobile, Address, and Financial Year are required' });
@@ -121,6 +122,7 @@ const createClient = async (req, res, next) => {
         gstin: gstin || '',
         pan: pan || '',
         address,
+        state: state || '',
         notes: notes || '',
         financialYearId
       },
@@ -136,7 +138,7 @@ const createClient = async (req, res, next) => {
 const updateClient = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { companyName, contactPerson, mobile, email, gstin, pan, address, notes, financialYearId } = req.body;
+    const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId } = req.body;
 
     const updated = await prisma.client.update({
       where: { id },
@@ -148,6 +150,7 @@ const updateClient = async (req, res, next) => {
         gstin,
         pan,
         address,
+        state,
         notes,
         financialYearId
       },

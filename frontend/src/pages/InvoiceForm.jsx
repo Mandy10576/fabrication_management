@@ -6,8 +6,20 @@ import { formatCurrency } from '../utils/formatters';
 import { RateMasterAutocomplete } from '../components/RateMasterAutocomplete';
 import { UnitSelect } from '../components/UnitSelect';
 import { ClientAutocomplete } from '../components/ClientAutocomplete';
+import { StateSelect } from '../components/StateSelect';
+import { GstModeSelect } from '../components/GstModeSelect';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../context/ToastContext';
+import { INDIAN_STATES } from '../utils/indianStates';
+
+/** Auto-derives GST mode from a state comparison, but never auto-switches
+ * into/out of Non-GST (a deliberate manual choice) and leaves the current
+ * mode untouched until both states are known. */
+const applyAutoGstMode = (newState, companyState, currentGstType) => {
+  if (currentGstType === 'NON_GST') return currentGstType;
+  if (!newState || !companyState) return currentGstType;
+  return newState.trim().toLowerCase() === companyState.trim().toLowerCase() ? 'CGST_SGST' : 'IGST';
+};
 import {
   FileText,
   Plus,
@@ -160,6 +172,8 @@ export const InvoiceForm = () => {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
+  const [state, setState] = useState('Gujarat');
+  const [companyState, setCompanyState] = useState('');
   const [gstType, setGstType] = useState('CGST_SGST');
   const [gstRate, setGstRate] = useState(18);
   const [discount, setDiscount] = useState(0);
@@ -182,6 +196,7 @@ export const InvoiceForm = () => {
         ]);
         setClients(Array.isArray(clientsRes) ? clientsRes : (clientsRes?.items || []));
         setRateMaster(Array.isArray(ratesRes) ? ratesRes : (ratesRes?.items || []));
+        setCompanyState(companyRes.state || '');
         if (companyRes.termsConditions && !terms) {
           setTerms(companyRes.termsConditions);
         }
@@ -200,6 +215,7 @@ export const InvoiceForm = () => {
           setInvoiceNumber(inv.invoiceNumber);
           setDate(inv.date ? inv.date.split('T')[0] : '');
           setDueDate(inv.dueDate ? inv.dueDate.split('T')[0] : '');
+          setState(inv.state || '');
           setGstType(inv.gstType);
           setGstRate(inv.gstRate);
           setDiscount(inv.discount);
@@ -325,6 +341,7 @@ export const InvoiceForm = () => {
         clientId,
         date,
         dueDate: dueDate || null,
+        state,
         gstType,
         gstRate,
         discount: disc,
@@ -430,14 +447,19 @@ export const InvoiceForm = () => {
                 id="inv-client"
                 clients={clients}
                 value={clientId}
-                onSelect={(c) => setClientId(c ? c.id : '')}
+                onSelect={(c) => {
+                  setClientId(c ? c.id : '');
+                  const clientState = c?.state || 'Gujarat';
+                  setState(clientState);
+                  setGstType((prev) => applyAutoGstMode(clientState, companyState, prev));
+                }}
                 onAddNew={(typedName) => handleOpenAddClientModal(typedName)}
                 placeholder="Type client name or click drop arrow..."
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="inv-date" className="label">Invoice Date *</label>
               <input
@@ -461,18 +483,23 @@ export const InvoiceForm = () => {
               />
             </div>
 
-            <div className="sm:col-span-2 lg:col-span-1">
+            <div>
+              <label htmlFor="inv-state" className="label">State / Place of Supply</label>
+              <StateSelect
+                id="inv-state"
+                options={INDIAN_STATES}
+                value={state}
+                onChange={(newState) => {
+                  setState(newState);
+                  setGstType((prev) => applyAutoGstMode(newState, companyState, prev));
+                }}
+                placeholder="Select or type a state"
+              />
+            </div>
+
+            <div>
               <label htmlFor="inv-gst" className="label">GST Tax Mode *</label>
-              <select
-                id="inv-gst"
-                value={gstType}
-                onChange={(e) => setGstType(e.target.value)}
-                className="select font-semibold"
-              >
-                <option value="CGST_SGST">CGST + SGST (18% Intra-State)</option>
-                <option value="IGST">IGST (18% Inter-State)</option>
-                <option value="NON_GST">Non-GST (Retail / Bill of Supply)</option>
-              </select>
+              <GstModeSelect id="inv-gst" value={gstType} onChange={setGstType} />
             </div>
           </div>
         </div>

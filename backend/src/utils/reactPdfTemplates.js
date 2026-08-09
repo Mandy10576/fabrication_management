@@ -300,14 +300,16 @@ function formatDate(dateString) {
 }
 
 function parseAddress(addressStr) {
-  if (!addressStr) return { lines: [], stateLine: 'State: Gujarat' };
+  if (!addressStr) return { lines: [], stateLine: null };
   const text = addressStr.replace(/\\n/g, '\n');
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const withoutState = lines.filter(l => !l.toLowerCase().startsWith('state:'));
-  const stateLine = lines.find(l => l.toLowerCase().startsWith('state:')) || 'State: Gujarat';
+  const foundStateLine = lines.find(l => l.toLowerCase().startsWith('state:'));
   return {
     lines: withoutState,
-    stateLine: stateLine.startsWith('State:') ? stateLine : `State: ${stateLine}`
+    // Raw state name only (no "State:" prefix) so callers can prefer a real
+    // `.state` field first and fall back to this parsed-from-address value.
+    stateLine: foundStateLine ? foundStateLine.replace(/^state:\s*/i, '').trim() : null
   };
 }
 
@@ -325,15 +327,20 @@ const InvoicePDFDocument = ({ invoice, company }) => {
     pan: 'N/A',
     email: 'khodiyarsteelandfabrication@gmail.com',
     phone: '9825534229 / 8128209488',
-    address: 'Shop-11, Meet Darshan Apartment, Navo Mahollo, Singapore Road, Surat\nCity: Surat\nPincode: 395004\nState: Gujarat',
+    address: 'Shop-11, Meet Darshan Apartment, Navo Mahollo, Singapore Road, Surat\nCity: Surat\nPincode: 395004',
+    state: 'Gujarat',
     termsConditions: 'Thank you for doing business with us!'
   };
 
   const client = invoice.client || {};
-  const totalQuantity = invoice.items ? invoice.items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) : 0;
 
   const compAddr = parseAddress(comp.address);
   const clientAddr = parseAddress(client.address);
+  const resolvedCompState = comp.state || compAddr.stateLine || 'N/A';
+  // The invoice's own saved snapshot wins (Place of Supply as it was when
+  // billed), then the client's current profile, then whatever's parseable
+  // out of their address text — never silently claim a specific state.
+  const resolvedState = invoice.state || client.state || clientAddr.stateLine || 'N/A';
 
   const titleText = invoice.gstType === 'NON_GST' ? 'I N V O I C E' : 'T A X       I N V O I C E';
 
@@ -347,7 +354,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           comp.phone ? React.createElement(Text, null, `Phone no. : ${comp.phone}`) : null,
           comp.email ? React.createElement(Text, null, `Email : ${comp.email}`) : null,
           React.createElement(Text, null, `GSTIN: ${comp.gstin || 'N/A'} | PAN: ${comp.pan || 'N/A'}`),
-          React.createElement(Text, null, compAddr.stateLine)
+          React.createElement(Text, null, `State: ${resolvedCompState}`)
         )
       ),
 
@@ -364,7 +371,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           React.createElement(View, { style: styles.clientText },
             ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
-            React.createElement(Text, null, clientAddr.stateLine),
+            React.createElement(Text, null, `State: ${resolvedState}`),
             client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
           )
         ),
@@ -380,7 +387,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           ),
           React.createElement(View, { style: styles.metaRow },
             React.createElement(Text, { style: styles.metaLabel }, 'Place of Supply :'),
-            React.createElement(Text, { style: styles.metaValue }, 'Gujarat')
+            React.createElement(Text, { style: styles.metaValue }, resolvedState)
           )
         )
       ),
@@ -414,10 +421,11 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           )
         ),
 
-        // Footer Total Row
+        // Footer Total Row (Qty is left blank — summing quantities across
+        // mismatched units, e.g. sq ft + kg, produces a meaningless number)
         React.createElement(View, { style: styles.tableFooterRow },
           React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, { width: '58%' }] }, 'TOTAL'),
-          React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colQty] }, totalQuantity),
+          React.createElement(Text, { style: [styles.tableCell, styles.colQty] }, ''),
           React.createElement(Text, { style: [styles.tableCell, { width: '21%' }] }, ''),
           React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colAmt] }, Number(invoice.subtotal).toFixed(2))
         )
@@ -510,12 +518,12 @@ const QuotationPDFDocument = ({ quotation, company }) => {
     pan: 'N/A',
     email: 'khodiyarsteelandfabrication@gmail.com',
     phone: '9825534229 / 8128209488',
-    address: 'Shop-11, Meet Darshan Apartment, Navo Mahollo, Singapore Road, Surat\nCity: Surat\nPincode: 395004\nState: Gujarat',
+    address: 'Shop-11, Meet Darshan Apartment, Navo Mahollo, Singapore Road, Surat\nCity: Surat\nPincode: 395004',
+    state: 'Gujarat',
     termsConditions: 'Thank you for doing business with us!'
   };
 
   const client = quotation.client || {};
-  const totalQuantity = quotation.items ? quotation.items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) : 0;
 
   const subtotal = quotation.subtotal || 0;
   const discount = quotation.discount || 0;
@@ -543,6 +551,8 @@ const QuotationPDFDocument = ({ quotation, company }) => {
 
   const compAddr = parseAddress(comp.address);
   const clientAddr = parseAddress(client.address);
+  const resolvedCompState = comp.state || compAddr.stateLine || 'N/A';
+  const resolvedState = quotation.state || client.state || clientAddr.stateLine || 'N/A';
 
   return React.createElement(Document, null,
     React.createElement(Page, { size: 'A4', style: styles.page },
@@ -554,7 +564,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           comp.phone ? React.createElement(Text, null, `Phone no. : ${comp.phone}`) : null,
           comp.email ? React.createElement(Text, null, `Email : ${comp.email}`) : null,
           React.createElement(Text, null, `GSTIN: ${comp.gstin || 'N/A'} | PAN: ${comp.pan || 'N/A'}`),
-          React.createElement(Text, null, compAddr.stateLine)
+          React.createElement(Text, null, `State: ${resolvedCompState}`)
         )
       ),
 
@@ -571,7 +581,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           React.createElement(View, { style: styles.clientText },
             ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
-            React.createElement(Text, null, clientAddr.stateLine),
+            React.createElement(Text, null, `State: ${resolvedState}`),
             client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
           )
         ),
@@ -588,7 +598,11 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           quotation.validUntil ? React.createElement(View, { style: styles.metaRow },
             React.createElement(Text, { style: styles.metaLabel }, 'Valid Until :'),
             React.createElement(Text, { style: styles.metaValue }, formatDate(quotation.validUntil))
-          ) : null
+          ) : null,
+          React.createElement(View, { style: styles.metaRow },
+            React.createElement(Text, { style: styles.metaLabel }, 'Place of Supply :'),
+            React.createElement(Text, { style: styles.metaValue }, resolvedState)
+          )
         )
       ),
 
@@ -621,10 +635,11 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           )
         ),
 
-        // Footer Total Row
+        // Footer Total Row (Qty is left blank — summing quantities across
+        // mismatched units, e.g. sq ft + kg, produces a meaningless number)
         React.createElement(View, { style: styles.tableFooterRow },
           React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, { width: '58%' }] }, 'TOTAL'),
-          React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colQty] }, totalQuantity),
+          React.createElement(Text, { style: [styles.tableCell, styles.colQty] }, ''),
           React.createElement(Text, { style: [styles.tableCell, { width: '21%' }] }, ''),
           React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colAmt] }, Number(quotation.subtotal).toFixed(2))
         )
