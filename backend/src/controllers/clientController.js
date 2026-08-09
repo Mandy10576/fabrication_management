@@ -11,11 +11,11 @@ const getClients = async (req, res, next) => {
 
     if (search) {
       where.OR = [
-        { companyName: { contains: search } },
-        { contactPerson: { contains: search } },
-        { mobile: { contains: search } },
-        { email: { contains: search } },
-        { gstin: { contains: search } }
+        { companyName: { contains: search, mode: 'insensitive' } },
+        { contactPerson: { contains: search, mode: 'insensitive' } },
+        { mobile: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { gstin: { contains: search, mode: 'insensitive' } }
       ];
     }
 

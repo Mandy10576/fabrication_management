@@ -38,7 +38,7 @@ const getOrgSalary = async (req, res, next) => {
     const where = {};
     if (status === 'INACTIVE') where.isActive = false;
     else if (status !== 'ALL') where.isActive = true;
-    if (search) where.OR = [{ name: { contains: search } }, { mobile: { contains: search } }];
+    if (search) where.OR = [{ name: { contains: search, mode: 'insensitive' } }, { mobile: { contains: search, mode: 'insensitive' } }];
 
     const employees = await prisma.employee.findMany({ where, orderBy: { name: 'asc' } });
 

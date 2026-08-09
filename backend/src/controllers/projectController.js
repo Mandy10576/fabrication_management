@@ -14,10 +14,10 @@ const getProjects = async (req, res, next) => {
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { siteAddress: { contains: search } },
-        { contactNumber: { contains: search } },
-        { client: { companyName: { contains: search } } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { siteAddress: { contains: search, mode: 'insensitive' } },
+        { contactNumber: { contains: search, mode: 'insensitive' } },
+        { client: { companyName: { contains: search, mode: 'insensitive' } } },
       ];
     }
 

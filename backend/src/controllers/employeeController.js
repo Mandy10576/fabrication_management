@@ -14,8 +14,8 @@ const getEmployees = async (req, res, next) => {
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { mobile: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { mobile: { contains: search, mode: 'insensitive' } },
       ];
     }
 

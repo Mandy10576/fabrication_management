@@ -85,7 +85,7 @@ const getOrgAdvances = async (req, res, next) => {
       where.advanceDate = { gte: range.fromDate, lt: addDaysUTC(range.toDate, 1) };
     }
     if (search) {
-      where.employee = { OR: [{ name: { contains: search } }, { mobile: { contains: search } }] };
+      where.employee = { OR: [{ name: { contains: search, mode: 'insensitive' } }, { mobile: { contains: search, mode: 'insensitive' } }] };
     }
 
     const advances = await prisma.advance.findMany({

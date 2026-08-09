@@ -67,8 +67,8 @@ const getQuotations = async (req, res, next) => {
 
     if (search) {
       where.OR = [
-        { quotationNumber: { contains: search } },
-        { client: { companyName: { contains: search } } }
+        { quotationNumber: { contains: search, mode: 'insensitive' } },
+        { client: { companyName: { contains: search, mode: 'insensitive' } } }
       ];
     }
 

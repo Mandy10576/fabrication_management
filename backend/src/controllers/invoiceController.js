@@ -70,9 +70,9 @@ const getInvoices = async (req, res, next) => {
 
     if (search) {
       where.OR = [
-        { invoiceNumber: { contains: search } },
-        { client: { companyName: { contains: search } } },
-        { client: { contactPerson: { contains: search } } }
+        { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        { client: { companyName: { contains: search, mode: 'insensitive' } } },
+        { client: { contactPerson: { contains: search, mode: 'insensitive' } } }
       ];
     }
 

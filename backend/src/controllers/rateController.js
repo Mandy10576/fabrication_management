@@ -6,9 +6,9 @@ const getRates = async (req, res, next) => {
     const where = {};
     if (search) {
       where.OR = [
-        { serviceName: { contains: search } },
-        { hsnSac: { contains: search } },
-        { description: { contains: search } }
+        { serviceName: { contains: search, mode: 'insensitive' } },
+        { hsnSac: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
       ];
     }
 
