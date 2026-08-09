@@ -218,13 +218,26 @@
     @apply resize-y min-h-[5rem];
   }
 
-  /* Search field wrapper used on every list page. */
+  /* Search field wrapper used on every list page and the navbar's global
+     search. A floating pill (rounded-full, card shadow) rather than a flat
+     recessed box - it reads as one raised, tappable control instead of a
+     plain bordered rectangle, and the focus state is a soft brand glow
+     instead of a hard ring. */
   .search-field {
-    @apply flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700
-           bg-slate-50 dark:bg-slate-800/70 transition-all duration-150
-           hover:border-slate-400 dark:hover:border-slate-600
-           focus-within:bg-white dark:focus-within:bg-slate-800
-           focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-brand-500;
+    @apply flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-slate-200 dark:border-slate-800
+           bg-white dark:bg-slate-900 shadow-card transition-all duration-200
+           hover:shadow-card-hover hover:border-slate-300 dark:hover:border-slate-700
+           focus-within:border-brand-400 dark:focus-within:border-brand-600
+           focus-within:shadow-card-hover focus-within:ring-4 focus-within:ring-brand-500/10;
+  }
+
+  /* The leading Search icon is always the wrapper's first child by
+     convention across every page that uses .search-field. */
+  .search-field > svg:first-child {
+    @apply transition-colors duration-200;
+  }
+  .search-field:focus-within > svg:first-child {
+    @apply text-brand-500 dark:text-brand-400;
   }
 
   /* h-5 matches text-sm's own 1.25rem line-height. As a flex child the input
