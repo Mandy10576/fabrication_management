@@ -219,12 +219,12 @@
   }
 
   /* Search field wrapper used on every list page and the navbar's global
-     search. A floating pill (rounded-full, card shadow) rather than a flat
-     recessed box - it reads as one raised, tappable control instead of a
-     plain bordered rectangle, and the focus state is a soft brand glow
-     instead of a hard ring. */
+     search. rounded-xl matches every other input/button in the app (the
+     rounded-full pill tried earlier clipped the first typed character
+     against its own corner curve). Raised card surface with a soft brand
+     glow on focus instead of a hard ring. */
   .search-field {
-    @apply flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-slate-200 dark:border-slate-800
+    @apply flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800
            bg-white dark:bg-slate-900 shadow-card transition-all duration-200
            hover:shadow-card-hover hover:border-slate-300 dark:hover:border-slate-700
            focus-within:border-brand-400 dark:focus-within:border-brand-600
