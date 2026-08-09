@@ -243,10 +243,19 @@
     @apply ring-0 ring-offset-0;
   }
 
-  /* Chrome/Edge render their own magnifying-glass icon and clear button inside
-     type="search" inputs. Left undisabled, the native icon sits on top of our
-     own Search icon and the placeholder text, at the same spot the caret
-     lands - the app already supplies both, so both native ones are hidden. */
+  /* Chrome/Edge give type="search" inputs their own native appearance (a
+     built-in magnifying-glass decoration, a clear button, and internal
+     padding reserved for both) even after the individual pseudo-elements
+     below are hidden - some Chromium builds keep reserving that internal
+     slot, which is what visibly collided with the first character and the
+     caret. Reverting the input's own appearance to a plain textfield drops
+     all of the native search styling in one step; the pseudo-element rules
+     stay as a defensive backup for engines that don't honor the shorthand. */
+  .search-field input[type='search'] {
+    -webkit-appearance: textfield;
+    appearance: textfield;
+  }
+
   .search-field input[type='search']::-webkit-search-decoration,
   .search-field input[type='search']::-webkit-search-cancel-button {
     @apply hidden;
