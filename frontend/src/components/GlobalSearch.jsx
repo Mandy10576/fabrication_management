@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
@@ -296,7 +297,11 @@ export const GlobalSearch = ({ variant = 'inline', onClose }) => {
   );
 
   if (isOverlay) {
-    return (
+    // Portalled to <body> - the navbar has backdrop-blur, which establishes a
+    // containing block for `fixed` descendants. Rendered inline, `inset-0`
+    // here would resolve against the navbar's own (header-height) box instead
+    // of the viewport, squashing the overlay into a thin strip at the top.
+    return createPortal(
       <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true">
         <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 safe-area-pl safe-area-pr">
           <div className="flex items-center gap-2">
@@ -312,7 +317,8 @@ export const GlobalSearch = ({ variant = 'inline', onClose }) => {
             {resultsBody}
           </div>
         )}
-      </div>
+      </div>,
+      document.body
     );
   }
 
