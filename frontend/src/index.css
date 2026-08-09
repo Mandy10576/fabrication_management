@@ -238,10 +238,15 @@
     @apply ring-0 ring-offset-0;
   }
 
-  /* Native search inputs render their own clear affordance in some browsers,
-     which would sit alongside the app's own clear button. */
+  /* Chrome/Edge render their own magnifying-glass icon and clear button inside
+     type="search" inputs. Left undisabled, the native icon sits on top of our
+     own Search icon and the placeholder text, at the same spot the caret
+     lands - the app already supplies both, so both native ones are hidden. */
+  .search-field input[type='search']::-webkit-search-decoration,
   .search-field input[type='search']::-webkit-search-cancel-button {
     @apply hidden;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   /* Small circular clear button shown once a search field has a value. */
