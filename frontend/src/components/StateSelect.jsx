@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, MapPin, Plus } from 'lucide-react';
+import { ChevronDown, MapPin, Plus, Search } from 'lucide-react';
 
 const CUSTOM_STATES_KEY = 'khodiyar_custom_states';
 
@@ -25,11 +25,14 @@ const saveCustomState = (newState) => {
 
 /**
  * Searchable + typeable State picker (structural clone of UnitSelect): a
- * typeable input filtered against the Indian states/UTs list plus any
- * admin-added custom states, dropdown opens only via the arrow button.
- * Typing a value not in the list shows an "Add as new state" option that
- * saves it (in localStorage, same convention as the Unit list) so it's
- * available to pick from next time — not just accepted as one-off free text.
+ * typeable input holds the actual field value and opens the dropdown only
+ * via the arrow button. The dropdown itself carries its own dedicated
+ * search box (separate from the required value input, so the browser's
+ * native "please fill out this field" validation never interrupts
+ * searching) filtering the Indian states/UTs list plus any admin-added
+ * custom states. Searching a value not in the list shows an "Add as new
+ * state" option that saves it (localStorage, same convention as Units) so
+ * it's available to pick from next time.
  */
 export const StateSelect = ({
   id,
@@ -40,8 +43,10 @@ export const StateSelect = ({
   required = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [customStates, setCustomStates] = useState(() => getCustomStates());
   const containerRef = useRef(null);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -53,6 +58,14 @@ export const StateSelect = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      setQuery('');
+      const t = setTimeout(() => searchRef.current?.focus(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
   const handleInputChange = (e) => {
     onChange(e.target.value);
   };
@@ -62,19 +75,20 @@ export const StateSelect = ({
     setIsOpen(false);
   };
 
+  const trimmedQuery = query.trim();
+
   const handleAddNew = () => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    saveCustomState(trimmed);
+    if (!trimmedQuery) return;
+    saveCustomState(trimmedQuery);
     setCustomStates(getCustomStates());
-    onChange(trimmed);
+    onChange(trimmedQuery);
     setIsOpen(false);
   };
 
   const allOptions = Array.from(new Set([...options, ...customStates]));
-  const query = (value || '').toLowerCase().trim();
-  const filteredOptions = allOptions.filter((s) => !query || s.toLowerCase().includes(query));
-  const isNewValue = query && !allOptions.some((s) => s.toLowerCase() === query);
+  const searchTerm = trimmedQuery.toLowerCase();
+  const filteredOptions = allOptions.filter((s) => !searchTerm || s.toLowerCase().includes(searchTerm));
+  const isNewValue = searchTerm && !allOptions.some((s) => s.toLowerCase() === searchTerm);
 
   return (
     <div className="relative w-full" ref={containerRef}>
@@ -102,36 +116,50 @@ export const StateSelect = ({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-          <div className="py-1">
-            {filteredOptions.length === 0 ? (
-              <div className="px-4 py-3 text-slate-400 text-center italic text-xs">
-                No matching state{query ? ` for "${value}"` : ''}.
-              </div>
-            ) : (
-              filteredOptions.map((s) => (
-                <div
-                  key={s}
-                  onClick={() => handleSelect(s)}
-                  className={`px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer font-semibold transition-colors ${
-                    s === value ? 'text-brand-600 dark:text-brand-400' : 'text-slate-700 dark:text-slate-200'
-                  }`}
-                >
-                  {s}
-                </div>
-              ))
-            )}
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden text-xs">
+          <div className="relative p-2 border-b border-slate-100 dark:border-slate-800">
+            <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search states…"
+              className="w-full pl-8 pr-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs font-medium outline-none focus:ring-2 focus:ring-brand-500"
+            />
           </div>
 
-          {isNewValue && (
-            <div
-              onClick={handleAddNew}
-              className="p-2.5 bg-brand-50/50 dark:bg-brand-950/30 hover:bg-brand-100/60 dark:hover:bg-brand-900/50 text-brand-600 dark:text-brand-400 font-bold text-xs cursor-pointer flex items-center justify-center gap-2 transition-colors border-t border-slate-100 dark:border-slate-800"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add "{value.trim()}" as a new state…</span>
+          <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="py-1">
+              {filteredOptions.length === 0 ? (
+                <div className="px-4 py-3 text-slate-400 text-center italic text-xs">
+                  No matching state{trimmedQuery ? ` for "${trimmedQuery}"` : ''}.
+                </div>
+              ) : (
+                filteredOptions.map((s) => (
+                  <div
+                    key={s}
+                    onClick={() => handleSelect(s)}
+                    className={`px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer font-semibold transition-colors ${
+                      s === value ? 'text-brand-600 dark:text-brand-400' : 'text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    {s}
+                  </div>
+                ))
+              )}
             </div>
-          )}
+
+            {isNewValue && (
+              <div
+                onClick={handleAddNew}
+                className="p-2.5 bg-brand-50/50 dark:bg-brand-950/30 hover:bg-brand-100/60 dark:hover:bg-brand-900/50 text-brand-600 dark:text-brand-400 font-bold text-xs cursor-pointer flex items-center justify-center gap-2 transition-colors border-t border-slate-100 dark:border-slate-800"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add "{trimmedQuery}" as a new state…</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

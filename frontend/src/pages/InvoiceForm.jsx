@@ -215,7 +215,7 @@ export const InvoiceForm = () => {
           setInvoiceNumber(inv.invoiceNumber);
           setDate(inv.date ? inv.date.split('T')[0] : '');
           setDueDate(inv.dueDate ? inv.dueDate.split('T')[0] : '');
-          setState(inv.state || '');
+          setState(inv.state || 'Gujarat');
           setGstType(inv.gstType);
           setGstRate(inv.gstRate);
           setDiscount(inv.discount);

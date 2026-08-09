@@ -180,7 +180,7 @@ export const QuotationForm = () => {
           setQuotationNumber(q.quotationNumber);
           setDate(q.date ? q.date.split('T')[0] : '');
           setValidUntil(q.validUntil ? q.validUntil.split('T')[0] : '');
-          setState(q.state || '');
+          setState(q.state || 'Gujarat');
           setGstType(q.gstType || 'CGST_SGST');
           setGstRate(q.gstRate ?? 18);
           setDiscount(q.discount || 0);
