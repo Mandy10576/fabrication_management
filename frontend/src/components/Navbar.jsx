@@ -1,15 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { FinancialYearSelector } from './FinancialYearSelector';
+import { GlobalSearch } from './GlobalSearch';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
-import { Sun, Moon, LogOut, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, LogOut, ShieldCheck, Search } from 'lucide-react';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
+  // Ctrl/Cmd+K focuses search. Ctrl+B is already taken by the sidebar toggle.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const desktopInput = document.querySelector('[data-global-search] input');
+        if (desktopInput && desktopInput.offsetParent !== null) desktopInput.focus();
+        else setMobileSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 h-header shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -31,8 +47,23 @@ export const Navbar = () => {
           </Link>
         </div>
 
+        {/* Center: global search. Below xl the FY selector and user chip crowd it
+            down to a few characters, so it collapses to an icon + full-screen overlay. */}
+        <div data-global-search className="hidden xl:block flex-1 max-w-md mx-2">
+          <GlobalSearch variant="inline" />
+        </div>
+
         {/* Right: FY selector, theme, user, logout */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <button
+            onClick={() => setMobileSearchOpen(true)}
+            className="btn-icon btn-icon-soft xl:hidden"
+            aria-label="Search"
+            title="Search"
+          >
+            <Search className="w-[1.15rem] h-[1.15rem]" />
+          </button>
+
           <FinancialYearSelector />
 
           <button
@@ -68,6 +99,10 @@ export const Navbar = () => {
           </button>
         </div>
       </div>
+
+      {mobileSearchOpen && (
+        <GlobalSearch variant="overlay" onClose={() => setMobileSearchOpen(false)} />
+      )}
     </header>
   );
 };

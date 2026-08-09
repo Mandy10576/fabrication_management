@@ -23,6 +23,7 @@ const salaryRoutes = require('./routes/salaryRoutes');
 const advanceRoutes = require('./routes/advanceRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const workLogRoutes = require('./routes/workLogRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -64,6 +65,7 @@ app.use(['/api/salary', '/salary'], salaryRoutes);
 app.use(['/api/advances', '/advances'], advanceRoutes);
 app.use(['/api/projects', '/projects'], projectRoutes);
 app.use(['/api/worklogs', '/worklogs'], workLogRoutes);
+app.use(['/api/search', '/search'], searchRoutes);
 
 // Health check
 app.get(['/api/health', '/health'], (req, res) => {

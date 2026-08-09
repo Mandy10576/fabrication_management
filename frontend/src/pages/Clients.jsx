@@ -15,7 +15,8 @@ import {
   Eye,
   Building2,
   Phone,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 
 const EMPTY_FORM = {
@@ -36,6 +37,7 @@ export const Clients = () => {
   const confirm = useConfirm();
 
   const [clients, setClients] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,7 @@ export const Clients = () => {
       } else {
         setClients(newItems);
       }
+      setTotalCount(typeof res.totalCount === 'number' ? res.totalCount : newItems.length);
       setNextCursor(newNextCursor);
       setHasMore(newHasMore);
     } catch (err) {
@@ -172,7 +175,7 @@ export const Clients = () => {
       </div>
 
       {/* Search */}
-      <div className="card card-pad">
+      <div className="card card-pad space-y-2.5">
         <div className="search-field">
           <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
           <input
@@ -182,7 +185,26 @@ export const Clients = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="search-clear"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+
+        {search && !loading && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 px-1">
+            {totalCount === 0
+              ? <>No clients match <span className="font-semibold text-slate-700 dark:text-slate-300">"{search}"</span></>
+              : <><span className="font-semibold text-slate-700 dark:text-slate-300">{totalCount}</span> {totalCount === 1 ? 'client' : 'clients'} matching <span className="font-semibold text-slate-700 dark:text-slate-300">"{search}"</span></>}
+          </p>
+        )}
       </div>
 
       {/* List */}
