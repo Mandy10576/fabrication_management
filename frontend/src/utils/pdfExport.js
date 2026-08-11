@@ -1,54 +1,56 @@
-import { api } from '../services/api';
-import { renderInvoicePdfBlob, renderQuotationPdfBlob } from './documentPdf';
+import { getApiBase } from '../services/api';
 
 /**
- * Produces the PDF from the same React template the app renders on screen, so
- * the file matches the preview exactly and there is no second design to keep
- * in sync. Only the document data is fetched; the rendering happens here.
- *
- * @param {string} docId   - Document database ID
- * @param {string} docType - 'invoice' | 'quotation'
+ * Fetches the generated PDF as a Blob from the backend (@react-pdf/renderer).
+ * Shared by downloadPDF and sharePDF so the request logic lives in one place.
+ * @param {string} [docId] - Document database ID
+ * @param {string} [docType] - Document type ('invoice' | 'quotation')
  */
 const fetchPdfBlob = async (docId = null, docType = null) => {
-  if (!docId || !docType) {
-    throw new Error('A document type and id are required to generate a PDF');
+  // Shared with services/api.js so the backend origin is declared once.
+  const API_BASE = getApiBase();
+
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  };
+
+  let requestUrl = '';
+
+  if (docType === 'invoice' && docId) {
+    requestUrl = `${API_BASE}/invoices/${docId}/pdf`;
+  } else if (docType === 'quotation' && docId) {
+    requestUrl = `${API_BASE}/quotations/${docId}/pdf`;
+  } else {
+    console.warn('⚠️ Missing docType or docId for React PDF stream. Requesting render fallback endpoint.');
+    requestUrl = `${API_BASE}/pdf/render`;
   }
 
-  if (docType === 'invoice') {
-    // Fetched fresh rather than reusing list-row data, which omits items.
-    const [invoice, company] = await Promise.all([
-      api.get(`/invoices/${docId}`, true),
-      api.get('/company').catch(() => null),
-    ]);
-    return renderInvoicePdfBlob(invoice, company);
+  const response = await fetch(requestUrl, { headers });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(errorData.error || 'Failed to generate PDF');
   }
 
-  if (docType === 'quotation') {
-    const [quotation, company] = await Promise.all([
-      api.get(`/quotations/${docId}`, true),
-      api.get('/company').catch(() => null),
-    ]);
-    return renderQuotationPdfBlob(quotation, company);
-  }
-
-  throw new Error(`Unsupported document type: ${docType}`);
+  return response.blob();
 };
 
 /**
- * Generates and downloads the document PDF.
- * @param {string} elementId - Retained for call-site compatibility; unused.
- * @param {string} filename  - Desired output filename (.pdf)
- * @param {string} [docId]   - Document database ID
- * @param {string} [docType] - 'invoice' | 'quotation'
+ * Triggers official React PDF generation via backend API (@react-pdf/renderer)
+ * @param {string} elementId - DOM ID of printable element (fallback/reference)
+ * @param {string} filename - Desired output filename (.pdf)
+ * @param {string} [docId] - Document database ID
+ * @param {string} [docType] - Document type ('invoice' | 'quotation')
  */
-export const downloadPDF = async (
-  elementId = 'printable-invoice',
-  filename = 'document.pdf',
-  docId = null,
-  docType = null
-) => {
+export const downloadPDF = async (elementId = 'printable-invoice', filename = 'document.pdf', docId = null, docType = null) => {
+  console.log(`🚀 [React PDF Export] Requesting binary stream for docType="${docType}", docId="${docId}"`);
+
   try {
     const blob = await fetchPdfBlob(docId, docType);
+
+    console.log(`✅ [React PDF Export] Received binary buffer from @react-pdf/renderer. Downloading: "${filename}"`);
 
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -59,18 +61,19 @@ export const downloadPDF = async (
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('PDF generation failed:', error);
-    alert('Failed to generate PDF: ' + (error.message || 'Unknown error'));
+    console.error('❌ [React PDF Export] Generation failed:', error);
+    alert('Failed to generate PDF: ' + (error.message || 'Server error'));
   }
 };
 
 /**
- * Shares the generated PDF as a file via the OS share sheet (WhatsApp, Email
- * and so on appear as targets with the PDF attached). Returns true if the
- * native sheet opened, false if this device can't share files so the caller
+ * Shares the generated PDF directly (as a file) via the OS share sheet
+ * (WhatsApp, Email, etc. all appear as share targets with the PDF attached —
+ * no composed text). Returns true if the native share sheet was invoked,
+ * false if this device/browser doesn't support sharing files, so the caller
  * can fall back to downloadPDF.
- * @param {string} docId    - Document database ID
- * @param {string} docType  - 'invoice' | 'quotation'
+ * @param {string} docId - Document database ID
+ * @param {string} docType - Document type ('invoice' | 'quotation')
  * @param {string} filename - Desired output filename (.pdf)
  */
 export const sharePDF = async (docId, docType, filename = 'document.pdf') => {
