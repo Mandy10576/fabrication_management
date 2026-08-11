@@ -1,5 +1,105 @@
 const prisma = require('../config/prisma');
 
+/**
+ * Comparable form of a mobile number: digits only, and for anything longer
+ * than a local 10-digit number, just the last 10. That makes
+ * "+91 98765-43210", "098765 43210" and "9876543210" all compare equal.
+ */
+const normalizeMobile = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length > 10 ? digits.slice(-10) : digits;
+};
+
+/** Case/whitespace-insensitive text key, so line breaks and stray spacing in
+ *  an address don't make two otherwise identical entries look different. */
+const normalizeText = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const DUPLICATE_SELECT = {
+  id: true,
+  companyName: true,
+  contactPerson: true,
+  mobile: true,
+  email: true,
+  gstin: true,
+  address: true,
+  state: true,
+  financialYearId: true,
+  financialYear: { select: { id: true, year: true } },
+  _count: { select: { invoices: true, quotations: true } }
+};
+
+/**
+ * Classifies how an incoming client collides with existing records.
+ *
+ * Only name + mobile + address all matching counts as the same client. A
+ * shared mobile alone does not: real records here legitimately reuse one
+ * number at different addresses (two firms run by the same owner, two schools
+ * sharing a contact person), so that is reported as a warning the caller may
+ * proceed past. A shared name alone is not a collision at all.
+ *
+ *   exactMatches  - name + mobile + address all equal -> the same client
+ *   mobileMatches - same mobile, different address    -> warn, still allowed
+ *   nameMatches   - same name only                    -> informational
+ *
+ * Matching runs in JS rather than SQL because stored values carry spacing and
+ * punctuation a raw SQL compare would miss. The client table is small (one
+ * business's customer list), so scanning it is cheap.
+ */
+const findDuplicateClients = async ({ mobile, companyName, address, excludeId }) => {
+  const digits = normalizeMobile(mobile);
+  const name = normalizeText(companyName);
+  const addr = normalizeText(address);
+
+  const candidates = await prisma.client.findMany({
+    where: excludeId ? { NOT: { id: excludeId } } : undefined,
+    select: DUPLICATE_SELECT,
+    orderBy: { createdAt: 'desc' }
+  });
+
+  // Guard against absurdly short input matching half the table.
+  const sameMobile = digits.length >= 6
+    ? candidates.filter((c) => normalizeMobile(c.mobile) === digits)
+    : [];
+
+  const exactMatches = (name && addr)
+    ? sameMobile.filter(
+        (c) => normalizeText(c.companyName) === name && normalizeText(c.address) === addr
+      )
+    : [];
+
+  const exactIds = new Set(exactMatches.map((c) => c.id));
+  const mobileMatches = sameMobile.filter((c) => !exactIds.has(c.id));
+
+  const seen = new Set([...exactIds, ...mobileMatches.map((c) => c.id)]);
+  const nameMatches = name
+    ? candidates.filter((c) => normalizeText(c.companyName) === name && !seen.has(c.id))
+    : [];
+
+  return { exactMatches, mobileMatches, nameMatches };
+};
+
+const checkDuplicateClient = async (req, res, next) => {
+  try {
+    const { mobile, companyName, address, excludeId } = req.query;
+    const { exactMatches, mobileMatches, nameMatches } = await findDuplicateClients({
+      mobile,
+      companyName,
+      address,
+      excludeId
+    });
+    res.json({
+      exactMatches,
+      mobileMatches,
+      nameMatches,
+      hasExactMatch: exactMatches.length > 0,
+      hasMobileMatch: mobileMatches.length > 0,
+      hasNameMatch: nameMatches.length > 0
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getClients = async (req, res, next) => {
   try {
     const { financialYearId, search, limit, cursor, all } = req.query;
@@ -107,10 +207,25 @@ const getClientById = async (req, res, next) => {
 
 const createClient = async (req, res, next) => {
   try {
-    const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId } = req.body;
+    const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId, confirmDuplicate } = req.body;
 
     if (!companyName || !mobile || !address || !financialYearId) {
       return res.status(400).json({ error: 'Company Name, Mobile, Address, and Financial Year are required' });
+    }
+
+    // Only an identical name + mobile + address is the same client; that is
+    // refused by default so the API is safe on its own, while confirmDuplicate
+    // lets the caller override. A shared mobile at a different address is a
+    // legitimate separate client and is never blocked here.
+    if (!confirmDuplicate) {
+      const { exactMatches } = await findDuplicateClients({ mobile, companyName, address });
+      if (exactMatches.length > 0) {
+        return res.status(409).json({
+          error: `${exactMatches[0].companyName} already exists with the same mobile number and address.`,
+          code: 'DUPLICATE_CLIENT',
+          existingClients: exactMatches
+        });
+      }
     }
 
     const client = await prisma.client.create({
@@ -138,7 +253,19 @@ const createClient = async (req, res, next) => {
 const updateClient = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId } = req.body;
+    const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId, confirmDuplicate } = req.body;
+
+    // Same rule as create, ignoring this client's own record.
+    if (!confirmDuplicate) {
+      const { exactMatches } = await findDuplicateClients({ mobile, companyName, address, excludeId: id });
+      if (exactMatches.length > 0) {
+        return res.status(409).json({
+          error: `Another client (${exactMatches[0].companyName}) already has this same name, mobile number and address.`,
+          code: 'DUPLICATE_CLIENT',
+          existingClients: exactMatches
+        });
+      }
+    }
 
     const updated = await prisma.client.update({
       where: { id },
@@ -188,4 +315,4 @@ const deleteClient = async (req, res, next) => {
   }
 };
 
-module.exports = { getClients, getClientById, createClient, updateClient, deleteClient };
+module.exports = { getClients, getClientById, createClient, updateClient, deleteClient, checkDuplicateClient };

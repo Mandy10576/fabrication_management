@@ -6,6 +6,7 @@ import { formatCurrency } from '../utils/formatters';
 import { RateMasterAutocomplete } from '../components/RateMasterAutocomplete';
 import { UnitSelect } from '../components/UnitSelect';
 import { ClientAutocomplete } from '../components/ClientAutocomplete';
+import { ClientDuplicateDialog } from '../components/ClientDuplicateDialog';
 import { StateSelect } from '../components/StateSelect';
 import { GstModeSelect } from '../components/GstModeSelect';
 import { Modal } from '../components/ui/Modal';
@@ -139,32 +140,78 @@ export const InvoiceForm = () => {
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [newClientData, setNewClientData] = useState(EMPTY_NEW_CLIENT);
+  const [clientDuplicates, setClientDuplicates] = useState(null);
 
   const handleOpenAddClientModal = (typedName) => {
     setNewClientData({ ...EMPTY_NEW_CLIENT, companyName: typedName || '' });
+    setClientDuplicates(null);
     setIsAddClientModalOpen(true);
+  };
+
+  /** Selecting a client also refreshes Place of Supply and the GST mode. */
+  const applyClientSelection = (c) => {
+    setClientId(c ? c.id : '');
+    const clientState = c?.state || 'Gujarat';
+    setState(clientState);
+    setGstType((prev) => applyAutoGstMode(clientState, companyState, prev));
+  };
+
+  const persistNewClient = async (confirmDuplicate = false) => {
+    setSavingClient(true);
+    try {
+      const createdClient = await api.post('/clients', {
+        ...newClientData,
+        financialYearId: financialYearId === 'ALL' ? 'current' : financialYearId,
+        confirmDuplicate
+      });
+
+      setClients(prev => [createdClient, ...prev]);
+      applyClientSelection(createdClient);
+      setClientDuplicates(null);
+      setIsAddClientModalOpen(false);
+      toast.success(`${createdClient.companyName} added`);
+    } catch (err) {
+      if (err.status === 409 && err.data?.existingClients?.length) {
+        setClientDuplicates({ exactMatches: err.data.existingClients, mobileMatches: [] });
+        return;
+      }
+      toast.error(err.message || 'Failed to save client');
+    } finally {
+      setSavingClient(false);
+    }
   };
 
   const handleQuickSaveClient = async (e) => {
     e.preventDefault();
     if (!newClientData.companyName || !newClientData.mobile || !newClientData.address) return;
 
-    setSavingClient(true);
     try {
-      const createdClient = await api.post('/clients', {
-        ...newClientData,
-        financialYearId: financialYearId === 'ALL' ? 'current' : financialYearId
+      const params = new URLSearchParams({
+        mobile: newClientData.mobile || '',
+        companyName: newClientData.companyName || '',
+        address: newClientData.address || ''
       });
-
-      setClients(prev => [createdClient, ...prev]);
-      setClientId(createdClient.id);
-      setIsAddClientModalOpen(false);
-      toast.success(`${createdClient.companyName} added`);
+      const found = await api.get(`/clients/check-duplicate?${params.toString()}`, true);
+      // A shared name alone is not a collision, so it never interrupts.
+      if (found.hasExactMatch || found.hasMobileMatch) {
+        setClientDuplicates({ exactMatches: found.exactMatches, mobileMatches: found.mobileMatches });
+        return;
+      }
     } catch (err) {
-      toast.error(err.message || 'Failed to save client');
-    } finally {
-      setSavingClient(false);
+      // Pre-check is best-effort; the server still guards the write.
+      console.error('Duplicate check failed:', err);
     }
+
+    persistNewClient(false);
+  };
+
+  /** Picks the already-registered client into this invoice instead of duplicating it. */
+  const handleUseExistingClient = (client) => {
+    setClients(prev => (prev.some(c => c.id === client.id) ? prev : [client, ...prev]));
+    applyClientSelection(client);
+    setClientDuplicates(null);
+    setIsAddClientModalOpen(false);
+    toast.success(`Using existing client ${client.companyName}`);
   };
 
   const [financialYearId, setFinancialYearId] = useState('');
@@ -447,12 +494,7 @@ export const InvoiceForm = () => {
                 id="inv-client"
                 clients={clients}
                 value={clientId}
-                onSelect={(c) => {
-                  setClientId(c ? c.id : '');
-                  const clientState = c?.state || 'Gujarat';
-                  setState(clientState);
-                  setGstType((prev) => applyAutoGstMode(clientState, companyState, prev));
-                }}
+                onSelect={applyClientSelection}
                 onAddNew={(typedName) => handleOpenAddClientModal(typedName)}
                 placeholder="Type client name or click drop arrow..."
               />
@@ -1018,6 +1060,17 @@ export const InvoiceForm = () => {
           ))}
         </ul>
       </Modal>
+
+      <ClientDuplicateDialog
+        open={Boolean(clientDuplicates)}
+        exactMatches={clientDuplicates?.exactMatches || []}
+        mobileMatches={clientDuplicates?.mobileMatches || []}
+        busy={savingClient}
+        useExistingLabel="Use This Client"
+        onUseExisting={handleUseExistingClient}
+        onCreateAnyway={() => persistNewClient(true)}
+        onCancel={() => setClientDuplicates(null)}
+      />
     </div>
   );
 };

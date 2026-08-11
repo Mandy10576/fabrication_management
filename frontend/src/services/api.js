@@ -25,8 +25,10 @@ const getHeaders = () => {
 
 const handleResponseError = async (res, defaultMsg = 'API Request failed') => {
   let msg = '';
+  let payload = null;
   try {
     const data = await res.json();
+    payload = data;
     msg = data.error || data.message || data.detail || '';
   } catch (e) {
     try {
@@ -39,7 +41,13 @@ const handleResponseError = async (res, defaultMsg = 'API Request failed') => {
   if (!msg) {
     msg = res.statusText ? `Error ${res.status}: ${res.statusText}` : `Server Error (${res.status})`;
   }
-  throw new Error(msg);
+  // Keep the status and parsed body on the error so callers that need to react
+  // to a specific failure (e.g. a 409 duplicate carrying the existing record)
+  // can, without changing the message-only contract everything else relies on.
+  const err = new Error(msg);
+  err.status = res.status;
+  err.data = payload;
+  throw err;
 };
 
 // In-memory & Session cache for sub-10ms instant page loads

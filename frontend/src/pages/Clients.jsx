@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useFY } from '../context/FYContext';
 import { api } from '../services/api';
 import { useToast, useConfirm } from '../context/ToastContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Modal } from '../components/ui/Modal';
 import { StateSelect } from '../components/StateSelect';
+import { ClientDuplicateDialog } from '../components/ClientDuplicateDialog';
 import { INDIAN_STATES } from '../utils/indianStates';
 import {
   Users,
@@ -35,6 +36,7 @@ export const Clients = () => {
   const { selectedFY } = useFY();
   const toast = useToast();
   const confirm = useConfirm();
+  const navigate = useNavigate();
 
   const [clients, setClients] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -48,6 +50,7 @@ export const Clients = () => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
+  const [duplicates, setDuplicates] = useState(null);
 
   const fetchClients = async (isLoadMore = false) => {
     try {
@@ -86,6 +89,7 @@ export const Clients = () => {
     setEditingClient(null);
     setFormData(EMPTY_FORM);
     setError('');
+    setDuplicates(null);
     setShowModal(true);
   };
 
@@ -103,34 +107,77 @@ export const Clients = () => {
       notes: client.notes || ''
     });
     setError('');
+    setDuplicates(null);
     setShowModal(true);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  /** Persists the form. `confirmDuplicate` bypasses the server's duplicate guard. */
+  const saveClient = async (confirmDuplicate = false) => {
     setError('');
     try {
       setSaving(true);
       if (editingClient) {
         await api.put(`/clients/${editingClient.id}`, {
           ...formData,
-          financialYearId: editingClient.financialYearId || selectedFY
+          financialYearId: editingClient.financialYearId || selectedFY,
+          confirmDuplicate
         });
         toast.success(`${formData.companyName} updated`);
       } else {
         await api.post('/clients', {
           ...formData,
-          financialYearId: selectedFY === 'ALL' ? 'current' : selectedFY
+          financialYearId: selectedFY === 'ALL' ? 'current' : selectedFY,
+          confirmDuplicate
         });
         toast.success(`${formData.companyName} added`);
       }
+      setDuplicates(null);
       setShowModal(false);
       fetchClients();
     } catch (err) {
+      // The server refuses a mobile collision unless it's confirmed; surface
+      // the existing record rather than a bare error message.
+      if (err.status === 409 && err.data?.existingClients?.length) {
+        setDuplicates({ exactMatches: err.data.existingClients, mobileMatches: [] });
+        return;
+      }
       setError(err.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const params = new URLSearchParams({
+        mobile: formData.mobile || '',
+        companyName: formData.companyName || '',
+        address: formData.address || ''
+      });
+      if (editingClient) params.set('excludeId', editingClient.id);
+
+      const found = await api.get(`/clients/check-duplicate?${params.toString()}`, true);
+      // A shared name alone is not a collision, so it never interrupts.
+      if (found.hasExactMatch || found.hasMobileMatch) {
+        setDuplicates({ exactMatches: found.exactMatches, mobileMatches: found.mobileMatches });
+        return;
+      }
+    } catch (err) {
+      // A failed pre-check shouldn't block saving — the server still guards
+      // mobile collisions on write, so fall through to the save attempt.
+      console.error('Duplicate check failed:', err);
+    }
+
+    saveClient(false);
+  };
+
+  const handleUseExisting = (client) => {
+    setDuplicates(null);
+    setShowModal(false);
+    navigate(`/clients/${client.id}`);
   };
 
   const handleDelete = async (id, name) => {
@@ -570,6 +617,17 @@ export const Clients = () => {
           </div>
         </form>
       </Modal>
+
+      <ClientDuplicateDialog
+        open={Boolean(duplicates)}
+        exactMatches={duplicates?.exactMatches || []}
+        mobileMatches={duplicates?.mobileMatches || []}
+        busy={saving}
+        useExistingLabel="Open Client"
+        onUseExisting={handleUseExisting}
+        onCreateAnyway={() => saveClient(true)}
+        onCancel={() => setDuplicates(null)}
+      />
     </div>
   );
 };
