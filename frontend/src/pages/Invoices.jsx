@@ -17,7 +17,8 @@ import {
   IndianRupee,
   Clock,
   Calendar,
-  History
+  History,
+  CheckCircle2
 } from 'lucide-react';
 
 export const Invoices = () => {
@@ -44,6 +45,13 @@ export const Invoices = () => {
     notes: ''
   });
   const [savingPayment, setSavingPayment] = useState(false);
+
+  // Outstanding amount on the invoice open in the payment modal. The 0.01
+  // threshold treats a fully-settled invoice as paid despite float noise.
+  const paymentBalanceDue = paymentModalInvoice
+    ? Math.max(0, paymentModalInvoice.grandTotal - (paymentModalInvoice.amountReceived || 0))
+    : 0;
+  const isFullyPaid = Boolean(paymentModalInvoice) && paymentBalanceDue <= 0.01;
 
   const fetchInvoices = async (isLoadMore = false) => {
     try {
@@ -142,6 +150,16 @@ export const Invoices = () => {
     const amt = parseFloat(paymentForm.amount);
     if (!amt || amt <= 0) {
       toast.warning('Please enter a valid payment amount');
+      return;
+    }
+
+    // Mirrors the server rule so the admin gets immediate feedback instead of
+    // a round-trip rejection. Tolerance keeps float noise from blocking an
+    // exact final payment.
+    if (amt > paymentBalanceDue + 0.01) {
+      toast.warning(
+        `Payment cannot exceed the balance due of ${formatCurrency(paymentBalanceDue)}.`
+      );
       return;
     }
 
@@ -528,12 +546,25 @@ export const Invoices = () => {
               <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40">
                 <dt className="text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400">Balance Due</dt>
                 <dd className="text-sm font-bold text-rose-700 dark:text-rose-400 break-words mt-0.5">
-                  {formatCurrency(Math.max(0, paymentModalInvoice.grandTotal - (paymentModalInvoice.amountReceived || 0)))}
+                  {formatCurrency(paymentBalanceDue)}
                 </dd>
               </div>
             </dl>
 
-            {/* Add payment */}
+            {/* Nothing left to collect — the form would only be able to
+                produce an over-payment, so it's replaced by a settled notice. */}
+            {isFullyPaid ? (
+              <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-center">
+                <div className="flex items-center justify-center gap-2 font-bold text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5 shrink-0" />
+                  <span>Payment Fully Received</span>
+                </div>
+                <p className="text-sm text-emerald-700/80 dark:text-emerald-400/80 mt-1">
+                  This invoice has been paid in full.
+                </p>
+              </div>
+            ) : (
+            /* Add payment */
             <form
               onSubmit={handleAddPayment}
               className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 space-y-4"
@@ -550,6 +581,7 @@ export const Invoices = () => {
                     id="pay-amount"
                     type="number"
                     step="any"
+                    min="0"
                     inputMode="decimal"
                     required
                     data-autofocus
@@ -558,6 +590,9 @@ export const Invoices = () => {
                     onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                     className="input font-bold focus:ring-emerald-500 focus:border-emerald-500"
                   />
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Balance due: <span className="font-semibold">{formatCurrency(paymentBalanceDue)}</span>
+                  </p>
                 </div>
 
                 <div>
@@ -620,6 +655,7 @@ export const Invoices = () => {
                 </button>
               </div>
             </form>
+            )}
 
             {/* History */}
             <div>

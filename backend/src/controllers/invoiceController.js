@@ -493,6 +493,28 @@ const addPayment = async (req, res, next) => {
       return res.status(400).json({ error: 'Valid payment amount is required' });
     }
 
+    // A payment can never exceed what is still outstanding. Compared with a
+    // 1-paisa tolerance so float noise on an exactly-settled invoice doesn't
+    // reject a legitimate final payment.
+    const priorPayments = await prisma.payment.aggregate({
+      where: { invoiceId: id },
+      _sum: { amount: true }
+    });
+    const alreadyReceived = priorPayments._sum.amount || 0;
+    const outstanding = invoice.grandTotal - alreadyReceived;
+
+    if (outstanding <= 0.01) {
+      return res.status(400).json({
+        error: 'This invoice is already paid in full. No further payment can be recorded.'
+      });
+    }
+
+    if (payAmount > outstanding + 0.01) {
+      return res.status(400).json({
+        error: `Payment cannot exceed the balance due of ₹${outstanding.toFixed(2)}.`
+      });
+    }
+
     await prisma.payment.create({
       data: {
         invoiceId: id,
