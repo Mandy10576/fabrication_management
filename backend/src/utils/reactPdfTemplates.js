@@ -184,6 +184,9 @@ function getStyles() {
       colUnit: { width: '8%', textAlign: 'center' },
       colRate: { width: '13%', textAlign: 'right' },
       colAmt: { width: '13%', textAlign: 'right' },
+      // No marginTop: a gap here would leave the last item row's own bottom
+      // border stranded above this row's top border, drawing two parallel
+      // lines where the preview's collapsed table borders show only one.
       tableFooterRow: {
         flexDirection: 'row',
         borderTopWidth: 1.5,
@@ -192,7 +195,6 @@ function getStyles() {
         borderBottomColor: '#CBD5E1',
         paddingVertical: 5,
         paddingHorizontal: 4,
-        marginTop: 2,
         alignItems: 'center',
       },
       summaryGrid: {
@@ -220,6 +222,17 @@ function getStyles() {
       boxContent: {
         fontSize: 8.5,
         color: '#334155',
+        lineHeight: 1.35,
+      },
+      // Mirrors the preview's amount-in-words line, which is semibold and a
+      // darker slate than the surrounding body copy rather than plain text.
+      // (The preview also renders it italic, but that is a browser-synthesised
+      // oblique — no Inter italic file is bundled for the PDF to use.)
+      amountWordsContent: {
+        fontSize: 8.5,
+        fontFamily: 'Inter',
+        fontWeight: 600,
+        color: '#1E293B',
         lineHeight: 1.35,
       },
       calcRow: {
@@ -437,7 +450,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
         React.createElement(View, { style: styles.summaryLeft },
           invoice.amountInWords ? React.createElement(View, { style: styles.boxBlock },
             React.createElement(Text, { style: styles.boxTitle }, 'Invoice Amount In Words'),
-            React.createElement(Text, { style: styles.boxContent }, invoice.amountInWords)
+            React.createElement(Text, { style: styles.amountWordsContent }, invoice.amountInWords)
           ) : null,
 
           React.createElement(View, { style: styles.boxBlock },
