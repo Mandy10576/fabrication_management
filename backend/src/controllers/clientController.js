@@ -205,6 +205,106 @@ const getClientById = async (req, res, next) => {
   }
 };
 
+/**
+ * Compact cross-record snapshot for a single client: contact info, billing
+ * totals (same sum-of-invoice-fields math as the client detail page), a
+ * handful of recent invoices/payments/quotations, and every project/site.
+ * Built for the invoice form's "Client Quick Summary" card, which only needs
+ * a preview — the full lists remain the client detail page's job.
+ */
+const getClientSummary = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const client = await prisma.client.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        companyName: true,
+        contactPerson: true,
+        mobile: true,
+        email: true,
+        gstin: true,
+        address: true,
+        state: true
+      }
+    });
+
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    const [invoices, recentPayments, paymentCount, recentQuotations, quotationCount, projects] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { clientId: id },
+        orderBy: { date: 'desc' },
+        select: {
+          id: true, invoiceNumber: true, date: true,
+          grandTotal: true, amountReceived: true, balanceDue: true, status: true
+        }
+      }),
+      prisma.payment.findMany({
+        where: { invoice: { clientId: id } },
+        orderBy: { paymentDate: 'desc' },
+        take: 5,
+        select: {
+          id: true, amount: true, paymentDate: true, paymentMode: true,
+          invoice: { select: { invoiceNumber: true } }
+        }
+      }),
+      prisma.payment.count({ where: { invoice: { clientId: id } } }),
+      prisma.quotation.findMany({
+        where: { clientId: id },
+        orderBy: { date: 'desc' },
+        take: 5,
+        select: { id: true, quotationNumber: true, date: true, grandTotal: true, status: true }
+      }),
+      prisma.quotation.count({ where: { clientId: id } }),
+      prisma.project.findMany({
+        where: { clientId: id },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, name: true, status: true, siteAddress: true, startDate: true, expectedCompletion: true }
+      })
+    ]);
+
+    const totals = invoices.reduce(
+      (acc, inv) => {
+        acc.totalBilled += inv.grandTotal;
+        acc.totalReceived += inv.amountReceived;
+        acc.totalOutstanding += inv.balanceDue;
+        return acc;
+      },
+      { totalBilled: 0, totalReceived: 0, totalOutstanding: 0 }
+    );
+
+    const lastInvoice = invoices[0] || null;
+    const lastPayment = recentPayments[0] || null;
+    let lastTransaction = null;
+    if (lastInvoice || lastPayment) {
+      const invoiceTime = lastInvoice ? new Date(lastInvoice.date).getTime() : -Infinity;
+      const paymentTime = lastPayment ? new Date(lastPayment.paymentDate).getTime() : -Infinity;
+      lastTransaction = paymentTime > invoiceTime
+        ? { type: 'PAYMENT', date: lastPayment.paymentDate, amount: lastPayment.amount }
+        : { type: 'INVOICE', date: lastInvoice.date, amount: lastInvoice.grandTotal };
+    }
+
+    res.json({
+      client,
+      totals,
+      invoiceCount: invoices.length,
+      recentInvoices: invoices.slice(0, 5),
+      paymentCount,
+      recentPayments,
+      quotationCount,
+      recentQuotations,
+      projects,
+      lastTransaction
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createClient = async (req, res, next) => {
   try {
     const { companyName, contactPerson, mobile, email, gstin, pan, address, state, notes, financialYearId, confirmDuplicate } = req.body;
@@ -315,4 +415,4 @@ const deleteClient = async (req, res, next) => {
   }
 };
 
-module.exports = { getClients, getClientById, createClient, updateClient, deleteClient, checkDuplicateClient };
+module.exports = { getClients, getClientById, getClientSummary, createClient, updateClient, deleteClient, checkDuplicateClient };

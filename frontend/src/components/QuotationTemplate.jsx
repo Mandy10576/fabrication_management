@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatStateWithCode } from '../utils/indianStates';
 
 export const QuotationTemplate = ({ quotation, company, id = "printable-quotation" }) => {
   if (!quotation) return null;
@@ -80,7 +81,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
             {comp.phone && <div>Phone no. : {comp.phone}</div>}
             {comp.email && <div>Email : {comp.email}</div>}
             <div>GSTIN: {comp.gstin || 'N/A'} | PAN: {comp.pan || 'N/A'}</div>
-            <div>State: {resolvedCompState}</div>
+            <div>State: {formatStateWithCode(resolvedCompState)}</div>
           </div>
         </div>
 
@@ -110,7 +111,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
                 </div>
                 <div style={{ fontSize: '11px', color: '#334155', marginTop: '4px' }}>
                   {client.mobile && <div>Phone: <strong>{client.mobile}</strong></div>}
-                  <div><strong>State: {resolvedState}</strong></div>
+                  <div><strong>State: {formatStateWithCode(resolvedState)}</strong></div>
                 </div>
               </td>
 
@@ -137,7 +138,7 @@ export const QuotationTemplate = ({ quotation, company, id = "printable-quotatio
                     )}
                     <tr>
                       <td style={{ color: '#64748b', padding: '2px 0', textAlign: 'left' }}>Place of Supply :</td>
-                      <td style={{ color: '#0f172a', fontWeight: '600', padding: '2px 0', textAlign: 'right' }}>{resolvedState}</td>
+                      <td style={{ color: '#0f172a', fontWeight: '600', padding: '2px 0', textAlign: 'right' }}>{formatStateWithCode(resolvedState)}</td>
                     </tr>
                   </tbody>
                 </table>

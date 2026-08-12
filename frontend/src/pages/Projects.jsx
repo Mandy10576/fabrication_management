@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { useToast, useConfirm } from '../context/ToastContext';
 import { Modal } from '../components/ui/Modal';
 import { ClientAutocomplete } from '../components/ClientAutocomplete';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { formatDate, getStatusBadgeClass } from '../utils/formatters';
 import {
   Construction,
@@ -16,6 +17,19 @@ import {
   AlertCircle,
   MapPin,
 } from 'lucide-react';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Statuses' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ON_HOLD', label: 'On Hold' },
+  { value: 'COMPLETED', label: 'Completed' },
+];
+
+const PROJECT_STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ON_HOLD', label: 'On Hold' },
+  { value: 'COMPLETED', label: 'Completed' },
+];
 
 const EMPTY_FORM = {
   clientId: '',
@@ -188,17 +202,15 @@ export const Projects = ({ fixedStatus }) => {
           />
         </div>
         {!fixedStatus && (
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="select sm:w-48 font-medium"
-            aria-label="Filter by status"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="ON_HOLD">On Hold</option>
-            <option value="COMPLETED">Completed</option>
-          </select>
+          <div className="sm:w-48">
+            <SearchableSelect
+              mode="button"
+              value={status}
+              options={STATUS_FILTER_OPTIONS}
+              onSelect={(opt) => setStatus(opt.value)}
+              ariaLabel="Filter by status"
+            />
+          </div>
         )}
       </div>
 
@@ -470,16 +482,13 @@ export const Projects = ({ fixedStatus }) => {
             </div>
             <div>
               <label htmlFor="proj-status" className="label">Status</label>
-              <select
+              <SearchableSelect
                 id="proj-status"
+                mode="button"
                 value={formData.status}
-                onChange={setField('status')}
-                className="select font-medium"
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="ON_HOLD">On Hold</option>
-                <option value="COMPLETED">Completed</option>
-              </select>
+                options={PROJECT_STATUS_OPTIONS}
+                onSelect={(opt) => setFormData((prev) => ({ ...prev, status: opt.value }))}
+              />
             </div>
           </div>
 

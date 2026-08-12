@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/format
 import { Link } from 'react-router-dom';
 import { ShareModal } from '../components/ShareModal';
 import { Modal } from '../components/ui/Modal';
+import { SearchableSelect } from '../components/SearchableSelect';
 import {
   FileText,
   Search,
@@ -20,6 +21,28 @@ import {
   History,
   CheckCircle2
 } from 'lucide-react';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Payment Statuses' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'PARTIAL', label: 'Partial' },
+  { value: 'UNPAID', label: 'Unpaid' },
+];
+
+const GST_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Tax Types' },
+  { value: 'CGST_SGST', label: 'CGST + SGST' },
+  { value: 'IGST', label: 'IGST' },
+  { value: 'NON_GST', label: 'Non-GST' },
+];
+
+const PAYMENT_MODE_OPTIONS = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'UPI', label: 'UPI / GPay / PhonePe' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer (NEFT/IMPS)' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'OTHER', label: 'Other' },
+];
 
 export const Invoices = () => {
   const { selectedFY } = useFY();
@@ -239,29 +262,21 @@ export const Invoices = () => {
         </div>
 
         <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5">
-          <select
-            aria-label="Filter by payment status"
+          <SearchableSelect
+            mode="button"
+            ariaLabel="Filter by payment status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="select"
-          >
-            <option value="ALL">All Payment Statuses</option>
-            <option value="PAID">Paid</option>
-            <option value="PARTIAL">Partial</option>
-            <option value="UNPAID">Unpaid</option>
-          </select>
+            options={STATUS_FILTER_OPTIONS}
+            onSelect={(opt) => setStatusFilter(opt.value)}
+          />
 
-          <select
-            aria-label="Filter by tax type"
+          <SearchableSelect
+            mode="button"
+            ariaLabel="Filter by tax type"
             value={gstFilter}
-            onChange={(e) => setGstFilter(e.target.value)}
-            className="select"
-          >
-            <option value="ALL">All Tax Types</option>
-            <option value="CGST_SGST">CGST + SGST</option>
-            <option value="IGST">IGST</option>
-            <option value="NON_GST">Non-GST</option>
-          </select>
+            options={GST_FILTER_OPTIONS}
+            onSelect={(opt) => setGstFilter(opt.value)}
+          />
         </div>
       </div>
 
@@ -343,7 +358,7 @@ export const Invoices = () => {
                     </div>
                     <div className="min-w-0">
                       <dt className="text-[10px] uppercase font-bold text-slate-400 tracking-wide">Balance</dt>
-                      <dd className="text-sm font-extrabold text-rose-600 dark:text-rose-400 break-words">
+                      <dd className={`text-sm font-extrabold break-words ${inv.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {formatCurrency(inv.balanceDue)}
                       </dd>
                     </div>
@@ -431,7 +446,7 @@ export const Invoices = () => {
                       <td className="text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                         {formatCurrency(inv.amountReceived)}
                       </td>
-                      <td className="text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                      <td className={`text-right font-bold whitespace-nowrap ${inv.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {formatCurrency(inv.balanceDue)}
                       </td>
                       <td className="text-center">
@@ -609,18 +624,13 @@ export const Invoices = () => {
 
                 <div>
                   <label htmlFor="pay-mode" className="label">Payment Mode</label>
-                  <select
+                  <SearchableSelect
                     id="pay-mode"
+                    mode="button"
                     value={paymentForm.paymentMode}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentMode: e.target.value })}
-                    className="select focus:ring-emerald-500 focus:border-emerald-500"
-                  >
-                    <option value="CASH">Cash</option>
-                    <option value="UPI">UPI / GPay / PhonePe</option>
-                    <option value="BANK_TRANSFER">Bank Transfer (NEFT/IMPS)</option>
-                    <option value="CHEQUE">Cheque</option>
-                    <option value="OTHER">Other</option>
-                  </select>
+                    options={PAYMENT_MODE_OPTIONS}
+                    onSelect={(opt) => setPaymentForm({ ...paymentForm, paymentMode: opt.value })}
+                  />
                 </div>
 
                 <div>

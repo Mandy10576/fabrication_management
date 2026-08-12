@@ -7,6 +7,8 @@ import { RateMasterAutocomplete } from '../components/RateMasterAutocomplete';
 import { UnitSelect } from '../components/UnitSelect';
 import { StateSelect } from '../components/StateSelect';
 import { GstModeSelect } from '../components/GstModeSelect';
+import { ClientAutocomplete } from '../components/ClientAutocomplete';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../context/ToastContext';
 import { INDIAN_STATES } from '../utils/indianStates';
@@ -19,6 +21,14 @@ const applyAutoGstMode = (newState, companyState, currentGstType) => {
   if (!newState || !companyState) return currentGstType;
   return newState.trim().toLowerCase() === companyState.trim().toLowerCase() ? 'CGST_SGST' : 'IGST';
 };
+
+const GST_RATE_OPTIONS = [
+  { value: 18, label: '18% (Standard Rate)' },
+  { value: 12, label: '12% (Reduced Rate)' },
+  { value: 5, label: '5% (Essential Rate)' },
+  { value: 28, label: '28% (Luxury/Heavy Metal Rate)' },
+  { value: 0, label: '0% (Exempted)' },
+];
 import {
   Quote,
   Plus,
@@ -359,27 +369,19 @@ export const QuotationForm = () => {
 
             <div>
               <label htmlFor="qt-client" className="label">Select Client *</label>
-              <select
+              <ClientAutocomplete
                 id="qt-client"
-                required
+                clients={clients}
                 value={clientId}
-                onChange={(e) => {
-                  const newClientId = e.target.value;
+                onSelect={(c) => {
+                  const newClientId = c ? c.id : '';
                   setClientId(newClientId);
-                  const selectedClient = clients.find((c) => c.id === newClientId);
-                  const clientState = selectedClient?.state || 'Gujarat';
+                  const clientState = c?.state || 'Gujarat';
                   setState(clientState);
                   setGstType((prev) => applyAutoGstMode(clientState, companyState, prev));
                 }}
-                className="select font-semibold"
-              >
-                <option value="">— Choose Client —</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.companyName}{c.contactPerson ? ` (${c.contactPerson})` : ''}
-                  </option>
-                ))}
-              </select>
+                placeholder="Type client name or click drop arrow..."
+              />
             </div>
 
             <div className="sm:col-span-2 lg:col-span-1">
@@ -403,19 +405,14 @@ export const QuotationForm = () => {
 
             <div>
               <label htmlFor="qt-gstrate" className="label">GST Rate (%)</label>
-              <select
+              <SearchableSelect
                 id="qt-gstrate"
+                mode="button"
                 disabled={gstType === 'NON_GST'}
                 value={gstRate}
-                onChange={(e) => setGstRate(parseFloat(e.target.value) || 0)}
-                className="select font-semibold"
-              >
-                <option value={18}>18% (Standard Rate)</option>
-                <option value={12}>12% (Reduced Rate)</option>
-                <option value={5}>5% (Essential Rate)</option>
-                <option value={28}>28% (Luxury/Heavy Metal Rate)</option>
-                <option value={0}>0% (Exempted)</option>
-              </select>
+                options={GST_RATE_OPTIONS}
+                onSelect={(opt) => setGstRate(opt.value)}
+              />
             </div>
 
             <div>
@@ -732,16 +729,13 @@ export const QuotationForm = () => {
 
             <div>
               <label htmlFor="qtr-unit" className="label">Unit</label>
-              <select
+              <UnitSelect
                 id="qtr-unit"
                 value={newRateData.unit || 'sq ft'}
-                onChange={(e) => setNewRateData({ ...newRateData, unit: e.target.value })}
-                className="select font-medium focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                {Array.from(new Set([...availableUnits, newRateData.unit].filter(Boolean))).map((u) => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
+                onChange={(val) => setNewRateData({ ...newRateData, unit: val })}
+                options={availableUnits}
+                themeColor="indigo"
+              />
             </div>
           </div>
 

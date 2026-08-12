@@ -4,6 +4,13 @@ import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import * as XLSX from 'xlsx';
 import { CalendarCheck, Search, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
+import { SearchableSelect } from '../components/SearchableSelect';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+  { value: 'ALL', label: 'All' },
+];
 
 const currentMonthStr = () => new Date().toISOString().slice(0, 7);
 
@@ -101,11 +108,15 @@ export const EmployeeAttendance = () => {
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="select sm:w-40 font-medium" aria-label="Filter by status">
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-          <option value="ALL">All</option>
-        </select>
+        <div className="sm:w-40">
+          <SearchableSelect
+            mode="button"
+            value={status}
+            options={STATUS_FILTER_OPTIONS}
+            onSelect={(opt) => setStatus(opt.value)}
+            ariaLabel="Filter by status"
+          />
+        </div>
       </div>
 
       <div className="card overflow-hidden">

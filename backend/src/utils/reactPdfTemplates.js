@@ -1,5 +1,6 @@
 const React = require('react');
 const path = require('path');
+const { formatStateWithCode } = require('./indianStates');
 
 let reactPdfModule = null;
 let fontRegistered = false;
@@ -184,15 +185,8 @@ function getStyles() {
       colUnit: { width: '8%', textAlign: 'center' },
       colRate: { width: '13%', textAlign: 'right' },
       colAmt: { width: '13%', textAlign: 'right' },
-      // No marginTop: a gap here would leave the last item row's own bottom
-      // border stranded above this row's top border, drawing two parallel
-      // lines where the preview's collapsed table borders show only one.
       tableFooterRow: {
         flexDirection: 'row',
-        borderTopWidth: 1.5,
-        borderTopColor: '#CBD5E1',
-        borderBottomWidth: 1.5,
-        borderBottomColor: '#CBD5E1',
         paddingVertical: 5,
         paddingHorizontal: 4,
         alignItems: 'center',
@@ -367,7 +361,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           comp.phone ? React.createElement(Text, null, `Phone no. : ${comp.phone}`) : null,
           comp.email ? React.createElement(Text, null, `Email : ${comp.email}`) : null,
           React.createElement(Text, null, `GSTIN: ${comp.gstin || 'N/A'} | PAN: ${comp.pan || 'N/A'}`),
-          React.createElement(Text, null, `State: ${resolvedCompState}`)
+          React.createElement(Text, null, `State: ${formatStateWithCode(resolvedCompState)}`)
         )
       ),
 
@@ -384,7 +378,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           React.createElement(View, { style: styles.clientText },
             ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
-            React.createElement(Text, null, `State: ${resolvedState}`),
+            React.createElement(Text, null, `State: ${formatStateWithCode(resolvedState)}`),
             client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
           )
         ),
@@ -400,7 +394,7 @@ const InvoicePDFDocument = ({ invoice, company }) => {
           ),
           React.createElement(View, { style: styles.metaRow },
             React.createElement(Text, { style: styles.metaLabel }, 'Place of Supply :'),
-            React.createElement(Text, { style: styles.metaValue }, resolvedState)
+            React.createElement(Text, { style: styles.metaValue }, formatStateWithCode(resolvedState))
           )
         )
       ),
@@ -577,7 +571,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           comp.phone ? React.createElement(Text, null, `Phone no. : ${comp.phone}`) : null,
           comp.email ? React.createElement(Text, null, `Email : ${comp.email}`) : null,
           React.createElement(Text, null, `GSTIN: ${comp.gstin || 'N/A'} | PAN: ${comp.pan || 'N/A'}`),
-          React.createElement(Text, null, `State: ${resolvedCompState}`)
+          React.createElement(Text, null, `State: ${formatStateWithCode(resolvedCompState)}`)
         )
       ),
 
@@ -594,7 +588,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           React.createElement(View, { style: styles.clientText },
             ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
-            React.createElement(Text, null, `State: ${resolvedState}`),
+            React.createElement(Text, null, `State: ${formatStateWithCode(resolvedState)}`),
             client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
           )
         ),
@@ -614,7 +608,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
           ) : null,
           React.createElement(View, { style: styles.metaRow },
             React.createElement(Text, { style: styles.metaLabel }, 'Place of Supply :'),
-            React.createElement(Text, { style: styles.metaValue }, resolvedState)
+            React.createElement(Text, { style: styles.metaValue }, formatStateWithCode(resolvedState))
           )
         )
       ),

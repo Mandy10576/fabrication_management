@@ -37,22 +37,25 @@ import {
   Construction,
   CheckCircle2,
   ListChecks,
+  KeyRound,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
   {
     title: 'Main Menu',
     items: [
-      { label: 'Dashboard', path: '/', icon: LayoutDashboard, end: true },
       {
-        label: 'Bill',
+        label: 'Invoice',
         icon: FileText,
         children: [
+          { label: 'Dashboard', path: '/', icon: LayoutDashboard, end: true },
           { label: 'Invoices', path: '/invoices', icon: FileText },
           { label: 'Quotations', path: '/quotations', icon: Quote },
+          { label: 'Clients', path: '/clients', icon: Users },
+          { label: 'Rate Master', path: '/rates', icon: Layers },
+          { label: 'Reports & GST', path: '/reports', icon: BarChart3 },
         ],
       },
-      { label: 'Clients', path: '/clients', icon: Users },
       {
         label: 'Employees',
         icon: UsersRound,
@@ -72,8 +75,11 @@ const NAV_GROUPS = [
           { label: 'Work History', path: '/work-history', icon: ListChecks },
         ],
       },
-      { label: 'Rate Master', path: '/rates', icon: Layers },
-      { label: 'Reports & GST', path: '/reports', icon: BarChart3 },
+      // No sub-features yet — a direct link like Dashboard rather than a
+      // collapsible group with an empty submenu. Once features are defined,
+      // give it a `children` array (same shape as Invoice/Employees above)
+      // and it picks up the same expand/collapse behavior automatically.
+      { label: 'Rent', path: '/rent', icon: KeyRound },
     ],
   },
   {

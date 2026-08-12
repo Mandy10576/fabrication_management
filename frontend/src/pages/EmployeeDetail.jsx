@@ -5,6 +5,7 @@ import { useToast, useConfirm } from '../context/ToastContext';
 import { Modal } from '../components/ui/Modal';
 import { Tabs } from '../components/ui/Tabs';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
+import { SearchableSelect } from '../components/SearchableSelect';
 import {
   UsersRound,
   Phone,
@@ -575,15 +576,16 @@ const SalaryPanel = ({ employee }) => {
     <div className="space-y-4">
       <div className="card card-pad space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <select
-            value={selectedCycleStart || ''}
-            onChange={(e) => loadCycle(e.target.value)}
-            className="select font-semibold sm:w-72"
-          >
-            {availableCycles.map((c) => (
-              <option key={c.cycleStart} value={new Date(c.cycleStart).toISOString()}>{cycleLabel(c)}</option>
-            ))}
-          </select>
+          <div className="sm:w-72">
+            <SearchableSelect
+              mode="button"
+              value={selectedCycleStart || ''}
+              options={availableCycles}
+              getOptionValue={(c) => new Date(c.cycleStart).toISOString()}
+              getOptionLabel={cycleLabel}
+              onSelect={(c) => loadCycle(new Date(c.cycleStart).toISOString())}
+            />
+          </div>
           <button onClick={handleOpenPaymentModal} className="btn btn-emerald">
             <Plus className="w-4 h-4" />
             <span>Record Payment</span>
@@ -696,14 +698,14 @@ const SalaryPanel = ({ employee }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="sp-mode" className="label">Payment Mode</label>
-              <select
+              <SearchableSelect
                 id="sp-mode"
+                mode="button"
                 value={paymentForm.paymentMode}
-                onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMode: e.target.value }))}
-                className="select"
-              >
-                {SALARY_PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-              </select>
+                options={SALARY_PAYMENT_MODES}
+                getOptionLabel={(m) => m.replace('_', ' ')}
+                onSelect={(m) => setPaymentForm((p) => ({ ...p, paymentMode: m }))}
+              />
             </div>
             <div>
               <label htmlFor="sp-ref" className="label">Reference No</label>
@@ -898,14 +900,14 @@ const AdvancesPanel = ({ employee }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="adv-mode" className="label">Payment Mode</label>
-              <select
+              <SearchableSelect
                 id="adv-mode"
+                mode="button"
                 value={form.paymentMode}
-                onChange={(e) => setForm((p) => ({ ...p, paymentMode: e.target.value }))}
-                className="select"
-              >
-                {ADVANCE_PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-              </select>
+                options={ADVANCE_PAYMENT_MODES}
+                getOptionLabel={(m) => m.replace('_', ' ')}
+                onSelect={(m) => setForm((p) => ({ ...p, paymentMode: m }))}
+              />
             </div>
             <div>
               <label htmlFor="adv-ref" className="label">Reference No</label>

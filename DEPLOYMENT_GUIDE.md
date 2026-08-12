@@ -59,6 +59,6 @@ Add the following under Vercel Project Settings → Environment Variables:
 
 Once deployed, visit your Vercel URL (e.g. `https://fabrication-management-6zti-phi.vercel.app`):
 - **Admin Portal**: `/login`
-- **Default Owner Email**: `admin@apexsteel.com`
+- **Default Owner Email**: `admin@admin.com`
 - **Default Password**: `admin123`
 

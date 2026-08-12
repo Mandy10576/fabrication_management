@@ -35,10 +35,16 @@ export const FYProvider = ({ children }) => {
         localStorage.setItem('khodiyar_fys', JSON.stringify(data));
       } catch (e) {}
       
-      // Auto select current financial year if none explicitly set
+      // Auto-select the current financial year if none is explicitly set, or
+      // if the persisted selection no longer exists (e.g. pointing at a
+      // financial year from a different/reseeded database) — otherwise every
+      // FY-scoped list silently filters to nothing with no visible error.
       const current = data.find(f => f.isCurrent);
-      if (current && (selectedFY === 'ALL' || !selectedFY)) {
+      const selectionIsStale = selectedFY !== 'ALL' && selectedFY && !data.some(f => f.id === selectedFY);
+      if (current && (selectedFY === 'ALL' || !selectedFY || selectionIsStale)) {
         setSelectedFY(current.id);
+      } else if (selectionIsStale) {
+        setSelectedFY('ALL');
       }
     } catch (err) {
       console.error('Failed to load financial years:', err);

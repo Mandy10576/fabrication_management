@@ -355,7 +355,7 @@ export const Dashboard = () => {
                       <span className="font-bold text-slate-900 dark:text-white">
                         {formatCurrency(inv.grandTotal)}
                       </span>
-                      <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                      <span className={`text-xs font-semibold ${inv.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         Due {formatCurrency(inv.balanceDue)}
                       </span>
                     </div>
@@ -404,7 +404,7 @@ export const Dashboard = () => {
                       <td className="text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
                         {formatCurrency(inv.grandTotal)}
                       </td>
-                      <td className="text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                      <td className={`text-right font-bold whitespace-nowrap ${inv.balanceDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {formatCurrency(inv.balanceDue)}
                       </td>
                       <td className="text-center">

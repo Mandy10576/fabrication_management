@@ -33,6 +33,7 @@ const EmployeeAdvances = lazy(() => import('./pages/EmployeeAdvances').then(m =>
 const Projects = lazy(() => import('./pages/Projects').then(m => ({ default: m.Projects })));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
 const WorkHistory = lazy(() => import('./pages/WorkHistory').then(m => ({ default: m.WorkHistory })));
+const Rent = lazy(() => import('./pages/Rent').then(m => ({ default: m.Rent })));
 
 /**
  * Skeleton rather than a spinner: it reserves the same shape the page is about
@@ -129,6 +130,7 @@ const ProtectedLayout = () => {
                 <Route path="/projects/:id" element={<ProjectDetail />} />
                 <Route path="/work-history" element={<WorkHistory />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/rent" element={<Rent />} />
                 <Route path="/company" element={<CompanySettings />} />
                 <Route path="/backup" element={<BackupRestore />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

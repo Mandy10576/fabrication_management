@@ -6,6 +6,7 @@ import { Modal } from '../components/ui/Modal';
 import { Tabs } from '../components/ui/Tabs';
 import { EmployeeMultiSelect } from '../components/EmployeeMultiSelect';
 import { UnitSelect } from '../components/UnitSelect';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
 import {
   Construction,
@@ -806,9 +807,13 @@ const HistoryPanel = ({ project }) => {
             </div>
             <div>
               <label htmlFor="wl-mode" className="label">Payment Mode</label>
-              <select id="wl-mode" value={form.paymentMode} onChange={(e) => setForm((p) => ({ ...p, paymentMode: e.target.value }))} className="select">
-                {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <SearchableSelect
+                id="wl-mode"
+                mode="button"
+                value={form.paymentMode}
+                options={PAYMENT_MODES}
+                onSelect={(m) => setForm((p) => ({ ...p, paymentMode: m }))}
+              />
             </div>
           </div>
 

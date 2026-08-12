@@ -7,6 +7,8 @@ import { RateMasterAutocomplete } from '../components/RateMasterAutocomplete';
 import { UnitSelect } from '../components/UnitSelect';
 import { ClientAutocomplete } from '../components/ClientAutocomplete';
 import { ClientDuplicateDialog } from '../components/ClientDuplicateDialog';
+import { ClientQuickSummary } from '../components/ClientQuickSummary';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { StateSelect } from '../components/StateSelect';
 import { GstModeSelect } from '../components/GstModeSelect';
 import { Modal } from '../components/ui/Modal';
@@ -462,18 +464,15 @@ export const InvoiceForm = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label htmlFor="inv-fy" className="label">Financial Year *</label>
-              <select
+              <SearchableSelect
                 id="inv-fy"
+                mode="button"
                 value={financialYearId}
-                onChange={(e) => handleFYChange(e.target.value)}
-                className="select font-semibold"
-              >
-                {financialYears.map(fy => (
-                  <option key={fy.id} value={fy.id}>
-                    FY {fy.year} {fy.isCurrent ? '(Active)' : ''}
-                  </option>
-                ))}
-              </select>
+                options={financialYears}
+                getOptionValue={(fy) => fy.id}
+                getOptionLabel={(fy) => `FY ${fy.year}${fy.isCurrent ? ' (Active)' : ''}`}
+                onSelect={(fy) => handleFYChange(fy.id)}
+              />
             </div>
 
             <div>
@@ -500,6 +499,8 @@ export const InvoiceForm = () => {
               />
             </div>
           </div>
+
+          <ClientQuickSummary clientId={clientId} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
@@ -854,16 +855,12 @@ export const InvoiceForm = () => {
 
             <div>
               <label htmlFor="qr-unit" className="label">Unit</label>
-              <select
+              <UnitSelect
                 id="qr-unit"
                 value={newRateData.unit || 'sq ft'}
-                onChange={(e) => setNewRateData({ ...newRateData, unit: e.target.value })}
-                className="select font-medium"
-              >
-                {Array.from(new Set([...availableUnits, newRateData.unit].filter(Boolean))).map((u) => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
+                onChange={(val) => setNewRateData({ ...newRateData, unit: val })}
+                options={availableUnits}
+              />
             </div>
           </div>
 

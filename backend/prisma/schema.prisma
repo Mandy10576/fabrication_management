@@ -1,12 +1,12 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-}
-
-generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
 
 model User {
@@ -28,7 +28,6 @@ model CompanyDetails {
   email           String?
   phone           String?
   address         String?
-  state           String?
   bankName        String?
   accountNumber   String?
   ifscCode        String?
@@ -38,18 +37,19 @@ model CompanyDetails {
   termsConditions String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  state           String?
 }
 
 model FinancialYear {
-  id          String      @id @default(uuid())
-  year        String      @unique // e.g. "2025-26", "2026-27"
-  startDate   DateTime
-  endDate     DateTime
-  isCurrent   Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-  clients     Client[]
-  invoices    Invoice[]
-  quotations  Quotation[]
+  id         String      @id @default(uuid())
+  year       String      @unique
+  startDate  DateTime
+  endDate    DateTime
+  isCurrent  Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  clients    Client[]
+  invoices   Invoice[]
+  quotations Quotation[]
 }
 
 model Client {
@@ -61,15 +61,15 @@ model Client {
   gstin           String?
   pan             String?
   address         String
-  state           String?
   notes           String?
   financialYearId String
-  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  state           String?
+  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
   invoices        Invoice[]
-  quotations      Quotation[]
   projects        Project[]
+  quotations      Quotation[]
 
   @@index([financialYearId])
   @@index([companyName])
@@ -92,13 +92,10 @@ model Invoice {
   id              String        @id @default(uuid())
   invoiceNumber   String
   financialYearId String
-  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
   clientId        String
-  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   date            DateTime
   dueDate         DateTime?
-  state           String? // Place of Supply, snapshotted at creation (independent of the client's current profile)
-  gstType         String        @default("CGST_SGST") // CGST_SGST, IGST, NON_GST
+  gstType         String        @default("CGST_SGST")
   gstRate         Float         @default(18.0)
   subtotal        Float
   cgstAmount      Float         @default(0)
@@ -110,11 +107,14 @@ model Invoice {
   amountInWords   String
   amountReceived  Float         @default(0)
   balanceDue      Float
-  status          String        @default("UNPAID") // PAID, PARTIAL, UNPAID
+  status          String        @default("UNPAID")
   notes           String?
   terms           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  state           String?
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  financialYear   FinancialYear @relation(fields: [financialYearId], references: [id])
   items           InvoiceItem[]
   payments        Payment[]
 
@@ -126,15 +126,15 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   description String
   hsnSac      String?
   quantity    Float
   unit        String
   rate        Float
   amount      Float
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
 }
@@ -143,24 +143,24 @@ model Quotation {
   id                 String          @id @default(uuid())
   quotationNumber    String
   financialYearId    String
-  financialYear      FinancialYear   @relation(fields: [financialYearId], references: [id])
   clientId           String
-  client             Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   date               DateTime
   validUntil         DateTime?
-  state              String? // Place of Supply, snapshotted at creation (independent of the client's current profile)
-  gstType            String          @default("CGST_SGST") // CGST_SGST, IGST, NON_GST
+  gstType            String          @default("CGST_SGST")
   gstRate            Float           @default(18.0)
   subtotal           Float
   taxAmount          Float           @default(0)
   discount           Float           @default(0)
   grandTotal         Float
-  status             String          @default("PENDING") // PENDING, ACCEPTED, REJECTED, CONVERTED
+  status             String          @default("PENDING")
   convertedInvoiceId String?
   notes              String?
   terms              String?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+  state              String?
+  client             Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  financialYear      FinancialYear   @relation(fields: [financialYearId], references: [id])
   items              QuotationItem[]
 
   @@index([financialYearId])
@@ -172,13 +172,13 @@ model Quotation {
 model QuotationItem {
   id          String    @id @default(uuid())
   quotationId String
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
   description String
   hsnSac      String?
   quantity    Float
   unit        String
   rate        Float
   amount      Float
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
 
   @@index([quotationId])
 }
@@ -186,37 +186,36 @@ model QuotationItem {
 model Payment {
   id          String   @id @default(uuid())
   invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   amount      Float
   paymentDate DateTime @default(now())
-  paymentMode String   @default("CASH") // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  paymentMode String   @default("CASH")
   referenceNo String?
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([paymentDate])
 }
 
 model Employee {
-  id                  String   @id @default(uuid())
+  id                  String          @id @default(uuid())
   name                String
   mobile              String
   address             String?
   joiningDate         DateTime
   monthlySalary       Float
-  salaryCycleStartDay Int      @default(1) // 1-31, day-of-month cycle starts
-  deductionBasis      String   @default("CALENDAR_DAYS") // CALENDAR_DAYS, WORKING_DAYS
-  isActive            Boolean  @default(true)
+  salaryCycleStartDay Int             @default(1)
+  deductionBasis      String          @default("CALENDAR_DAYS")
+  isActive            Boolean         @default(true)
   notes               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  attendance     Attendance[]
-  advances       Advance[]
-  salaryPayments SalaryPayment[]
-  workLogs       WorkLog[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  advances            Advance[]
+  attendance          Attendance[]
+  salaryPayments      SalaryPayment[]
+  workLogs            WorkLog[]       @relation("EmployeeToWorkLog")
 
   @@index([isActive])
   @@index([name])
@@ -225,12 +224,12 @@ model Employee {
 model Attendance {
   id         String   @id @default(uuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       DateTime // UTC-midnight-normalized calendar day
-  status     String // PRESENT, ABSENT, PAID_LEAVE, UNPAID_LEAVE, HOLIDAY
+  date       DateTime
+  status     String
   notes      String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, date])
   @@index([employeeId])
@@ -240,14 +239,14 @@ model Attendance {
 model Advance {
   id          String   @id @default(uuid())
   employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   amount      Float
   advanceDate DateTime @default(now())
-  paymentMode String   @default("CASH") // CASH, UPI, BANK_TRANSFER, OTHER
+  paymentMode String   @default("CASH")
   referenceNo String?
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([advanceDate])
@@ -256,15 +255,15 @@ model Advance {
 model SalaryPayment {
   id          String   @id @default(uuid())
   employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  cycleStart  DateTime // identifies which salary cycle this payment applies to
+  cycleStart  DateTime
   amount      Float
   paymentDate DateTime @default(now())
-  paymentMode String   @default("CASH") // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  paymentMode String   @default("CASH")
   referenceNo String?
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([employeeId, cycleStart])
@@ -274,17 +273,16 @@ model SalaryPayment {
 model Project {
   id                 String     @id @default(uuid())
   clientId           String
-  client             Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
   name               String
   siteAddress        String
   contactNumber      String?
   startDate          DateTime
   expectedCompletion DateTime?
-  status             String     @default("ACTIVE") // ACTIVE, COMPLETED, ON_HOLD
+  status             String     @default("ACTIVE")
   notes              String?
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
-
+  client             Client     @relation(fields: [clientId], references: [id])
   workItems          WorkItem[]
   workLogs           WorkLog[]
 
@@ -294,38 +292,37 @@ model Project {
 }
 
 model WorkItem {
-  id         String   @id @default(uuid())
-  projectId  String
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  name       String // e.g. "Main Gate", "Shed Structure"
-  status     String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  projectId String
+  name      String
+  status    String   @default("PENDING")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([projectId, status])
 }
 
 model WorkLog {
-  id              String    @id @default(uuid())
+  id              String         @id @default(uuid())
   projectId       String
-  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  visitDate       DateTime // UTC-midnight-normalized calendar date
-  visitTime       String? // free-text "HH:mm"
+  visitDate       DateTime
+  visitTime       String?
   workDone        String?
   workInProgress  String?
   workPending     String?
-  amount          Float     @default(0) // work value for this visit
-  paymentReceived Float     @default(0)
-  paymentMode     String    @default("CASH") // CASH, UPI, BANK, OTHER
+  amount          Float          @default(0)
+  paymentReceived Float          @default(0)
+  paymentMode     String         @default("CASH")
   notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  employees       Employee[] // implicit m:n - "employees who worked"
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   materials       MaterialUsed[]
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   photos          WorkLogPhoto[]
+  employees       Employee[]     @relation("EmployeeToWorkLog")
 
   @@index([projectId])
   @@index([projectId, visitDate])
@@ -335,10 +332,10 @@ model WorkLog {
 model MaterialUsed {
   id           String  @id @default(uuid())
   workLogId    String
-  workLog      WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
   materialName String
   quantity     Float
   unit         String
+  workLog      WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
 
   @@index([workLogId])
 }
@@ -346,10 +343,9 @@ model MaterialUsed {
 model WorkLogPhoto {
   id        String   @id @default(uuid())
   workLogId String
-  workLog   WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
-  url       String // "/uploads/worklog_<timestamp>_<n>.<ext>"
+  url       String
   createdAt DateTime @default(now())
+  workLog   WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
 
   @@index([workLogId])
 }
-

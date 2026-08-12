@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { useToast, useConfirm } from '../context/ToastContext';
 import { Modal } from '../components/ui/Modal';
 import { EmployeeAutocomplete } from '../components/EmployeeAutocomplete';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import * as XLSX from 'xlsx';
 import { HandCoins, Search, FileSpreadsheet, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -262,14 +263,14 @@ export const EmployeeAdvances = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="oadv-mode" className="label">Payment Mode</label>
-              <select
+              <SearchableSelect
                 id="oadv-mode"
+                mode="button"
                 value={form.paymentMode}
-                onChange={(e) => setForm((p) => ({ ...p, paymentMode: e.target.value }))}
-                className="select"
-              >
-                {ADVANCE_PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-              </select>
+                options={ADVANCE_PAYMENT_MODES}
+                getOptionLabel={(m) => m.replace('_', ' ')}
+                onSelect={(m) => setForm((p) => ({ ...p, paymentMode: m }))}
+              />
             </div>
             <div>
               <label htmlFor="oadv-ref" className="label">Reference No</label>

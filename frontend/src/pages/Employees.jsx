@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { useToast, useConfirm } from '../context/ToastContext';
 import { Modal } from '../components/ui/Modal';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
+import { SearchableSelect } from '../components/SearchableSelect';
 import {
   UsersRound,
   Search,
@@ -15,6 +16,17 @@ import {
   AlertCircle,
   IndianRupee,
 } from 'lucide-react';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+  { value: 'ALL', label: 'All Employees' },
+];
+
+const DEDUCTION_BASIS_OPTIONS = [
+  { value: 'CALENDAR_DAYS', label: 'Calendar Days' },
+  { value: 'WORKING_DAYS', label: 'Working Days' },
+];
 
 const EMPTY_FORM = {
   name: '',
@@ -173,16 +185,15 @@ export const Employees = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="select sm:w-48 font-medium"
-          aria-label="Filter by status"
-        >
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-          <option value="ALL">All Employees</option>
-        </select>
+        <div className="sm:w-48">
+          <SearchableSelect
+            mode="button"
+            value={status}
+            options={STATUS_FILTER_OPTIONS}
+            onSelect={(opt) => setStatus(opt.value)}
+            ariaLabel="Filter by status"
+          />
+        </div>
       </div>
 
       {/* List */}
@@ -491,15 +502,13 @@ export const Employees = () => {
             </div>
             <div>
               <label htmlFor="emp-deduction-basis" className="label">Salary Deduction Basis</label>
-              <select
+              <SearchableSelect
                 id="emp-deduction-basis"
+                mode="button"
                 value={formData.deductionBasis}
-                onChange={setField('deductionBasis')}
-                className="select font-medium"
-              >
-                <option value="CALENDAR_DAYS">Calendar Days</option>
-                <option value="WORKING_DAYS">Working Days</option>
-              </select>
+                options={DEDUCTION_BASIS_OPTIONS}
+                onSelect={(opt) => setFormData((prev) => ({ ...prev, deductionBasis: opt.value }))}
+              />
             </div>
           </div>
 

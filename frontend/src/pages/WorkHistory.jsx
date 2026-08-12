@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { History } from 'lucide-react';
 
 export const WorkHistory = () => {
@@ -53,15 +54,15 @@ export const WorkHistory = () => {
       </div>
 
       <div className="card card-pad flex flex-col sm:flex-row gap-3">
-        <select
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="select flex-1 font-medium"
-          aria-label="Filter by project"
-        >
-          <option value="">All Projects</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <div className="flex-1">
+          <SearchableSelect
+            mode="button"
+            value={projectId}
+            options={[{ value: '', label: 'All Projects' }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+            onSelect={(opt) => setProjectId(opt.value)}
+            ariaLabel="Filter by project"
+          />
+        </div>
       </div>
 
       <div className="card overflow-hidden">
