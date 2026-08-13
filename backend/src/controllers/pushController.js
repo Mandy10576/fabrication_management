@@ -37,14 +37,19 @@ const unsubscribe = async (req, res, next) => {
   }
 };
 
-/** Lets an admin fire the same daily reminder on demand — useful to confirm
- * notifications actually arrive without waiting for the Vercel Cron slot. */
+/** Lets an admin fire a real push on demand, to confirm the subscription
+ * actually works end-to-end. Sends the real daily digest when there's
+ * something pending; otherwise sends a friendly placeholder so this always
+ * produces an actual notification instead of silently doing nothing (which
+ * looked like a broken feature when there was no pending rent to report). */
 const sendTestNotification = async (req, res, next) => {
   try {
-    const payload = await buildRentReminderPayload();
-    if (!payload) {
-      return res.json({ message: 'No pending rent or electricity right now — nothing to notify.', sent: 0 });
-    }
+    const payload = (await buildRentReminderPayload()) || {
+      title: 'Khodiyar Steel — Test Notification',
+      body: 'Push notifications are working. You\'ll get a real reminder here whenever rent or electricity is pending.',
+      url: '/rent',
+      tag: 'test-notification'
+    };
     const result = await sendToAllSubscriptions(payload);
     res.json({ message: 'Test notification sent', ...result });
   } catch (error) {
