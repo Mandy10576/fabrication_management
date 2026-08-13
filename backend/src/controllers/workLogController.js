@@ -1,5 +1,7 @@
+const path = require('path');
 const prisma = require('../config/prisma');
 const { normalizeToUTCMidnight } = require('../utils/dateCalc');
+const { uploadFile } = require('../services/storageService');
 
 const PAYMENT_MODES = ['CASH', 'UPI', 'BANK', 'OTHER'];
 
@@ -218,8 +220,15 @@ const uploadWorkLogPhotos = async (req, res, next) => {
       return res.status(400).json({ error: 'No photos provided' });
     }
 
+    const urls = await Promise.all(req.files.map((file, i) => uploadFile({
+      buffer: file.buffer,
+      filename: `worklog_${Date.now()}_${i}_${Math.round(Math.random() * 1e6)}${path.extname(file.originalname)}`,
+      mimetype: file.mimetype,
+      folder: 'worklogs'
+    })));
+
     await prisma.workLogPhoto.createMany({
-      data: req.files.map((file) => ({ workLogId, url: `/uploads/${file.filename}` })),
+      data: urls.map((url) => ({ workLogId, url })),
     });
 
     const photos = await prisma.workLogPhoto.findMany({ where: { workLogId }, orderBy: { createdAt: 'asc' } });

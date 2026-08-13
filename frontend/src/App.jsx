@@ -34,6 +34,13 @@ const Projects = lazy(() => import('./pages/Projects').then(m => ({ default: m.P
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
 const WorkHistory = lazy(() => import('./pages/WorkHistory').then(m => ({ default: m.WorkHistory })));
 const Rent = lazy(() => import('./pages/Rent').then(m => ({ default: m.Rent })));
+const RentAreas = lazy(() => import('./pages/RentAreas').then(m => ({ default: m.RentAreas })));
+const RentAreaDetail = lazy(() => import('./pages/RentAreaDetail').then(m => ({ default: m.RentAreaDetail })));
+const RentBuildingDetail = lazy(() => import('./pages/RentBuildingDetail').then(m => ({ default: m.RentBuildingDetail })));
+const RentRoomDetail = lazy(() => import('./pages/RentRoomDetail').then(m => ({ default: m.RentRoomDetail })));
+const RentCollection = lazy(() => import('./pages/RentCollection').then(m => ({ default: m.RentCollection })));
+const RentElectricity = lazy(() => import('./pages/RentElectricity').then(m => ({ default: m.RentElectricity })));
+const RentReports = lazy(() => import('./pages/RentReports').then(m => ({ default: m.RentReports })));
 
 /**
  * Skeleton rather than a spinner: it reserves the same shape the page is about
@@ -131,6 +138,13 @@ const ProtectedLayout = () => {
                 <Route path="/work-history" element={<WorkHistory />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/rent" element={<Rent />} />
+                <Route path="/rent/areas" element={<RentAreas />} />
+                <Route path="/rent/areas/:id" element={<RentAreaDetail />} />
+                <Route path="/rent/buildings/:id" element={<RentBuildingDetail />} />
+                <Route path="/rent/rooms/:id" element={<RentRoomDetail />} />
+                <Route path="/rent/collection" element={<RentCollection />} />
+                <Route path="/rent/electricity" element={<RentElectricity />} />
+                <Route path="/rent/reports" element={<RentReports />} />
                 <Route path="/company" element={<CompanySettings />} />
                 <Route path="/backup" element={<BackupRestore />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

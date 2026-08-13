@@ -1,4 +1,6 @@
+const path = require('path');
 const prisma = require('../config/prisma');
+const { uploadFile } = require('../services/storageService');
 
 let companyCache = null;
 
@@ -54,7 +56,13 @@ const uploadLogo = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No logo file provided' });
     }
-    const logoUrl = `/uploads/${req.file.filename}`;
+    const ext = path.extname(req.file.originalname);
+    const logoUrl = await uploadFile({
+      buffer: req.file.buffer,
+      filename: `logo_${Date.now()}${ext}`,
+      mimetype: req.file.mimetype,
+      folder: 'company'
+    });
     const existing = await prisma.companyDetails.findFirst();
 
     let updated;

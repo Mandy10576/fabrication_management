@@ -10,13 +10,28 @@ datasource db {
 }
 
 model User {
+  id                String              @id @default(uuid())
+  email             String              @unique
+  password          String
+  name              String
+  role              String              @default("ADMIN")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  pushSubscriptions PushSubscription[]
+}
+
+// Browser push subscriptions — one row per device/browser that clicked
+// "Enable Notifications". A user can have several (phone + desktop, etc).
+model PushSubscription {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("ADMIN")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model CompanyDetails {
@@ -348,4 +363,186 @@ model WorkLogPhoto {
   workLog   WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
 
   @@index([workLogId])
+}
+
+// ---------------------------------------------------------------------------
+// Rent module: Area -> Building -> Room -> Tenancy (+ Tenant, Payments,
+// Electricity). RentTenancy IS the tenant-history mechanism — a room's
+// current tenant is its RentTenancy with status ACTIVE/endDate null; past
+// tenants are simply its ended RentTenancy rows. Nothing here is ever
+// hard-deleted once it has history; deletion is only exposed (app-guarded)
+// for empty Areas/Buildings/Rooms/Tenants with no children/history.
+// ---------------------------------------------------------------------------
+
+model RentArea {
+  id        String        @id @default(uuid())
+  name      String
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  buildings RentBuilding[]
+
+  @@index([name])
+}
+
+model RentBuilding {
+  id                 String              @id @default(uuid())
+  areaId             String
+  area               RentArea            @relation(fields: [areaId], references: [id])
+  name               String
+  address            String
+  totalRooms         Int                 @default(0)
+  electricityBilling Boolean             @default(false)
+  electricityRate    Float               @default(10) // ₹ per unit, editable from the building form
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  rooms              RentRoom[]
+
+  @@index([areaId])
+  @@index([name])
+}
+
+model RentRoom {
+  id               String                @id @default(uuid())
+  buildingId       String
+  building         RentBuilding          @relation(fields: [buildingId], references: [id])
+  roomNumber       String
+  status           String                @default("VACANT") // VACANT, OCCUPIED
+  monthlyRent      Float
+  notes            String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  tenancies        RentTenancy[]
+  electricityBills RentElectricityBill[]
+
+  @@index([buildingId])
+  @@index([status])
+}
+
+model RentTenant {
+  id             String               @id @default(uuid())
+  name           String
+  mobile         String
+  address        String?
+  aadhaarNumber  String?
+  panNumber      String?
+  notes          String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  documents      RentTenantDocument[]
+  tenancies      RentTenancy[]
+
+  @@index([mobile])
+  @@index([name])
+}
+
+model RentTenantDocument {
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenant       RentTenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  docType      String // AADHAAR, PAN, OTHER
+  url          String
+  originalName String?
+  createdAt    DateTime   @default(now())
+
+  @@index([tenantId])
+}
+
+model RentTenancy {
+  id          String        @id @default(uuid())
+  roomId      String
+  room        RentRoom      @relation(fields: [roomId], references: [id])
+  tenantId    String
+  tenant      RentTenant    @relation(fields: [tenantId], references: [id])
+  startDate   DateTime
+  endDate     DateTime?
+  monthlyRent Float // snapshot of Room.monthlyRent at tenancy start
+  status      String        @default("ACTIVE") // ACTIVE, ENDED
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  payments    RentPayment[]
+  electricityBills RentElectricityBill[]
+  electricityPayments RentElectricityPayment[]
+
+  @@index([roomId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model RentPayment {
+  id          String      @id @default(uuid())
+  tenancyId   String
+  tenancy     RentTenancy @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  cycleStart  DateTime
+  amount      Float
+  paymentDate DateTime    @default(now())
+  paymentMode String      @default("CASH") // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  referenceNo String?
+  notes       String?
+  // Correlates this row with an RentElectricityPayment created in the same
+  // "combined" Record Payment submission, so the two can be displayed
+  // together as one receipt without a dedicated header table.
+  batchId     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([tenancyId])
+  @@index([tenancyId, cycleStart])
+  @@index([batchId])
+}
+
+model RentElectricityBill {
+  id             String       @id @default(uuid())
+  roomId         String
+  room           RentRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  tenancyId      String?
+  tenancy        RentTenancy? @relation(fields: [tenancyId], references: [id])
+  billDate       DateTime     @default(now())
+  previousReading Float?
+  currentReading  Float?
+  ratePerUnit     Float? // snapshot of Building.electricityRate at billing time — never rewritten by later rate changes
+  unitsConsumed  Float?
+  amount         Float
+  // status/amountPaid/paymentDate/paymentMode are denormalized and
+  // recomputed after every payment mutation — same re-aggregate-and-rederive
+  // pattern as Invoice/RentTenancy — never trust them as the source of truth,
+  // that's the `payments` ledger below.
+  status         String       @default("PENDING") // PENDING, PARTIAL, PAID
+  amountPaid     Float        @default(0)
+  paymentDate    DateTime?
+  paymentMode    String? // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  payments       RentElectricityPayment[]
+
+  @@index([roomId])
+  @@index([status])
+}
+
+model RentElectricityPayment {
+  id          String               @id @default(uuid())
+  billId      String
+  bill        RentElectricityBill  @relation(fields: [billId], references: [id], onDelete: Cascade)
+  // The tenancy the underlying bill was billed under (not necessarily
+  // whoever is paying it) — lets a room's combined-payment history be
+  // grouped per tenancy even if unpaid electricity carries over a move-out.
+  tenancyId   String?
+  tenancy     RentTenancy?         @relation(fields: [tenancyId], references: [id])
+  amount      Float
+  paymentDate DateTime             @default(now())
+  paymentMode String               @default("CASH") // CASH, UPI, BANK_TRANSFER, CHEQUE, OTHER
+  referenceNo String?
+  notes       String?
+  // Correlates this row with a RentPayment created in the same "combined"
+  // Record Payment submission — see RentPayment.batchId.
+  batchId     String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([billId])
+  @@index([tenancyId])
+  @@index([batchId])
 }

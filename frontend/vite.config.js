@@ -44,13 +44,15 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000
   },
   server: {
-    port: 3000,
+    port: 5173, // 3000 collides with an unrelated Docker container already bound to that host port
+    host: true, // listen on the LAN too, not just localhost — lets a phone on the same Wi-Fi reach this dev server via the computer's local IP
     proxy: devProxy
   },
   // `vite preview` serves the production build and previously had no proxy, so
   // /api requests 404'd against the static server.
   preview: {
     port: 4173,
+    host: true,
     proxy: devProxy
   }
 });

@@ -1,0 +1,437 @@
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../services/api';
+import { useToast, useConfirm } from '../context/ToastContext';
+import { Modal } from '../components/ui/Modal';
+import { SearchableSelect } from '../components/SearchableSelect';
+import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
+import { Wallet, Search, AlertCircle, User, MapPin, Edit2, Trash2, Receipt, X } from 'lucide-react';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Statuses' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'PARTIAL', label: 'Partial' },
+  { value: 'UNPAID', label: 'Unpaid' },
+];
+
+const PAYMENT_MODE_OPTIONS = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'UPI', label: 'UPI / GPay / PhonePe' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer (NEFT/IMPS)' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'OTHER', label: 'Other' },
+];
+
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const today = () => new Date().toISOString().split('T')[0];
+const cycleLabel = (c) => `${formatDate(c.cycleStart)} – ${formatDate(c.cycleEnd)}`;
+
+const emptyPaymentForm = (pending) => ({
+  amount: pending > 0.01 ? pending : '',
+  paymentDate: today(),
+  paymentMode: 'CASH',
+  referenceNo: '',
+  notes: ''
+});
+
+export const RentCollection = () => {
+  const toast = useToast();
+  const confirm = useConfirm();
+
+  const [rows, setRows] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('ALL');
+  const [areaId, setAreaId] = useState('');
+
+  // Record Payment — full ledger for a tenancy's current cycle (add/edit/
+  // delete individual payments), same pattern as the Electricity module.
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [activeRow, setActiveRow] = useState(null);
+  const [paymentForm, setPaymentForm] = useState(emptyPaymentForm(0));
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchRows = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams({ search, status });
+      if (areaId) params.set('areaId', areaId);
+      const res = await api.get(`/rent/collection?${params.toString()}`);
+      setRows(res);
+      return res;
+    } catch (err) {
+      toast.error(err.message || 'Failed to load rent collection');
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, status, areaId]);
+
+  useEffect(() => {
+    api.get('/rent/areas').then(setAreas).catch(() => {});
+  }, []);
+
+  const handleOpenPayment = (row) => {
+    setActiveRow(row);
+    setEditingPaymentId(null);
+    setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0));
+    setError('');
+    setShowPaymentModal(true);
+  };
+
+  // Row-level "Edit" — jumps straight into correcting the most recent
+  // payment for this cycle, instead of landing on the blank add-payment
+  // form the Wallet action opens.
+  const handleOpenEditLatest = (row) => {
+    setActiveRow(row);
+    setError('');
+    const latest = row.currentCyclePayments && row.currentCyclePayments[0];
+    if (latest) {
+      setEditingPaymentId(latest.id);
+      setPaymentForm({
+        amount: latest.amount,
+        paymentDate: latest.paymentDate ? latest.paymentDate.split('T')[0] : today(),
+        paymentMode: latest.paymentMode,
+        referenceNo: latest.referenceNo || '',
+        notes: latest.notes || ''
+      });
+    } else {
+      setEditingPaymentId(null);
+      setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0));
+    }
+    setShowPaymentModal(true);
+  };
+
+  const handleEditPaymentRow = (p) => {
+    setEditingPaymentId(p.id);
+    setPaymentForm({
+      amount: p.amount,
+      paymentDate: p.paymentDate ? p.paymentDate.split('T')[0] : today(),
+      paymentMode: p.paymentMode,
+      referenceNo: p.referenceNo || '',
+      notes: p.notes || ''
+    });
+    setError('');
+  };
+
+  const handleCancelEditPaymentRow = () => {
+    setEditingPaymentId(null);
+    setPaymentForm(emptyPaymentForm(activeRow?.currentCycle?.pending || 0));
+    setError('');
+  };
+
+  const refreshActiveRow = async (tenancyId) => {
+    const fresh = await fetchRows();
+    const updated = fresh.find((r) => r.tenancyId === tenancyId) || null;
+    setActiveRow(updated);
+    return updated;
+  };
+
+  const handleSubmitPayment = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      setSaving(true);
+      if (editingPaymentId) {
+        await api.put(`/rent/tenancies/${activeRow.tenancyId}/payments/${editingPaymentId}`, paymentForm);
+        toast.success('Payment updated');
+      } else {
+        await api.post(`/rent/tenancies/${activeRow.tenancyId}/payments`, {
+          ...paymentForm,
+          cycleStart: activeRow.currentCycle ? new Date(activeRow.currentCycle.cycleStart).toISOString() : undefined
+        });
+        toast.success('Rent payment recorded');
+      }
+      const updated = await refreshActiveRow(activeRow.tenancyId);
+      setEditingPaymentId(null);
+      setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0));
+    } catch (err) {
+      setError(err.message || 'Failed to save payment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeletePaymentRow = async (p) => {
+    const ok = await confirm({ title: 'Delete this payment?', message: 'This removes the payment record and recalculates pending rent.', confirmText: 'Delete payment' });
+    if (!ok) return;
+    try {
+      await api.delete(`/rent/tenancies/${activeRow.tenancyId}/payments/${p.id}`);
+      toast.success('Payment deleted');
+      const updated = await refreshActiveRow(activeRow.tenancyId);
+      if (editingPaymentId === p.id) {
+        setEditingPaymentId(null);
+        setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0));
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete payment');
+    }
+  };
+
+  const areaOptions = [{ value: '', label: 'All Areas' }, ...areas.map((a) => ({ value: a.id, label: a.name }))];
+  const canSubmitPayment = activeRow && (round2(activeRow.currentCycle?.pending || 0) > 0.01 || editingPaymentId);
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div>
+        <h2 className="page-title flex items-center gap-2">
+          <Wallet className="w-6 h-6 text-brand-500 shrink-0" />
+          <span>Rent Collection</span>
+        </h2>
+        <p className="page-subtitle">Current-cycle payment status for every occupied room</p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="search-field flex-1">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+          <input type="search" aria-label="Search tenant" placeholder="Search tenant name or mobile…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div className="sm:w-48">
+          <SearchableSelect mode="button" value={areaId} options={areaOptions} onSelect={(opt) => setAreaId(opt.value)} ariaLabel="Filter by area" />
+        </div>
+        <div className="sm:w-44">
+          <SearchableSelect mode="button" value={status} options={STATUS_FILTER_OPTIONS} onSelect={(opt) => setStatus(opt.value)} ariaLabel="Filter by payment status" />
+        </div>
+      </div>
+
+      <div className="card overflow-hidden">
+        {loading ? (
+          <div className="p-4 space-y-3">
+            {[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="p-10 sm:p-16 text-center">
+            <Wallet className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
+            <div className="font-semibold text-slate-700 dark:text-slate-300">No active tenancies found</div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {search || status !== 'ALL' || areaId ? 'No tenancies match your filters.' : 'Occupy a room to start tracking rent collection.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <ul className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
+              {rows.map((row) => (
+                <li key={row.tenancyId} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link to={`/rent/rooms/${row.room.id}`} className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline">
+                        {row.tenant.name}
+                      </Link>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {row.room.building.name} · Room {row.room.roomNumber}
+                      </div>
+                    </div>
+                    {row.currentCycle && <span className={`badge shrink-0 ${getStatusBadgeClass(row.currentCycle.status)}`}>{row.currentCycle.status}</span>}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {row.currentCycle ? cycleLabel(row.currentCycle) : '—'}
+                    </div>
+                    {row.totalPending > 0 ? (
+                      <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.totalPending)} due</span>
+                    ) : (
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Settled</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleOpenPayment(row)} className="btn btn-sm btn-emerald flex-1">
+                      <Wallet className="w-4 h-4" />
+                      <span>{row.totalPending > 0.01 ? 'Record Payment' : 'Payments'}</span>
+                    </button>
+                    {row.currentCyclePayments?.length > 0 && (
+                      <button onClick={() => handleOpenEditLatest(row)} className="btn-icon btn-icon-soft" aria-label="Edit payment" title="Edit payment">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden lg:block table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Tenant</th>
+                    <th scope="col">Room</th>
+                    <th scope="col">Current Cycle</th>
+                    <th scope="col" className="text-right">Rent</th>
+                    <th scope="col" className="text-right">Paid</th>
+                    <th scope="col" className="text-right">Total Pending</th>
+                    <th scope="col" className="text-center">Status</th>
+                    <th scope="col" className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.tenancyId}>
+                      <td>
+                        <Link to={`/rent/rooms/${row.room.id}`} className="font-bold text-slate-900 dark:text-white hover:text-brand-500 flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          {row.tenant.name}
+                        </Link>
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">{row.tenant.mobile}</div>
+                      </td>
+                      <td className="text-slate-600 dark:text-slate-300 whitespace-nowrap">{row.room.building.name} · {row.room.roomNumber}</td>
+                      <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.currentCycle ? cycleLabel(row.currentCycle) : '—'}</td>
+                      <td className="text-right font-semibold text-slate-900 dark:text-white whitespace-nowrap">{formatCurrency(row.monthlyRent)}</td>
+                      <td className="text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{formatCurrency(row.currentCycle?.paid || 0)}</td>
+                      <td className={`text-right font-bold whitespace-nowrap ${row.totalPending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {formatCurrency(row.totalPending)}
+                      </td>
+                      <td className="text-center">{row.currentCycle && <span className={`badge ${getStatusBadgeClass(row.currentCycle.status)}`}>{row.currentCycle.status}</span>}</td>
+                      <td className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {row.currentCyclePayments?.length > 0 && (
+                            <button onClick={() => handleOpenEditLatest(row)} className="btn-icon btn-icon-soft hover:text-brand-500" aria-label={`Edit payment for ${row.tenant.name}`} title="Edit payment">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button onClick={() => handleOpenPayment(row)} className="btn-icon btn-icon-soft hover:text-emerald-500" aria-label={`Record payment for ${row.tenant.name}`} title="Record payment">
+                            <Wallet className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      <Modal
+        open={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        title={`Record Payment — ${activeRow?.tenant?.name || ''}`}
+        icon={Wallet}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary sm:min-w-[7rem]">Close</button>
+            {canSubmitPayment && (
+              <button type="submit" form="collection-payment-form" disabled={saving} className="btn btn-emerald sm:min-w-[9rem]">
+                {saving ? 'Saving…' : editingPaymentId ? 'Update Payment' : 'Record Payment'}
+              </button>
+            )}
+          </div>
+        }
+      >
+        {activeRow && (
+          <div className="space-y-5">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                {activeRow.room.building.name} · Room {activeRow.room.roomNumber}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">{activeRow.currentCycle ? cycleLabel(activeRow.currentCycle) : '—'}</div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Rent (Cycle)</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{formatCurrency(activeRow.currentCycle?.expected || activeRow.monthlyRent)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Paid</div>
+                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(activeRow.currentCycle?.paid || 0)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Pending</div>
+                <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-0.5">{formatCurrency(activeRow.currentCycle?.pending || 0)}</div>
+              </div>
+            </div>
+
+            {activeRow.currentCyclePayments && activeRow.currentCyclePayments.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400 mb-2">
+                  <Receipt className="w-3.5 h-3.5" />
+                  Payments Recorded This Cycle
+                </div>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
+                  {activeRow.currentCyclePayments.map((p) => (
+                    <li key={p.id} className={`p-3 flex items-center justify-between gap-3 ${editingPaymentId === p.id ? 'bg-brand-50 dark:bg-brand-950/30' : ''}`}>
+                      <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(p.amount)}</div>
+                        {formatDate(p.paymentDate)} · {p.paymentMode.replace('_', ' ')}
+                        {p.referenceNo && <span> · Ref: {p.referenceNo}</span>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => handleEditPaymentRow(p)} className="btn-icon w-7 h-7 text-slate-400 hover:text-brand-500" aria-label="Edit payment" title="Correct payment">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => handleDeletePaymentRow(p)} className="btn-icon w-7 h-7 text-slate-400 hover:text-rose-500" aria-label="Delete payment">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {error && (
+              <div role="alert" className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-sm flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="min-w-0 break-words">{error}</span>
+              </div>
+            )}
+
+            {!canSubmitPayment ? (
+              <p className="text-sm text-slate-400 text-center py-2">This cycle is fully paid. Edit or delete a payment above to make changes.</p>
+            ) : (
+              <form id="collection-payment-form" onSubmit={handleSubmitPayment} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400">
+                    <Wallet className="w-3.5 h-3.5" />
+                    {editingPaymentId ? 'Edit Payment' : 'New Payment'}
+                  </div>
+                  {editingPaymentId && (
+                    <button type="button" onClick={handleCancelEditPaymentRow} className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1">
+                      <X className="w-3 h-3" />
+                      Cancel edit
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="cp-amount" className="label">Amount (₹) *</label>
+                    <input id="cp-amount" type="number" min="0.01" step="any" required value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} className="input font-semibold" />
+                  </div>
+                  <div>
+                    <label htmlFor="cp-date" className="label">Payment Date</label>
+                    <input id="cp-date" type="date" value={paymentForm.paymentDate} onChange={(e) => setPaymentForm((p) => ({ ...p, paymentDate: e.target.value }))} className="input" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="cp-mode" className="label">Payment Mode</label>
+                    <SearchableSelect id="cp-mode" mode="button" value={paymentForm.paymentMode} options={PAYMENT_MODE_OPTIONS} onSelect={(opt) => setPaymentForm((p) => ({ ...p, paymentMode: opt.value }))} />
+                  </div>
+                  <div>
+                    <label htmlFor="cp-ref" className="label">Reference No.</label>
+                    <input id="cp-ref" type="text" placeholder="Optional" value={paymentForm.referenceNo} onChange={(e) => setPaymentForm((p) => ({ ...p, referenceNo: e.target.value }))} className="input" />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="cp-notes" className="label">Notes</label>
+                  <textarea id="cp-notes" rows={2} placeholder="Optional" value={paymentForm.notes} onChange={(e) => setPaymentForm((p) => ({ ...p, notes: e.target.value }))} className="textarea" />
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+};

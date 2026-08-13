@@ -38,6 +38,8 @@ import {
   CheckCircle2,
   ListChecks,
   KeyRound,
+  MapPin,
+  Zap,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
@@ -75,11 +77,17 @@ const NAV_GROUPS = [
           { label: 'Work History', path: '/work-history', icon: ListChecks },
         ],
       },
-      // No sub-features yet — a direct link like Dashboard rather than a
-      // collapsible group with an empty submenu. Once features are defined,
-      // give it a `children` array (same shape as Invoice/Employees above)
-      // and it picks up the same expand/collapse behavior automatically.
-      { label: 'Rent', path: '/rent', icon: KeyRound },
+      {
+        label: 'Rent',
+        icon: KeyRound,
+        children: [
+          { label: 'Dashboard', path: '/rent', icon: LayoutDashboard, end: true },
+          { label: 'Areas', path: '/rent/areas', icon: MapPin },
+          { label: 'Rent Collection', path: '/rent/collection', icon: Wallet },
+          { label: 'Electricity', path: '/rent/electricity', icon: Zap },
+          { label: 'Reports', path: '/rent/reports', icon: BarChart3 },
+        ],
+      },
     ],
   },
   {
@@ -106,6 +114,10 @@ const prefetch = (path) => {
     else if (path === '/projects') api.get('/projects?status=ALL&search=&limit=20');
     else if (path === '/projects/active') api.get('/projects?status=ACTIVE&search=&limit=20');
     else if (path === '/work-history') api.get('/worklogs?limit=20');
+    else if (path === '/rent') api.get('/rent/dashboard');
+    else if (path === '/rent/areas') api.get('/rent/areas?search=');
+    else if (path === '/rent/collection') api.get('/rent/collection?status=ALL&search=');
+    else if (path === '/rent/electricity') api.get('/rent/electricity?status=ALL');
   } catch (e) {}
 };
 

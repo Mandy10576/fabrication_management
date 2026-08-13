@@ -1,19 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const { getCompany, updateCompany, uploadLogo } = require('../controllers/companyController');
 const { authenticate } = require('../middleware/authMiddleware');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../public/uploads'));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `logo_${Date.now()}${ext}`);
-  }
-});
-const upload = multer({ storage });
+// Files are held in memory just long enough to stream to Supabase Storage —
+// nothing is written to local disk.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 const router = express.Router();
 

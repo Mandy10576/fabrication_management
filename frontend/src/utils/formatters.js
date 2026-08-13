@@ -26,6 +26,7 @@ export const getStatusBadgeClass = (status) => {
     case 'PRESENT':
     case 'PAID_LEAVE':
     case 'COMPLETED':
+    case 'OCCUPIED':
       return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
     case 'PARTIAL':
     case 'UNPAID_LEAVE':
@@ -35,6 +36,7 @@ export const getStatusBadgeClass = (status) => {
     case 'PENDING':
     case 'INACTIVE':
     case 'ABSENT':
+    case 'VACANT':
       return 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800';
     case 'CONVERTED':
     case 'HOLIDAY':

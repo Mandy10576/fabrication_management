@@ -32,4 +32,18 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticate };
+/** Guards the cron-triggered rent-reminder route: accepts either Vercel's
+ * own Cron invocation (Authorization: Bearer <CRON_SECRET>, which Vercel
+ * sends automatically once CRON_SECRET is set as a project env var) or a
+ * normal logged-in admin — so the same endpoint can be triggered manually
+ * from the app for testing without a second, unprotected copy of it. */
+const authenticateCronOrAdmin = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    return next();
+  }
+  return authenticate(req, res, next);
+};
+
+module.exports = { authenticate, authenticateCronOrAdmin };
