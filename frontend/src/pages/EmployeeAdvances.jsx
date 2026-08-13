@@ -7,7 +7,7 @@ import { EmployeeAutocomplete } from '../components/EmployeeAutocomplete';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import * as XLSX from 'xlsx';
-import { HandCoins, Search, FileSpreadsheet, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { HandCoins, FileSpreadsheet, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const ADVANCE_PAYMENT_MODES = ['CASH', 'UPI', 'BANK_TRANSFER', 'OTHER'];
 const EMPTY_FORM = { employeeId: '', amount: '', advanceDate: '', paymentMode: 'CASH', referenceNo: '', notes: '' };
@@ -30,10 +30,11 @@ export const EmployeeAdvances = () => {
   const toast = useToast();
   const confirm = useConfirm();
   const [month, setMonth] = useState(currentMonthStr());
-  const [search, setSearch] = useState('');
+  const [employeeFilterId, setEmployeeFilterId] = useState('');
   const [loading, setLoading] = useState(true);
   const [advances, setAdvances] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [filterEmployees, setFilterEmployees] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -41,7 +42,9 @@ export const EmployeeAdvances = () => {
   const fetchAdvances = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/advances?month=${month}&search=${encodeURIComponent(search)}&all=true`);
+      const params = new URLSearchParams({ month, all: 'true' });
+      if (employeeFilterId) params.set('employeeId', employeeFilterId);
+      const res = await api.get(`/advances?${params.toString()}`);
       setAdvances(res);
     } catch (err) {
       toast.error(err.message || 'Failed to load advances');
@@ -53,10 +56,14 @@ export const EmployeeAdvances = () => {
   useEffect(() => {
     fetchAdvances();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, search]);
+  }, [month, employeeFilterId]);
 
   useEffect(() => {
     api.get('/employees?status=ACTIVE&all=true').then(setEmployees).catch(() => {});
+    // Unrestricted by status — filtering advance history shouldn't hide an
+    // ex-employee's past records the way picking who to ADD an advance for
+    // correctly does.
+    api.get('/employees?status=ALL&all=true').then(setFilterEmployees).catch(() => {});
   }, []);
 
   const total = advances.reduce((sum, a) => sum + a.amount, 0);
@@ -151,14 +158,13 @@ export const EmployeeAdvances = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="search-field flex-1">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-          <input
-            type="search"
-            aria-label="Search employees"
-            placeholder="Search name or mobile…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+        <div className="flex-1">
+          <EmployeeAutocomplete
+            employees={filterEmployees}
+            value={employeeFilterId}
+            onSelect={(e) => setEmployeeFilterId(e ? e.id : '')}
+            placeholder="Search employee name or mobile…"
+            required={false}
           />
         </div>
         <div className="flex items-center gap-2">

@@ -77,14 +77,16 @@ const deleteAdvance = async (req, res, next) => {
 
 const getOrgAdvances = async (req, res, next) => {
   try {
-    const { search, month, all, limit } = req.query;
+    const { search, employeeId, month, all, limit } = req.query;
 
     const where = {};
     const range = parseMonthRange(month);
     if (range) {
       where.advanceDate = { gte: range.fromDate, lt: addDaysUTC(range.toDate, 1) };
     }
-    if (search) {
+    if (employeeId) {
+      where.employeeId = employeeId;
+    } else if (search) {
       where.employee = { OR: [{ name: { contains: search, mode: 'insensitive' } }, { mobile: { contains: search, mode: 'insensitive' } }] };
     }
 
