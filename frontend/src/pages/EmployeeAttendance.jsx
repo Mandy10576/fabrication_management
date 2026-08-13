@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import * as XLSX from 'xlsx';
 import { CalendarCheck, Search, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SearchableSelect } from '../components/SearchableSelect';
+import { getPushStatus, sendTestNotification } from '../services/pushNotifications';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'ACTIVE', label: 'Active' },
@@ -27,6 +28,20 @@ export const EmployeeAttendance = () => {
   const [status, setStatus] = useState('ACTIVE');
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+
+  useEffect(() => {
+    getPushStatus().then((s) => setPushSubscribed(s.subscribed)).catch(() => {});
+  }, []);
+
+  const handleTestNotification = async () => {
+    try {
+      await sendTestNotification('employee');
+      toast.success('Test notification sent');
+    } catch (err) {
+      toast.error(err.message || 'Failed to send test notification');
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -82,6 +97,15 @@ export const EmployeeAttendance = () => {
           <span>Export to Excel</span>
         </button>
       </div>
+
+      {pushSubscribed && (
+        <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 px-1">
+          <span>You'll get a daily 9:30 PM reminder here with today's attendance &amp; work log summary.</span>
+          <button onClick={handleTestNotification} className="font-semibold text-brand-600 dark:text-brand-400 hover:underline shrink-0">
+            Send test notification
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="search-field flex-1">

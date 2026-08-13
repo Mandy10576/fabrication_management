@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { sendToAllSubscriptions } = require('../services/pushService');
 const { buildRentReminderPayload } = require('./rentReminderController');
+const { buildEmployeeReminderPayload } = require('./employeeReminderController');
 
 const getPublicKey = (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
@@ -38,18 +39,23 @@ const unsubscribe = async (req, res, next) => {
 };
 
 /** Lets an admin fire a real push on demand, to confirm the subscription
- * actually works end-to-end. Sends the real daily digest when there's
- * something pending; otherwise sends a friendly placeholder so this always
- * produces an actual notification instead of silently doing nothing (which
- * looked like a broken feature when there was no pending rent to report). */
+ * actually works end-to-end. `type` picks which daily digest to preview
+ * ('rent' | 'employee', defaults to 'rent'). The rent digest sends a
+ * friendly placeholder when there's nothing pending, rather than silently
+ * doing nothing — which looked like a broken feature when there was no
+ * pending rent to report; the employee digest always has something to say,
+ * so it never needs a fallback. */
 const sendTestNotification = async (req, res, next) => {
   try {
-    const payload = (await buildRentReminderPayload()) || {
-      title: 'Khodiyar Steel — Test Notification',
-      body: 'Push notifications are working. You\'ll get a real reminder here whenever rent or electricity is pending.',
-      url: '/rent',
-      tag: 'test-notification'
-    };
+    const type = req.body?.type === 'employee' ? 'employee' : 'rent';
+    const payload = type === 'employee'
+      ? await buildEmployeeReminderPayload()
+      : (await buildRentReminderPayload()) || {
+          title: 'Khodiyar Steel — Test Notification',
+          body: 'Push notifications are working. You\'ll get a real reminder here whenever rent or electricity is pending.',
+          url: '/rent',
+          tag: 'test-notification'
+        };
     const result = await sendToAllSubscriptions(payload);
     res.json({ message: 'Test notification sent', ...result });
   } catch (error) {

@@ -77,4 +77,4 @@ export const disablePushNotifications = async () => {
   await api.post('/push/unsubscribe', { endpoint }).catch(() => {});
 };
 
-export const sendTestNotification = () => api.post('/push/test', {});
+export const sendTestNotification = (type = 'rent') => api.post('/push/test', { type });
