@@ -1,31 +1,31 @@
 const prisma = require('../config/prisma');
-const { computeTenancySummary } = require('./rentTenancyController');
+const { summarizeContract } = require('./rentBillController');
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 const getRentDashboardStats = async (req, res, next) => {
   try {
-    const [totalBuildings, totalRooms, occupiedRooms, activeTenancies, electricityBills, recentPayments] = await Promise.all([
-      prisma.rentBuilding.count(),
+    const [totalProperties, totalRooms, occupiedRooms, activeContracts, electricityBills, recentPayments] = await Promise.all([
+      prisma.rentProperty.count(),
       prisma.rentRoom.count(),
       prisma.rentRoom.count({ where: { status: 'OCCUPIED' } }),
-      prisma.rentTenancy.findMany({
+      prisma.rentContract.findMany({
         where: { status: 'ACTIVE' },
-        include: {
-          tenant: { select: { id: true, name: true } },
-          payments: true,
-          room: { select: { id: true, roomNumber: true, building: { select: { id: true, name: true } } } }
-        }
+        include: { bills: { orderBy: { cycleStart: 'desc' } } }
       }),
       prisma.rentElectricityBill.findMany({ select: { status: true, amount: true } }),
-      prisma.rentPayment.findMany({
+      prisma.rentBillPayment.findMany({
         take: 5,
         orderBy: { paymentDate: 'desc' },
         include: {
-          tenancy: {
+          bill: {
             select: {
-              tenant: { select: { name: true } },
-              room: { select: { roomNumber: true, building: { select: { name: true } } } }
+              contract: {
+                select: {
+                  tenant: { select: { name: true } },
+                  room: { select: { roomNumber: true, property: { select: { name: true } } } }
+                }
+              }
             }
           }
         }
@@ -35,10 +35,9 @@ const getRentDashboardStats = async (req, res, next) => {
     let expectedRent = 0;
     let collectedRent = 0;
     let pendingRent = 0;
-
-    activeTenancies.forEach((t) => {
-      const summary = computeTenancySummary(t);
-      expectedRent += t.monthlyRent;
+    activeContracts.forEach((c) => {
+      const summary = summarizeContract(c);
+      expectedRent += c.monthlyRent;
       collectedRent += summary.currentCycle?.paid || 0;
       pendingRent += summary.totalPending;
     });
@@ -50,11 +49,11 @@ const getRentDashboardStats = async (req, res, next) => {
     );
 
     res.json({
-      totalBuildings,
+      totalProperties,
       totalRooms,
       occupiedRooms,
       vacantRooms: totalRooms - occupiedRooms,
-      activeTenancyCount: activeTenancies.length,
+      activeContractCount: activeContracts.length,
       expectedRent: round2(expectedRent),
       collectedRent: round2(collectedRent),
       pendingRent: round2(pendingRent),
@@ -68,9 +67,9 @@ const getRentDashboardStats = async (req, res, next) => {
         amount: p.amount,
         paymentDate: p.paymentDate,
         paymentMode: p.paymentMode,
-        tenantName: p.tenancy?.tenant?.name || 'N/A',
-        roomNumber: p.tenancy?.room?.roomNumber || '',
-        buildingName: p.tenancy?.room?.building?.name || ''
+        tenantName: p.bill?.contract?.tenant?.name || 'N/A',
+        roomNumber: p.bill?.contract?.room?.roomNumber || '',
+        propertyName: p.bill?.contract?.room?.property?.name || ''
       }))
     });
   } catch (error) {

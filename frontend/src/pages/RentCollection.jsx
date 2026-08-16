@@ -39,13 +39,13 @@ export const RentCollection = () => {
   const confirm = useConfirm();
 
   const [rows, setRows] = useState([]);
-  const [areas, setAreas] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('ALL');
-  const [areaId, setAreaId] = useState('');
+  const [propertyId, setPropertyId] = useState('');
 
-  // Record Payment — full ledger for a tenancy's current cycle (add/edit/
+  // Record Payment — full ledger for a contract's current cycle (add/edit/
   // delete individual payments), same pattern as the Electricity module.
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeRow, setActiveRow] = useState(null);
@@ -58,7 +58,7 @@ export const RentCollection = () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ search, status });
-      if (areaId) params.set('areaId', areaId);
+      if (propertyId) params.set('propertyId', propertyId);
       const res = await api.get(`/rent/collection?${params.toString()}`);
       setRows(res);
       return res;
@@ -73,10 +73,10 @@ export const RentCollection = () => {
   useEffect(() => {
     fetchRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, status, areaId]);
+  }, [search, status, propertyId]);
 
   useEffect(() => {
-    api.get('/rent/areas').then(setAreas).catch(() => {});
+    api.get('/rent/properties/all').then(setProperties).catch(() => {});
   }, []);
 
   const handleOpenPayment = (row) => {
@@ -128,9 +128,9 @@ export const RentCollection = () => {
     setError('');
   };
 
-  const refreshActiveRow = async (tenancyId) => {
+  const refreshActiveRow = async (contractId) => {
     const fresh = await fetchRows();
-    const updated = fresh.find((r) => r.tenancyId === tenancyId) || null;
+    const updated = fresh.find((r) => r.contractId === contractId) || null;
     setActiveRow(updated);
     return updated;
   };
@@ -141,16 +141,13 @@ export const RentCollection = () => {
     try {
       setSaving(true);
       if (editingPaymentId) {
-        await api.put(`/rent/tenancies/${activeRow.tenancyId}/payments/${editingPaymentId}`, paymentForm);
+        await api.put(`/rent/bills/${activeRow.currentCycle.billId}/payments/${editingPaymentId}`, paymentForm);
         toast.success('Payment updated');
       } else {
-        await api.post(`/rent/tenancies/${activeRow.tenancyId}/payments`, {
-          ...paymentForm,
-          cycleStart: activeRow.currentCycle ? new Date(activeRow.currentCycle.cycleStart).toISOString() : undefined
-        });
+        await api.post(`/rent/bills/${activeRow.currentCycle.billId}/payments`, paymentForm);
         toast.success('Rent payment recorded');
       }
-      const updated = await refreshActiveRow(activeRow.tenancyId);
+      const updated = await refreshActiveRow(activeRow.contractId);
       setEditingPaymentId(null);
       setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0));
     } catch (err) {
@@ -164,9 +161,9 @@ export const RentCollection = () => {
     const ok = await confirm({ title: 'Delete this payment?', message: 'This removes the payment record and recalculates pending rent.', confirmText: 'Delete payment' });
     if (!ok) return;
     try {
-      await api.delete(`/rent/tenancies/${activeRow.tenancyId}/payments/${p.id}`);
+      await api.delete(`/rent/bills/${activeRow.currentCycle.billId}/payments/${p.id}`);
       toast.success('Payment deleted');
-      const updated = await refreshActiveRow(activeRow.tenancyId);
+      const updated = await refreshActiveRow(activeRow.contractId);
       if (editingPaymentId === p.id) {
         setEditingPaymentId(null);
         setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0));
@@ -176,7 +173,7 @@ export const RentCollection = () => {
     }
   };
 
-  const areaOptions = [{ value: '', label: 'All Areas' }, ...areas.map((a) => ({ value: a.id, label: a.name }))];
+  const propertyOptions = [{ value: '', label: 'All Properties' }, ...properties.map((p) => ({ value: p.id, label: p.name }))];
   const canSubmitPayment = activeRow && (round2(activeRow.currentCycle?.pending || 0) > 0.01 || editingPaymentId);
 
   return (
@@ -195,7 +192,7 @@ export const RentCollection = () => {
           <input type="search" aria-label="Search tenant" placeholder="Search tenant name or mobile…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="sm:w-48">
-          <SearchableSelect mode="button" value={areaId} options={areaOptions} onSelect={(opt) => setAreaId(opt.value)} ariaLabel="Filter by area" />
+          <SearchableSelect mode="button" value={propertyId} options={propertyOptions} onSelect={(opt) => setPropertyId(opt.value)} ariaLabel="Filter by property" />
         </div>
         <div className="sm:w-44">
           <SearchableSelect mode="button" value={status} options={STATUS_FILTER_OPTIONS} onSelect={(opt) => setStatus(opt.value)} ariaLabel="Filter by payment status" />
@@ -210,16 +207,16 @@ export const RentCollection = () => {
         ) : rows.length === 0 ? (
           <div className="p-10 sm:p-16 text-center">
             <Wallet className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
-            <div className="font-semibold text-slate-700 dark:text-slate-300">No active tenancies found</div>
+            <div className="font-semibold text-slate-700 dark:text-slate-300">No active contracts found</div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {search || status !== 'ALL' || areaId ? 'No tenancies match your filters.' : 'Occupy a room to start tracking rent collection.'}
+              {search || status !== 'ALL' || propertyId ? 'No contracts match your filters.' : 'Occupy a room to start tracking rent collection.'}
             </p>
           </div>
         ) : (
           <>
             <ul className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
               {rows.map((row) => (
-                <li key={row.tenancyId} className="p-4 space-y-2.5">
+                <li key={row.contractId} className="p-4 space-y-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <Link to={`/rent/rooms/${row.room.id}`} className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline">
@@ -227,7 +224,7 @@ export const RentCollection = () => {
                       </Link>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        {row.room.building.name} · Room {row.room.roomNumber}
+                        {row.room.property.name} · Room {row.room.roomNumber}
                       </div>
                     </div>
                     {row.currentCycle && <span className={`badge shrink-0 ${getStatusBadgeClass(row.currentCycle.status)}`}>{row.currentCycle.status}</span>}
@@ -273,7 +270,7 @@ export const RentCollection = () => {
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={row.tenancyId}>
+                    <tr key={row.contractId}>
                       <td>
                         <Link to={`/rent/rooms/${row.room.id}`} className="font-bold text-slate-900 dark:text-white hover:text-brand-500 flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5 text-slate-400" />
@@ -281,7 +278,7 @@ export const RentCollection = () => {
                         </Link>
                         <div className="text-xs text-slate-400 font-mono mt-0.5">{row.tenant.mobile}</div>
                       </td>
-                      <td className="text-slate-600 dark:text-slate-300 whitespace-nowrap">{row.room.building.name} · {row.room.roomNumber}</td>
+                      <td className="text-slate-600 dark:text-slate-300 whitespace-nowrap">{row.room.property.name} · {row.room.roomNumber}</td>
                       <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.currentCycle ? cycleLabel(row.currentCycle) : '—'}</td>
                       <td className="text-right font-semibold text-slate-900 dark:text-white whitespace-nowrap">{formatCurrency(row.monthlyRent)}</td>
                       <td className="text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{formatCurrency(row.currentCycle?.paid || 0)}</td>
@@ -331,7 +328,7 @@ export const RentCollection = () => {
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                {activeRow.room.building.name} · Room {activeRow.room.roomNumber}
+                {activeRow.room.property.name} · Room {activeRow.room.roomNumber}
               </div>
               <div className="text-xs text-slate-400 mt-0.5">{activeRow.currentCycle ? cycleLabel(activeRow.currentCycle) : '—'}</div>
             </div>

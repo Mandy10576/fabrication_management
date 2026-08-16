@@ -1,35 +1,28 @@
 const express = require('express');
 const multer = require('multer');
 const {
-  getAreas,
-  getAreaById,
-  createArea,
-  updateArea,
-  deleteArea,
-  createBuilding,
-  getAllBuildings,
-  getBuildingById,
-  updateBuilding,
-  deleteBuilding,
+  getProperties,
+  getAllProperties,
+  createProperty,
+  getPropertyById,
+  updateProperty,
+  deleteProperty,
   createRoom,
   getRoomById,
   updateRoom,
   deleteRoom
 } = require('../controllers/rentPropertyController');
+const { getTenants, createTenant, updateTenant, uploadTenantDocuments, deleteTenantDocument } = require('../controllers/rentTenantController');
+const { startContract, updateContract, endContract, getRentCollection, getRentOverview } = require('../controllers/rentContractController');
 const {
-  getTenants,
-  updateTenant,
-  uploadTenantDocuments,
-  deleteTenantDocument,
-  startTenancy,
-  endTenancy,
-  addRentPayment,
-  updateRentPayment,
-  deleteRentPayment,
-  addCombinedPayment,
-  getRentCollection,
-  getRentOverview
-} = require('../controllers/rentTenancyController');
+  generateBills,
+  getBills,
+  getBillById,
+  addBillPayment,
+  updateBillPayment,
+  deleteBillPayment,
+  addCombinedPayment
+} = require('../controllers/rentBillController');
 const {
   addElectricityBill,
   updateElectricityBill,
@@ -52,16 +45,24 @@ const router = express.Router();
 // Dashboard
 router.get('/dashboard', authenticate, getRentDashboardStats);
 
-// Rent Collection (cross-building)
+// Rent Collection (cross-property)
 router.get('/collection', authenticate, getRentCollection);
 
 // Unified Rent Dashboard overview — one row per occupied room, rent + electricity combined
 router.get('/overview', authenticate, getRentOverview);
 
-// Buildings filter dropdown (flat list, optionally scoped to an area)
-router.get('/buildings', authenticate, getAllBuildings);
+// Properties filter dropdown (flat list)
+router.get('/properties/all', authenticate, getAllProperties);
 
-// Electricity (cross-building list first — must precede /electricity/:id)
+// Bills (cross-property list first — must precede /bills/:id)
+router.get('/bills', authenticate, getBills);
+router.post('/bills/generate', authenticate, generateBills);
+router.get('/bills/:id', authenticate, getBillById);
+router.post('/bills/:id/payments', authenticate, addBillPayment);
+router.put('/bills/:id/payments/:paymentId', authenticate, updateBillPayment);
+router.delete('/bills/:id/payments/:paymentId', authenticate, deleteBillPayment);
+
+// Electricity (cross-property list first — must precede /electricity/:id)
 router.get('/electricity', authenticate, getElectricityBills);
 router.patch('/electricity/:id', authenticate, updateElectricityBill);
 router.patch('/electricity/:id/pay', authenticate, markElectricityBillPaid);
@@ -72,33 +73,26 @@ router.delete('/electricity/:id', authenticate, deleteElectricityBill);
 
 // Tenants
 router.get('/tenants', authenticate, getTenants);
+router.post('/tenants', authenticate, createTenant);
 router.put('/tenants/:id', authenticate, updateTenant);
 router.post('/tenants/:id/documents', authenticate, upload.array('documents', 5), uploadTenantDocuments);
 router.delete('/tenants/:id/documents/:documentId', authenticate, deleteTenantDocument);
 
-// Tenancies
-router.patch('/tenancies/:id/end', authenticate, endTenancy);
-router.post('/tenancies/:id/payments', authenticate, addRentPayment);
-router.put('/tenancies/:id/payments/:paymentId', authenticate, updateRentPayment);
-router.delete('/tenancies/:id/payments/:paymentId', authenticate, deleteRentPayment);
-router.post('/tenancies/:id/combined-payments', authenticate, addCombinedPayment);
+// Contracts
+router.put('/contracts/:id', authenticate, updateContract);
+router.patch('/contracts/:id/end', authenticate, endContract);
+router.post('/contracts/:id/combined-payments', authenticate, addCombinedPayment);
 
-// Areas
-router.get('/areas', authenticate, getAreas);
-router.post('/areas', authenticate, createArea);
-router.get('/areas/:id', authenticate, getAreaById);
-router.put('/areas/:id', authenticate, updateArea);
-router.delete('/areas/:id', authenticate, deleteArea);
+// Properties
+router.get('/properties', authenticate, getProperties);
+router.post('/properties', authenticate, createProperty);
+router.get('/properties/:id', authenticate, getPropertyById);
+router.put('/properties/:id', authenticate, updateProperty);
+router.delete('/properties/:id', authenticate, deleteProperty);
 
-// Buildings (created under an area)
-router.post('/areas/:areaId/buildings', authenticate, createBuilding);
-router.get('/buildings/:id', authenticate, getBuildingById);
-router.put('/buildings/:id', authenticate, updateBuilding);
-router.delete('/buildings/:id', authenticate, deleteBuilding);
-
-// Rooms (created under a building)
-router.post('/buildings/:buildingId/rooms', authenticate, createRoom);
-router.post('/rooms/:roomId/tenancies', authenticate, startTenancy);
+// Rooms (created under a property)
+router.post('/properties/:propertyId/rooms', authenticate, createRoom);
+router.post('/rooms/:roomId/contracts', authenticate, startContract);
 router.post('/rooms/:roomId/electricity', authenticate, addElectricityBill);
 router.get('/rooms/:id', authenticate, getRoomById);
 router.put('/rooms/:id', authenticate, updateRoom);

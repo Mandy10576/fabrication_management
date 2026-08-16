@@ -43,10 +43,10 @@ export const RentElectricity = () => {
   const confirm = useConfirm();
 
   const [bills, setBills] = useState([]);
-  const [areas, setAreas] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('ALL');
-  const [areaId, setAreaId] = useState('');
+  const [propertyId, setPropertyId] = useState('');
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBill, setEditingBill] = useState(null);
@@ -56,7 +56,7 @@ export const RentElectricity = () => {
 
   // Record Payment — full ledger for a bill (add/edit/delete individual
   // payments), reusing the same endpoints the Room Detail page already
-  // drives, now surfaced directly from this cross-building list.
+  // drives, now surfaced directly from this cross-property list.
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentBill, setPaymentBill] = useState(null);
   const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT_FORM);
@@ -68,7 +68,7 @@ export const RentElectricity = () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ status });
-      if (areaId) params.set('areaId', areaId);
+      if (propertyId) params.set('propertyId', propertyId);
       const res = await api.get(`/rent/electricity?${params.toString()}`);
       setBills(res);
     } catch (err) {
@@ -81,10 +81,10 @@ export const RentElectricity = () => {
   useEffect(() => {
     fetchBills();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, areaId]);
+  }, [status, propertyId]);
 
   useEffect(() => {
-    api.get('/rent/areas').then(setAreas).catch(() => {});
+    api.get('/rent/properties/all').then(setProperties).catch(() => {});
   }, []);
 
   const handleOpenPayment = (bill) => {
@@ -233,7 +233,7 @@ export const RentElectricity = () => {
     }
   };
 
-  const areaOptions = [{ value: '', label: 'All Areas' }, ...areas.map((a) => ({ value: a.id, label: a.name }))];
+  const propertyOptions = [{ value: '', label: 'All Properties' }, ...properties.map((p) => ({ value: p.id, label: p.name }))];
   const totalPending = bills.filter((b) => b.status !== 'PAID').reduce((sum, b) => sum + b.amount, 0);
 
   return (
@@ -244,14 +244,14 @@ export const RentElectricity = () => {
           <span>Electricity</span>
         </h2>
         <p className="page-subtitle">
-          Bills across every electricity-enabled building
+          Bills across every electricity-enabled property
           {totalPending > 0 && <span className="text-rose-600 dark:text-rose-400 font-semibold"> · {formatCurrency(totalPending)} pending</span>}
         </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="sm:w-48">
-          <SearchableSelect mode="button" value={areaId} options={areaOptions} onSelect={(opt) => setAreaId(opt.value)} ariaLabel="Filter by area" />
+          <SearchableSelect mode="button" value={propertyId} options={propertyOptions} onSelect={(opt) => setPropertyId(opt.value)} ariaLabel="Filter by property" />
         </div>
         <div className="sm:w-44">
           <SearchableSelect mode="button" value={status} options={STATUS_FILTER_OPTIONS} onSelect={(opt) => setStatus(opt.value)} ariaLabel="Filter by status" />
@@ -268,7 +268,7 @@ export const RentElectricity = () => {
             <Zap className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
             <div className="font-semibold text-slate-700 dark:text-slate-300">No electricity bills found</div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Add bills from a room's detail page once electricity billing is enabled for its building.
+              Add bills from a room's detail page once electricity billing is enabled for its property.
             </p>
           </div>
         ) : (
@@ -279,12 +279,12 @@ export const RentElectricity = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <Link to={`/rent/rooms/${b.room.id}`} className="font-bold text-sm text-brand-600 dark:text-brand-400 hover:underline">
-                        {b.room.building.name} · Room {b.room.roomNumber}
+                        {b.room.property.name} · Room {b.room.roomNumber}
                       </Link>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
-                        {b.room.building.area.name}
-                        {b.tenancy?.tenant && <span> · {b.tenancy.tenant.name}</span>}
+                        {b.room.property.city}
+                        {b.contract?.tenant && <span> · {b.contract.tenant.name}</span>}
                       </div>
                     </div>
                     <span className={`badge shrink-0 ${getStatusBadgeClass(b.status)}`}>{b.status}</span>
@@ -315,7 +315,7 @@ export const RentElectricity = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th scope="col">Building / Room</th>
+                    <th scope="col">Property / Room</th>
                     <th scope="col">Tenant</th>
                     <th scope="col">Bill Date</th>
                     <th scope="col">Units</th>
@@ -329,11 +329,11 @@ export const RentElectricity = () => {
                     <tr key={b.id}>
                       <td>
                         <Link to={`/rent/rooms/${b.room.id}`} className="font-bold text-slate-900 dark:text-white hover:text-brand-500">
-                          {b.room.building.name} · {b.room.roomNumber}
+                          {b.room.property.name} · {b.room.roomNumber}
                         </Link>
-                        <div className="text-xs text-slate-400 mt-0.5">{b.room.building.area.name}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{b.room.property.city}</div>
                       </td>
-                      <td className="text-slate-600 dark:text-slate-300">{b.tenancy?.tenant?.name || '—'}</td>
+                      <td className="text-slate-600 dark:text-slate-300">{b.contract?.tenant?.name || '—'}</td>
                       <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{formatDate(b.billDate)}</td>
                       <td className="text-slate-500 dark:text-slate-400">{b.unitsConsumed ?? '—'}</td>
                       <td className="text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">{formatCurrency(b.amount)}</td>
@@ -385,7 +385,7 @@ export const RentElectricity = () => {
           <form id="edit-bill-form" onSubmit={handleSaveEdit} className="space-y-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
               <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-              {editingBill.room.building.name} · Room {editingBill.room.roomNumber}
+              {editingBill.room.property.name} · Room {editingBill.room.roomNumber}
             </div>
 
             <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">
@@ -570,7 +570,7 @@ export const RentElectricity = () => {
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                {paymentBill.room.building.name} · Room {paymentBill.room.roomNumber}
+                {paymentBill.room.property.name} · Room {paymentBill.room.roomNumber}
               </div>
               <div className="text-xs text-slate-400 mt-0.5">{formatDate(paymentBill.billDate)}</div>
             </div>

@@ -80,4 +80,22 @@ function listCyclesSince(startDate, throughDate) {
   return cycles.reverse();
 }
 
-module.exports = { getCycleForDate, listCyclesSince };
+/**
+ * The single source of truth for "which cycles are billable right now" — a
+ * cycle only becomes billable once it has fully ended, so a still-in-progress
+ * cycle is excluded for an active tenancy/contract. An ended tenancy's final
+ * (possibly partial) cycle is billed immediately at `endDate`, since it will
+ * never "finish" on the calendar. Used identically by bill generation and by
+ * anything summarizing what's owed — must stay the only place this predicate
+ * is expressed, so the two can never drift apart.
+ */
+function listBillableCycles(startDate, endDate, throughDate) {
+  const ended = Boolean(endDate);
+  const through = ended ? endDate : throughDate;
+  const throughDay = normalizeToUTCMidnight(through);
+
+  return listCyclesSince(startDate, through)
+    .filter((c) => ended || c.cycleEnd.getTime() < throughDay.getTime());
+}
+
+module.exports = { getCycleForDate, listCyclesSince, listBillableCycles };

@@ -27,10 +27,16 @@ const DOC_TYPE_OPTIONS = [
   { value: 'OTHER', label: 'Other Document' },
 ];
 
+const LATE_FEE_OPTIONS = [
+  { value: 'NONE', label: 'None' },
+  { value: 'FIXED_AMOUNT', label: 'Fixed Amount' },
+  { value: 'PERCENTAGE', label: 'Percentage of Rent' },
+];
+
 const cycleLabel = (c) => `${formatDate(c.cycleStart)} – ${formatDate(c.cycleEnd)}`;
 
-const EMPTY_TENANT_FORM = { name: '', mobile: '', address: '', aadhaarNumber: '', panNumber: '' };
-const EMPTY_COMBINED_FORM = { rentAmount: '', rentCycleStart: '', electricityAmount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'CASH', referenceNo: '', notes: '' };
+const EMPTY_TENANT_FORM = { name: '', mobile: '', alternatePhone: '', email: '', dob: '', emergencyContactName: '', emergencyContactPhone: '', address: '', aadhaarNumber: '', panNumber: '' };
+const EMPTY_COMBINED_FORM = { rentAmount: '', rentBillId: '', electricityAmount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'CASH', referenceNo: '', notes: '' };
 const EMPTY_EDIT_PAYMENT_FORM = { type: 'rent', billId: null, paymentId: null, amount: '', paymentDate: '', paymentMode: 'CASH', referenceNo: '', notes: '' };
 const EMPTY_ELECTRICITY_FORM = { billDate: new Date().toISOString().split('T')[0], previousReading: '', currentReading: '', notes: '' };
 const today = () => new Date().toISOString().split('T')[0];
@@ -55,15 +61,19 @@ export const RentRoomDetail = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Start tenancy
+  // Start contract
   const [showStartModal, setShowStartModal] = useState(false);
   const [useExisting, setUseExisting] = useState(false);
   const [tenants, setTenants] = useState([]);
   const [tenantQuery, setTenantQuery] = useState('');
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [tenantForm, setTenantForm] = useState(EMPTY_TENANT_FORM);
-  const [tenancyStartDate, setTenancyStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [tenancyRent, setTenancyRent] = useState('');
+  const [contractStartDate, setContractStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [contractRent, setContractRent] = useState('');
+  const [contractDeposit, setContractDeposit] = useState('');
+  const [contractLateFeePolicy, setContractLateFeePolicy] = useState('NONE');
+  const [contractLateFeeValue, setContractLateFeeValue] = useState('');
+  const [contractGraceDays, setContractGraceDays] = useState('5');
   const [aadhaarFile, setAadhaarFile] = useState(null);
   const [panFile, setPanFile] = useState(null);
   const aadhaarGalleryRef = useRef(null);
@@ -75,7 +85,11 @@ export const RentRoomDetail = () => {
   const [showEditTenantModal, setShowEditTenantModal] = useState(false);
   const [editTenantForm, setEditTenantForm] = useState(EMPTY_TENANT_FORM);
 
-  // End tenancy
+  // Edit contract (rent cycle start date, rent, deposit, late fee terms)
+  const [showEditContractModal, setShowEditContractModal] = useState(false);
+  const [editContractForm, setEditContractForm] = useState({ startDate: '', monthlyRent: '', depositAmount: '', lateFeePolicy: 'NONE', lateFeeValue: '', gracePeriodDays: '' });
+
+  // End contract
   const [showEndModal, setShowEndModal] = useState(false);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -111,7 +125,7 @@ export const RentRoomDetail = () => {
 
   // Per-bill Record Payment — full ledger (add/edit/delete individual
   // payments) for one specific electricity bill, same pattern as the
-  // cross-building Electricity page.
+  // cross-property Electricity page.
   const [showBillPaymentModal, setShowBillPaymentModal] = useState(false);
   const [payingBill, setPayingBill] = useState(null);
   const [billPaymentForm, setBillPaymentForm] = useState(emptyBillPaymentForm(0));
@@ -147,22 +161,26 @@ export const RentRoomDetail = () => {
   }, [showStartModal, useExisting, tenantQuery]);
 
   // -------------------------------------------------------------------------
-  // Start / End tenancy
+  // Start / End contract
   // -------------------------------------------------------------------------
 
   const handleOpenStart = () => {
     setUseExisting(false);
     setSelectedTenantId('');
     setTenantForm(EMPTY_TENANT_FORM);
-    setTenancyStartDate(new Date().toISOString().split('T')[0]);
-    setTenancyRent(room?.monthlyRent ?? '');
+    setContractStartDate(new Date().toISOString().split('T')[0]);
+    setContractRent(room?.monthlyRent ?? '');
+    setContractDeposit(room?.depositAmount ?? '');
+    setContractLateFeePolicy('NONE');
+    setContractLateFeeValue('');
+    setContractGraceDays('5');
     setAadhaarFile(null);
     setPanFile(null);
     setError('');
     setShowStartModal(true);
   };
 
-  const handleStartTenancy = async (e) => {
+  const handleStartContract = async (e) => {
     e.preventDefault();
     setError('');
     if (useExisting && !selectedTenantId) {
@@ -172,32 +190,41 @@ export const RentRoomDetail = () => {
     try {
       setSaving(true);
       const payload = {
-        startDate: tenancyStartDate,
-        monthlyRent: tenancyRent,
+        startDate: contractStartDate,
+        monthlyRent: contractRent,
+        depositAmount: contractDeposit,
+        lateFeePolicy: contractLateFeePolicy,
+        lateFeeValue: contractLateFeeValue,
+        gracePeriodDays: contractGraceDays,
         ...(useExisting ? { tenantId: selectedTenantId } : tenantForm)
       };
-      const created = await api.post(`/rent/rooms/${id}/tenancies`, payload);
+      const created = await api.post(`/rent/rooms/${id}/contracts`, payload);
 
       if (!useExisting && created?.tenant?.id) {
         if (aadhaarFile) await uploadDocumentsFor(created.tenant.id, [aadhaarFile], 'AADHAAR');
         if (panFile) await uploadDocumentsFor(created.tenant.id, [panFile], 'PAN');
       }
 
-      toast.success('Tenancy started');
+      toast.success('Contract started');
       setShowStartModal(false);
       fetchRoom();
     } catch (err) {
-      setError(err.message || 'Failed to start tenancy');
+      setError(err.message || 'Failed to start contract');
     } finally {
       setSaving(false);
     }
   };
 
   const handleOpenEditTenant = () => {
-    const t = room.currentTenancy.tenant;
+    const t = room.currentContract.tenant;
     setEditTenantForm({
       name: t.name || '',
       mobile: t.mobile || '',
+      alternatePhone: t.alternatePhone || '',
+      email: t.email || '',
+      dob: t.dob ? t.dob.split('T')[0] : '',
+      emergencyContactName: t.emergencyContactName || '',
+      emergencyContactPhone: t.emergencyContactPhone || '',
       address: t.address || '',
       aadhaarNumber: t.aadhaarNumber || '',
       panNumber: t.panNumber || ''
@@ -211,7 +238,7 @@ export const RentRoomDetail = () => {
     setError('');
     try {
       setSaving(true);
-      await api.put(`/rent/tenants/${room.currentTenancy.tenant.id}`, editTenantForm);
+      await api.put(`/rent/tenants/${room.currentContract.tenant.id}`, editTenantForm);
       toast.success('Tenant details updated');
       setShowEditTenantModal(false);
       fetchRoom();
@@ -222,16 +249,46 @@ export const RentRoomDetail = () => {
     }
   };
 
-  const handleEndTenancy = async (e) => {
+  const handleOpenEditContract = () => {
+    const c = room.currentContract;
+    setEditContractForm({
+      startDate: c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : '',
+      monthlyRent: c.monthlyRent ?? '',
+      depositAmount: c.depositAmount ?? '',
+      lateFeePolicy: c.lateFeePolicy || 'NONE',
+      lateFeeValue: c.lateFeeValue ?? '',
+      gracePeriodDays: c.gracePeriodDays ?? 5
+    });
+    setError('');
+    setShowEditContractModal(true);
+  };
+
+  const handleUpdateContract = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      setSaving(true);
+      await api.put(`/rent/contracts/${room.currentContract.id}`, editContractForm);
+      toast.success('Contract updated');
+      setShowEditContractModal(false);
+      fetchRoom();
+    } catch (err) {
+      setError(err.message || 'Failed to update contract');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEndContract = async (e) => {
     e.preventDefault();
     try {
       setSaving(true);
-      await api.patch(`/rent/tenancies/${room.currentTenancy.id}/end`, { endDate });
-      toast.success('Tenancy ended — room is now vacant');
+      await api.patch(`/rent/contracts/${room.currentContract.id}/end`, { endDate });
+      toast.success('Contract ended — room is now vacant');
       setShowEndModal(false);
       fetchRoom();
     } catch (err) {
-      toast.error(err.message || 'Failed to end tenancy');
+      toast.error(err.message || 'Failed to end contract');
     } finally {
       setSaving(false);
     }
@@ -243,7 +300,7 @@ export const RentRoomDetail = () => {
   // shared batchId ties them together as "one payment" for display.
   // -------------------------------------------------------------------------
 
-  const pendingCycles = room?.currentTenancy?.summary?.cycles?.filter((c) => c.pending > 0) || [];
+  const pendingCycles = room?.currentContract?.summary?.cycles?.filter((c) => c.pending > 0) || [];
   // Cycles are newest-first, so the oldest unpaid one — the arrears to clear
   // first — is the last entry.
   const oldestPendingCycle = pendingCycles[pendingCycles.length - 1] || null;
@@ -253,7 +310,7 @@ export const RentRoomDetail = () => {
   const handleOpenCombined = () => {
     setCombinedForm({
       rentAmount: oldestPendingCycle ? oldestPendingCycle.pending : '',
-      rentCycleStart: oldestPendingCycle ? new Date(oldestPendingCycle.cycleStart).toISOString() : '',
+      rentBillId: oldestPendingCycle ? oldestPendingCycle.billId : '',
       electricityAmount: electricityDue > 0 ? electricityDue : '',
       paymentDate: new Date().toISOString().split('T')[0],
       paymentMode: 'CASH',
@@ -269,7 +326,7 @@ export const RentRoomDetail = () => {
     setError('');
     try {
       setSaving(true);
-      await api.post(`/rent/tenancies/${room.currentTenancy.id}/combined-payments`, combinedForm);
+      await api.post(`/rent/contracts/${room.currentContract.id}/combined-payments`, combinedForm);
       toast.success('Payment recorded');
       setShowCombinedModal(false);
       fetchRoom();
@@ -283,9 +340,9 @@ export const RentRoomDetail = () => {
   // Deep-link support for the Rent Dashboard's row actions — ?action=pay
   // opens the combined payment modal immediately; ?action=edit scrolls to
   // the dues/payment section so the admin can pick a specific entry to
-  // correct below. Runs once the room (and so currentTenancy) has loaded.
+  // correct below. Runs once the room (and so currentContract) has loaded.
   useEffect(() => {
-    if (!room || !room.currentTenancy) return;
+    if (!room || !room.currentContract) return;
     const action = searchParams.get('action');
     if (!action) return;
     if (action === 'pay') {
@@ -329,7 +386,7 @@ export const RentRoomDetail = () => {
       setSaving(true);
       const { type, billId, paymentId, ...body } = editPaymentForm;
       if (type === 'rent') {
-        await api.put(`/rent/tenancies/${room.currentTenancy.id}/payments/${paymentId}`, body);
+        await api.put(`/rent/bills/${billId}/payments/${paymentId}`, body);
       } else {
         await api.put(`/rent/electricity/${billId}/payments/${paymentId}`, body);
       }
@@ -348,7 +405,7 @@ export const RentRoomDetail = () => {
     if (!ok) return;
     try {
       if (type === 'rent') {
-        await api.delete(`/rent/tenancies/${room.currentTenancy.id}/payments/${paymentId}`);
+        await api.delete(`/rent/bills/${billId}/payments/${paymentId}`);
       } else {
         await api.delete(`/rent/electricity/${billId}/payments/${paymentId}`);
       }
@@ -375,7 +432,7 @@ export const RentRoomDetail = () => {
     if (!files || files.length === 0) return;
     try {
       setUploadingDocs(true);
-      await uploadDocumentsFor(room.currentTenancy.tenant.id, files, docType);
+      await uploadDocumentsFor(room.currentContract.tenant.id, files, docType);
       toast.success('Document uploaded');
       fetchRoom();
     } catch (err) {
@@ -391,7 +448,7 @@ export const RentRoomDetail = () => {
     const ok = await confirm({ title: 'Delete this document?', message: 'This permanently removes the uploaded file.', confirmText: 'Delete document' });
     if (!ok) return;
     try {
-      await api.delete(`/rent/tenants/${room.currentTenancy.tenant.id}/documents/${documentId}`);
+      await api.delete(`/rent/tenants/${room.currentContract.tenant.id}/documents/${documentId}`);
       toast.success('Document deleted');
       fetchRoom();
     } catch (err) {
@@ -404,7 +461,7 @@ export const RentRoomDetail = () => {
   // -------------------------------------------------------------------------
 
   const lastElectricityBill = room?.electricityBills?.[0] || null;
-  const electricityRate = room?.building?.electricityRate || 0;
+  const electricityRate = room?.property?.electricityRate || 0;
   const electricityPrevious = lastElectricityBill ? lastElectricityBill.currentReading : parseFloat(electricityForm.previousReading) || 0;
   const electricityUnits = electricityForm.currentReading !== ''
     ? Math.max(0, (parseFloat(electricityForm.currentReading) || 0) - electricityPrevious)
@@ -600,13 +657,20 @@ export const RentRoomDetail = () => {
     );
   }
 
-  const { building, currentTenancy, tenancyHistory, electricityBills } = room;
+  const { property, currentContract, contractHistory, electricityBills } = room;
+  // Flattened rent payment history across every bill for this contract,
+  // newest first — each row keeps its billId so it can be corrected.
+  const rentPaymentHistory = currentContract
+    ? currentContract.summary.cycles
+        .flatMap((c) => (currentContract.bills?.find((b) => b.id === c.billId)?.payments || []).map((p) => ({ ...p, billId: c.billId })))
+        .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
+    : [];
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <Link to={`/rent/buildings/${building.id}`} className="btn btn-sm btn-ghost self-start -ml-2">
+      <Link to={`/rent/properties/${property.id}`} className="btn btn-sm btn-ghost self-start -ml-2">
         <ArrowLeft className="w-4 h-4" />
-        <span>Back to {building.name}</span>
+        <span>Back to {property.name}</span>
       </Link>
 
       {/* Room header */}
@@ -622,7 +686,7 @@ export const RentRoomDetail = () => {
             </div>
             <p className="page-subtitle flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" />
-              {building.name} · {building.area.name}
+              {property.name} · {property.city}
             </p>
           </div>
         </div>
@@ -635,16 +699,16 @@ export const RentRoomDetail = () => {
       </div>
 
       {/* Current tenant / vacant CTA */}
-      {!currentTenancy ? (
+      {!currentContract ? (
         <div className="card p-10 sm:p-16 text-center">
           <User className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
           <div className="font-semibold text-slate-700 dark:text-slate-300">This room is vacant</div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            Start a new tenancy to assign a tenant and begin tracking rent.
+            Start a new contract to assign a tenant and begin tracking rent.
           </p>
           <button onClick={handleOpenStart} className="btn btn-primary mt-5">
             <UserPlus className="w-4 h-4" />
-            <span>Start Tenancy</span>
+            <span>Start Contract</span>
           </button>
         </div>
       ) : (
@@ -654,41 +718,52 @@ export const RentRoomDetail = () => {
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-11 h-11 shrink-0 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white font-extrabold flex items-center justify-center">
-                  {currentTenancy.tenant.name.charAt(0)}
+                  {currentContract.tenant.name.charAt(0)}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-bold text-slate-900 dark:text-white">{currentTenancy.tenant.name}</div>
+                  <div className="font-bold text-slate-900 dark:text-white">{currentContract.tenant.name}</div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-600 dark:text-slate-400">
-                    <a href={`tel:${currentTenancy.tenant.mobile}`} className="flex items-center gap-1.5 hover:text-brand-600 dark:hover:text-brand-400">
+                    <a href={`tel:${currentContract.tenant.mobile}`} className="flex items-center gap-1.5 hover:text-brand-600 dark:hover:text-brand-400">
                       <Phone className="w-3.5 h-3.5 text-brand-500" />
-                      <span className="font-mono font-semibold">{currentTenancy.tenant.mobile}</span>
+                      <span className="font-mono font-semibold">{currentContract.tenant.mobile}</span>
                     </a>
-                    {currentTenancy.tenant.address && (
+                    {currentContract.tenant.address && (
                       <span className="flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                        {currentTenancy.tenant.address}
+                        {currentContract.tenant.address}
                       </span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {currentTenancy.tenant.aadhaarNumber && (
-                      <span className="badge badge-neutral font-mono normal-case">Aadhaar: {currentTenancy.tenant.aadhaarNumber}</span>
+                    {currentContract.tenant.aadhaarNumber && (
+                      <span className="badge badge-neutral font-mono normal-case">Aadhaar: {currentContract.tenant.aadhaarNumber}</span>
                     )}
-                    {currentTenancy.tenant.panNumber && (
-                      <span className="badge badge-neutral font-mono normal-case">PAN: {currentTenancy.tenant.panNumber}</span>
+                    {currentContract.tenant.panNumber && (
+                      <span className="badge badge-neutral font-mono normal-case">PAN: {currentContract.tenant.panNumber}</span>
                     )}
-                    <span className="badge badge-neutral">Since {formatDate(currentTenancy.startDate)}</span>
+                    <span className="badge badge-neutral">Since {formatDate(currentContract.startDate)}</span>
+                    <span className="badge badge-neutral">Rent {formatCurrency(currentContract.monthlyRent)}/mo</span>
+                    {currentContract.depositAmount > 0 && <span className="badge badge-neutral">Deposit {formatCurrency(currentContract.depositAmount)}</span>}
+                    {currentContract.lateFeePolicy !== 'NONE' && (
+                      <span className="badge badge-neutral">
+                        Late fee: {currentContract.lateFeePolicy === 'FIXED_AMOUNT' ? formatCurrency(currentContract.lateFeeValue) : `${currentContract.lateFeeValue}%`}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto flex-wrap">
                 <button onClick={handleOpenEditTenant} className="btn btn-secondary flex-1 sm:flex-none">
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
                 </button>
+                <button onClick={handleOpenEditContract} className="btn btn-secondary flex-1 sm:flex-none">
+                  <CalendarDays className="w-4 h-4" />
+                  <span>Edit Contract</span>
+                </button>
                 <button onClick={() => setShowEndModal(true)} className="btn btn-danger-soft flex-1 sm:flex-none">
                   <LogOut className="w-4 h-4" />
-                  <span>End Tenancy</span>
+                  <span>End Contract</span>
                 </button>
               </div>
             </div>
@@ -740,11 +815,11 @@ export const RentRoomDetail = () => {
                 />
               </div>
 
-              {currentTenancy.tenant.documents.length === 0 ? (
+              {currentContract.tenant.documents.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">No documents uploaded yet.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {currentTenancy.tenant.documents.map((doc) => (
+                  {currentContract.tenant.documents.map((doc) => (
                     <div key={doc.id} className="flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
                       <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">
                         <FileText className="w-3.5 h-3.5" />
@@ -792,45 +867,51 @@ export const RentRoomDetail = () => {
             )}
           </div>
 
-          {/* Rent cycles */}
+          {/* Bills */}
           <div className="card overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-brand-500" />
-                <span>Rent Cycles</span>
+                <span>Bills</span>
               </h3>
+              <p className="text-xs text-slate-400 mt-0.5">A bill only appears here once its rent cycle has fully ended.</p>
             </div>
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {currentTenancy.summary.cycles.map((c) => (
-                <li key={c.cycleStart} className="p-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{cycleLabel(c)}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Expected {formatCurrency(c.expected)} · Paid {formatCurrency(c.paid)}
+            {currentContract.summary.cycles.length === 0 ? (
+              <p className="text-sm text-slate-400 py-8 text-center">No bills generated yet — the first bill will appear once the current cycle ends.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                {currentContract.summary.cycles.map((c) => (
+                  <li key={c.billId} className="p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{cycleLabel(c)}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Expected {formatCurrency(c.expected)} · Paid {formatCurrency(c.paid)}
+                        {c.lateFeeApplied > 0 && <span className="text-amber-600 dark:text-amber-400"> · Late fee {formatCurrency(c.lateFeeApplied)}</span>}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {c.pending > 0 ? (
-                      <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(c.pending)} due</span>
-                    ) : (
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Settled</span>
-                    )}
-                    <span className={`badge ${getStatusBadgeClass(c.status)}`}>{c.status}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    <div className="flex items-center gap-3">
+                      {c.pending > 0 ? (
+                        <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(c.pending)} due</span>
+                      ) : (
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Settled</span>
+                      )}
+                      <span className={`badge ${getStatusBadgeClass(c.status)}`}>{c.status}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {/* Combined payment receipts */}
-          {currentTenancy.combinedPayments.length > 0 && (
+          {currentContract.combinedPayments.length > 0 && (
             <div className="card overflow-hidden">
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-brand-500" />
                 <span>Combined Payments</span>
               </h3>
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                {currentTenancy.combinedPayments.map((b) => (
+                {currentContract.combinedPayments.map((b) => (
                   <li key={b.batchId} className="p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -850,14 +931,14 @@ export const RentRoomDetail = () => {
           )}
 
           {/* Rent payment history — correctable */}
-          {currentTenancy.payments.length > 0 && (
+          {rentPaymentHistory.length > 0 && (
             <div className="card overflow-hidden">
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-brand-500" />
                 <span>Rent Payment History</span>
               </h3>
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                {currentTenancy.payments.map((p) => (
+                {rentPaymentHistory.map((p) => (
                   <li key={p.id} className="p-4 flex items-center justify-between gap-3">
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {formatDate(p.paymentDate)} · {p.paymentMode.replace('_', ' ')}
@@ -865,10 +946,10 @@ export const RentRoomDetail = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(p.amount)}</span>
-                      <button onClick={() => handleOpenEditPayment('rent', p)} className="btn-icon w-7 h-7 text-slate-400 hover:text-brand-500" aria-label="Edit payment" title="Correct payment">
+                      <button onClick={() => handleOpenEditPayment('rent', p, p.billId)} className="btn-icon w-7 h-7 text-slate-400 hover:text-brand-500" aria-label="Edit payment" title="Correct payment">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDeletePayment('rent', p.id)} className="btn-icon w-7 h-7 text-slate-400 hover:text-rose-500" aria-label="Delete payment">
+                      <button onClick={() => handleDeletePayment('rent', p.id, p.billId)} className="btn-icon w-7 h-7 text-slate-400 hover:text-rose-500" aria-label="Delete payment">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -880,13 +961,13 @@ export const RentRoomDetail = () => {
         </>
       )}
 
-      {/* Tenancy history — always visible, never removed */}
+      {/* Contract history — always visible, never removed */}
       <div className="card overflow-hidden">
         <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
           <History className="w-5 h-5 text-indigo-500" />
-          <span>Tenant History ({tenancyHistory.length})</span>
+          <span>Tenant History ({contractHistory.length})</span>
         </h3>
-        {tenancyHistory.length === 0 ? (
+        {contractHistory.length === 0 ? (
           <p className="text-sm text-slate-400 py-8 text-center">No previous tenants for this room yet.</p>
         ) : (
           <div className="table-wrap">
@@ -901,13 +982,13 @@ export const RentRoomDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {tenancyHistory.map((t) => (
-                  <tr key={t.id}>
-                    <td className="font-bold text-slate-900 dark:text-white">{t.tenant.name}</td>
-                    <td className="text-slate-600 dark:text-slate-300">{formatCurrency(t.monthlyRent)}</td>
-                    <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{formatDate(t.startDate)}</td>
-                    <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{formatDate(t.endDate)}</td>
-                    <td className="text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(t.summary.totalPaid)}</td>
+                {contractHistory.map((c) => (
+                  <tr key={c.id}>
+                    <td className="font-bold text-slate-900 dark:text-white">{c.tenant.name}</td>
+                    <td className="text-slate-600 dark:text-slate-300">{formatCurrency(c.monthlyRent)}</td>
+                    <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{formatDate(c.startDate)}</td>
+                    <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{formatDate(c.endDate)}</td>
+                    <td className="text-right font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(c.summary.totalPaid)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -916,8 +997,8 @@ export const RentRoomDetail = () => {
         )}
       </div>
 
-      {/* Electricity — only when the building has it enabled */}
-      {building.electricityBilling && (
+      {/* Electricity — only when the property has it enabled */}
+      {property.electricityBilling && (
         <div className="card overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
             <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -967,8 +1048,8 @@ export const RentRoomDetail = () => {
       )}
 
       {/* Electricity payment history — correctable, independent of which
-          tenancy was current when each payment landed */}
-      {building.electricityBilling && room.electricityPaymentHistory.length > 0 && (
+          contract was current when each payment landed */}
+      {property.electricityBilling && room.electricityPaymentHistory.length > 0 && (
         <div className="card overflow-hidden">
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
             <Zap className="w-5 h-5 text-amber-500" />
@@ -996,18 +1077,18 @@ export const RentRoomDetail = () => {
         </div>
       )}
 
-      {/* Start Tenancy modal */}
+      {/* Start Contract modal */}
       <Modal
         open={showStartModal}
         onClose={() => setShowStartModal(false)}
         size="xl"
-        title="Start Tenancy"
+        title="Start Contract"
         icon={UserPlus}
         footer={
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <button type="button" onClick={() => setShowStartModal(false)} className="btn btn-secondary sm:min-w-[7rem]">Cancel</button>
-            <button type="submit" form="start-tenancy-form" disabled={saving} className="btn btn-primary sm:min-w-[9rem]">
-              {saving ? 'Saving…' : 'Start Tenancy'}
+            <button type="submit" form="start-contract-form" disabled={saving} className="btn btn-primary sm:min-w-[9rem]">
+              {saving ? 'Saving…' : 'Start Contract'}
             </button>
           </div>
         }
@@ -1019,7 +1100,7 @@ export const RentRoomDetail = () => {
           </div>
         )}
 
-        <form id="start-tenancy-form" onSubmit={handleStartTenancy} className="space-y-4">
+        <form id="start-contract-form" onSubmit={handleStartContract} className="space-y-4">
           <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 p-1 bg-slate-50 dark:bg-slate-800/50 text-sm font-semibold">
             <button type="button" onClick={() => setUseExisting(false)} className={`flex-1 py-1.5 rounded-lg transition-colors ${!useExisting ? 'bg-white dark:bg-slate-900 shadow text-brand-600 dark:text-brand-400' : 'text-slate-500'}`}>
               New Tenant
@@ -1109,42 +1190,89 @@ export const RentRoomDetail = () => {
                   <input ref={panCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => setPanFile(e.target.files?.[0] || null)} />
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="tn-alt-phone" className="label">Alternate Phone</label>
+                  <input id="tn-alt-phone" type="tel" placeholder="Optional" value={tenantForm.alternatePhone} onChange={(e) => setTenantForm((p) => ({ ...p, alternatePhone: e.target.value }))} className="input font-mono" />
+                </div>
+                <div>
+                  <label htmlFor="tn-email" className="label">Email Address</label>
+                  <input id="tn-email" type="email" placeholder="Optional" value={tenantForm.email} onChange={(e) => setTenantForm((p) => ({ ...p, email: e.target.value }))} className="input" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="tn-dob" className="label">Date of Birth</label>
+                  <input id="tn-dob" type="date" value={tenantForm.dob} onChange={(e) => setTenantForm((p) => ({ ...p, dob: e.target.value }))} className="input" />
+                </div>
+                <div>
+                  <label htmlFor="tn-ec-name" className="label">Emergency Contact Name</label>
+                  <input id="tn-ec-name" type="text" placeholder="Optional" value={tenantForm.emergencyContactName} onChange={(e) => setTenantForm((p) => ({ ...p, emergencyContactName: e.target.value }))} className="input" />
+                </div>
+                <div>
+                  <label htmlFor="tn-ec-phone" className="label">Emergency Contact Phone</label>
+                  <input id="tn-ec-phone" type="tel" placeholder="Optional" value={tenantForm.emergencyContactPhone} onChange={(e) => setTenantForm((p) => ({ ...p, emergencyContactPhone: e.target.value }))} className="input font-mono" />
+                </div>
+              </div>
             </>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div>
               <label htmlFor="tn-start" className="label">Rent Start Date *</label>
-              <input id="tn-start" type="date" required value={tenancyStartDate} onChange={(e) => setTenancyStartDate(e.target.value)} className="input" />
+              <input id="tn-start" type="date" required value={contractStartDate} onChange={(e) => setContractStartDate(e.target.value)} className="input" />
               <p className="text-[11px] text-slate-400 mt-1">Rent cycles begin on this day each month.</p>
             </div>
             <div>
               <label htmlFor="tn-rent" className="label">Monthly Rent (₹) *</label>
-              <input id="tn-rent" type="number" min="0" step="any" required value={tenancyRent} onChange={(e) => setTenancyRent(e.target.value)} className="input font-semibold" />
+              <input id="tn-rent" type="number" min="0" step="any" required value={contractRent} onChange={(e) => setContractRent(e.target.value)} className="input font-semibold" />
             </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="tn-deposit" className="label">Deposit Amount (₹)</label>
+              <input id="tn-deposit" type="number" min="0" step="any" placeholder="Optional" value={contractDeposit} onChange={(e) => setContractDeposit(e.target.value)} className="input" />
+            </div>
+            <div>
+              <label htmlFor="tn-grace" className="label">Grace Period (days)</label>
+              <input id="tn-grace" type="number" min="0" value={contractGraceDays} onChange={(e) => setContractGraceDays(e.target.value)} className="input" />
+              <p className="text-[11px] text-slate-400 mt-1">Days after a bill is generated before a late fee applies.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span className="label">Late Fee Policy</span>
+              <SearchableSelect mode="button" value={contractLateFeePolicy} options={LATE_FEE_OPTIONS} onSelect={(opt) => setContractLateFeePolicy(opt.value)} />
+            </div>
+            {contractLateFeePolicy !== 'NONE' && (
+              <div>
+                <label htmlFor="tn-fee-value" className="label">{contractLateFeePolicy === 'FIXED_AMOUNT' ? 'Fee Amount (₹)' : 'Fee (% of rent)'}</label>
+                <input id="tn-fee-value" type="number" min="0" step="any" value={contractLateFeeValue} onChange={(e) => setContractLateFeeValue(e.target.value)} className="input" />
+              </div>
+            )}
           </div>
         </form>
       </Modal>
 
-      {/* End Tenancy modal */}
+      {/* End Contract modal */}
       <Modal
         open={showEndModal}
         onClose={() => setShowEndModal(false)}
-        title="End Tenancy"
+        title="End Contract"
         icon={LogOut}
         footer={
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <button type="button" onClick={() => setShowEndModal(false)} className="btn btn-secondary sm:min-w-[7rem]">Cancel</button>
-            <button type="submit" form="end-tenancy-form" disabled={saving} className="btn btn-danger sm:min-w-[9rem]">
-              {saving ? 'Ending…' : 'End Tenancy'}
+            <button type="submit" form="end-contract-form" disabled={saving} className="btn btn-danger sm:min-w-[9rem]">
+              {saving ? 'Ending…' : 'End Contract'}
             </button>
           </div>
         }
       >
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-          This moves {currentTenancy?.tenant?.name} out and marks the room vacant. Their rent and payment history is kept permanently.
+          This moves {currentContract?.tenant?.name} out and marks the room vacant. Their rent and payment history is kept permanently.
         </p>
-        <form id="end-tenancy-form" onSubmit={handleEndTenancy}>
+        <form id="end-contract-form" onSubmit={handleEndContract}>
           <label htmlFor="tn-end" className="label">Move-out Date</label>
           <input id="tn-end" type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)} className="input" />
         </form>
@@ -1154,6 +1282,7 @@ export const RentRoomDetail = () => {
       <Modal
         open={showEditTenantModal}
         onClose={() => setShowEditTenantModal(false)}
+        size="xl"
         title="Edit Tenant Details"
         icon={Edit2}
         footer={
@@ -1196,7 +1325,94 @@ export const RentRoomDetail = () => {
               <input id="et-pan" type="text" placeholder="Optional" value={editTenantForm.panNumber} onChange={(e) => setEditTenantForm((p) => ({ ...p, panNumber: e.target.value }))} className="input font-mono" />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="et-alt-phone" className="label">Alternate Phone</label>
+              <input id="et-alt-phone" type="tel" placeholder="Optional" value={editTenantForm.alternatePhone} onChange={(e) => setEditTenantForm((p) => ({ ...p, alternatePhone: e.target.value }))} className="input font-mono" />
+            </div>
+            <div>
+              <label htmlFor="et-email" className="label">Email Address</label>
+              <input id="et-email" type="email" placeholder="Optional" value={editTenantForm.email} onChange={(e) => setEditTenantForm((p) => ({ ...p, email: e.target.value }))} className="input" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="et-dob" className="label">Date of Birth</label>
+              <input id="et-dob" type="date" value={editTenantForm.dob} onChange={(e) => setEditTenantForm((p) => ({ ...p, dob: e.target.value }))} className="input" />
+            </div>
+            <div>
+              <label htmlFor="et-ec-name" className="label">Emergency Contact Name</label>
+              <input id="et-ec-name" type="text" placeholder="Optional" value={editTenantForm.emergencyContactName} onChange={(e) => setEditTenantForm((p) => ({ ...p, emergencyContactName: e.target.value }))} className="input" />
+            </div>
+            <div>
+              <label htmlFor="et-ec-phone" className="label">Emergency Contact Phone</label>
+              <input id="et-ec-phone" type="tel" placeholder="Optional" value={editTenantForm.emergencyContactPhone} onChange={(e) => setEditTenantForm((p) => ({ ...p, emergencyContactPhone: e.target.value }))} className="input font-mono" />
+            </div>
+          </div>
           <p className="text-[11px] text-slate-400">Documents can be managed below, under the tenant's Documents section.</p>
+        </form>
+      </Modal>
+
+      {/* Edit Contract modal — rent cycle start date, monthly rent, deposit,
+          and late-fee terms. */}
+      <Modal
+        open={showEditContractModal}
+        onClose={() => setShowEditContractModal(false)}
+        title="Edit Contract"
+        icon={CalendarDays}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button type="button" onClick={() => setShowEditContractModal(false)} className="btn btn-secondary sm:min-w-[7rem]">Cancel</button>
+            <button type="submit" form="edit-contract-form" disabled={saving} className="btn btn-primary sm:min-w-[9rem]">
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        }
+      >
+        {error && (
+          <div role="alert" className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-sm flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="min-w-0 break-words">{error}</span>
+          </div>
+        )}
+        <form id="edit-contract-form" onSubmit={handleUpdateContract} className="space-y-4">
+          <div>
+            <label htmlFor="etc-start" className="label">Rent Cycle Start Date *</label>
+            <input id="etc-start" type="date" required value={editContractForm.startDate} onChange={(e) => setEditContractForm((p) => ({ ...p, startDate: e.target.value }))} className="input" />
+            <p className="text-[11px] text-slate-400 mt-1">The day-of-month here becomes every future cycle's start (e.g. the 1st means cycles run 1st–end of month).</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="etc-rent" className="label">Monthly Rent *</label>
+              <input id="etc-rent" type="number" min="1" step="0.01" required value={editContractForm.monthlyRent} onChange={(e) => setEditContractForm((p) => ({ ...p, monthlyRent: e.target.value }))} className="input" />
+            </div>
+            <div>
+              <label htmlFor="etc-deposit" className="label">Deposit Amount (₹)</label>
+              <input id="etc-deposit" type="number" min="0" step="any" value={editContractForm.depositAmount} onChange={(e) => setEditContractForm((p) => ({ ...p, depositAmount: e.target.value }))} className="input" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span className="label">Late Fee Policy</span>
+              <SearchableSelect mode="button" value={editContractForm.lateFeePolicy} options={LATE_FEE_OPTIONS} onSelect={(opt) => setEditContractForm((p) => ({ ...p, lateFeePolicy: opt.value }))} />
+            </div>
+            <div>
+              <label htmlFor="etc-grace" className="label">Grace Period (days)</label>
+              <input id="etc-grace" type="number" min="0" value={editContractForm.gracePeriodDays} onChange={(e) => setEditContractForm((p) => ({ ...p, gracePeriodDays: e.target.value }))} className="input" />
+            </div>
+          </div>
+          {editContractForm.lateFeePolicy !== 'NONE' && (
+            <div>
+              <label htmlFor="etc-fee-value" className="label">{editContractForm.lateFeePolicy === 'FIXED_AMOUNT' ? 'Fee Amount (₹)' : 'Fee (% of rent)'}</label>
+              <input id="etc-fee-value" type="number" min="0" step="any" value={editContractForm.lateFeeValue} onChange={(e) => setEditContractForm((p) => ({ ...p, lateFeeValue: e.target.value }))} className="input" />
+            </div>
+          )}
+          {(rentPaymentHistory.length > 0) && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              This tenant already has recorded payments. Changing the cycle start date shifts every future cycle's boundaries — already-generated bills keep their own dates and may no longer line up.
+            </p>
+          )}
         </form>
       </Modal>
 
@@ -1221,7 +1437,7 @@ export const RentRoomDetail = () => {
             <span className="min-w-0 break-words">{error}</span>
           </div>
         )}
-        {currentTenancy && (
+        {currentContract && (
           <form id="combined-payment-form" onSubmit={handleSubmitCombined} className="space-y-4">
             <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
               <div className="min-w-0">
@@ -1240,14 +1456,14 @@ export const RentRoomDetail = () => {
 
             {oldestPendingCycle && (
               <div>
-                <label className="label">Rent Cycle</label>
+                <label className="label">Rent Bill</label>
                 <SearchableSelect
                   mode="button"
-                  value={combinedForm.rentCycleStart}
+                  value={combinedForm.rentBillId}
                   options={pendingCycles}
-                  getOptionValue={(c) => new Date(c.cycleStart).toISOString()}
+                  getOptionValue={(c) => c.billId}
                   getOptionLabel={(c) => `${cycleLabel(c)} — ${formatCurrency(c.pending)} pending`}
-                  onSelect={(c) => setCombinedForm((p) => ({ ...p, rentCycleStart: new Date(c.cycleStart).toISOString(), rentAmount: c.pending }))}
+                  onSelect={(c) => setCombinedForm((p) => ({ ...p, rentBillId: c.billId, rentAmount: c.pending }))}
                 />
               </div>
             )}

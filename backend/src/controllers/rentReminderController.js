@@ -1,64 +1,52 @@
 const prisma = require('../config/prisma');
-const { computeTenancySummary } = require('./rentTenancyController');
 const { getElectricityDueForRoom } = require('./rentElectricityController');
+const { runDailyBillingCycle } = require('../services/rentBillingService');
 const { sendToAllSubscriptions } = require('../services/pushService');
+const { normalizeToUTCMidnight } = require('../utils/dateCalc');
 const devDate = require('../utils/devDate');
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-const DUE_SOON_DAYS = 3;
 
-/** Scans every active tenancy and builds one summary push payload — a daily
- * digest, not one notification per tenant, so the admin gets a single
+/** Scans every unpaid/partial bill and builds one summary push payload — a
+ * daily digest, not one notification per tenant, so the admin gets a single
  * useful alert instead of a flood. Returns null when there's nothing to
- * report (fully settled). Uses the same devDate.now() the rest of the Rent
- * module does, so this also honors DEV_SIMULATED_DATE on localhost. */
+ * report (fully settled).
+ *
+ * Bills are only ever generated for a cycle that has fully ended (see
+ * rentCycleService.listBillableCycles), so every unpaid/partial RentBill
+ * here is by definition already overdue — there's no "due soon" for a bill
+ * that hasn't been generated yet. */
 const buildRentReminderPayload = async () => {
-  const tenancies = await prisma.rentTenancy.findMany({
-    where: { status: 'ACTIVE' },
-    include: {
-      tenant: { select: { name: true } },
-      payments: true,
-      room: {
-        select: { id: true, roomNumber: true, building: { select: { name: true, electricityBilling: true } } }
-      }
-    }
-  });
+  const throughDay = normalizeToUTCMidnight(devDate.now());
+  const [openBills, propertiesWithElectricity] = await Promise.all([
+    prisma.rentBill.findMany({
+      // Defensive re-check: only ever alert on a bill whose own cycle has
+      // actually ended — see summarizeContract for why this is re-verified
+      // here too, not just trusted from generation time.
+      where: { status: { in: ['UNPAID', 'PARTIAL'] }, contract: { status: 'ACTIVE' }, cycleEnd: { lt: throughDay } },
+      include: { contract: { select: { id: true, roomId: true } } }
+    }),
+    prisma.rentRoom.findMany({
+      where: { property: { electricityBilling: true } },
+      select: { id: true }
+    })
+  ]);
 
-  const now = devDate.now();
-  let overdueCount = 0;
-  let dueSoonCount = 0;
-  let totalRentPending = 0;
+  const overdueContracts = new Set(openBills.map((b) => b.contract.id));
+  const totalRentPending = round2(openBills.reduce((sum, b) => sum + Math.max(0, b.rentAmount + b.lateFeeApplied - b.amountPaid), 0));
+
   let totalElectricityPending = 0;
-
-  for (const t of tenancies) {
-    const summary = computeTenancySummary(t, now);
-    totalRentPending += summary.totalPending;
-
-    const currentCycleStart = summary.currentCycle?.cycleStart?.getTime();
-    const hasArrears = summary.cycles.some((c) => c.pending > 0.01 && c.cycleStart.getTime() !== currentCycleStart);
-
-    if (hasArrears) {
-      overdueCount++;
-    } else if (summary.currentCycle && summary.currentCycle.pending > 0.01) {
-      const daysToEnd = Math.ceil((summary.currentCycle.cycleEnd.getTime() - now.getTime()) / 86400000);
-      if (daysToEnd <= DUE_SOON_DAYS) dueSoonCount++;
-    }
-
-    if (t.room.building.electricityBilling) {
-      totalElectricityPending += await getElectricityDueForRoom(t.room.id);
-    }
+  for (const room of propertiesWithElectricity) {
+    totalElectricityPending += await getElectricityDueForRoom(room.id);
   }
-
-  totalRentPending = round2(totalRentPending);
   totalElectricityPending = round2(totalElectricityPending);
 
-  if (overdueCount === 0 && dueSoonCount === 0 && totalElectricityPending <= 0) {
+  if (overdueContracts.size === 0 && totalElectricityPending <= 0) {
     return null;
   }
 
   const parts = [];
-  if (overdueCount > 0) parts.push(`${overdueCount} tenant${overdueCount > 1 ? 's' : ''} overdue`);
-  if (dueSoonCount > 0) parts.push(`${dueSoonCount} due within ${DUE_SOON_DAYS} days`);
+  if (overdueContracts.size > 0) parts.push(`${overdueContracts.size} tenant${overdueContracts.size > 1 ? 's' : ''} with pending rent`);
   if (totalElectricityPending > 0) parts.push(`₹${totalElectricityPending} electricity pending`);
 
   return {
@@ -71,15 +59,19 @@ const buildRentReminderPayload = async () => {
 
 /** Cron entry point — Vercel Cron hits this once a day in production; it
  * can also be triggered manually by a logged-in admin (same route, normal
- * JWT auth accepted alongside the cron secret — see authenticateCronOrAdmin). */
+ * JWT auth accepted alongside the cron secret — see authenticateCronOrAdmin).
+ * Runs bill generation + late-fee application first, so the reminder always
+ * reflects freshly-generated bills rather than whatever was billed as of
+ * the last run. */
 const runDailyRentReminderCheck = async (req, res, next) => {
   try {
+    const billingResult = await runDailyBillingCycle(devDate.now());
     const payload = await buildRentReminderPayload();
     if (!payload) {
-      return res.json({ message: 'No pending rent or electricity right now — nothing to notify.', sent: 0 });
+      return res.json({ message: 'No pending rent or electricity right now — nothing to notify.', sent: 0, billing: billingResult });
     }
     const result = await sendToAllSubscriptions(payload);
-    res.json({ message: 'Rent reminder check complete', ...result });
+    res.json({ message: 'Rent reminder check complete', ...result, billing: billingResult });
   } catch (error) {
     next(error);
   }

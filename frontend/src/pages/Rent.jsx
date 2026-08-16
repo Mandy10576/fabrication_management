@@ -65,11 +65,9 @@ export const Rent = () => {
   // Unified tenant/room-wise overview
   const [rows, setRows] = useState([]);
   const [rowsLoading, setRowsLoading] = useState(true);
-  const [areas, setAreas] = useState([]);
-  const [buildings, setBuildings] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [search, setSearch] = useState('');
-  const [areaId, setAreaId] = useState('');
-  const [buildingId, setBuildingId] = useState('');
+  const [propertyId, setPropertyId] = useState('');
   const [status, setStatus] = useState('ALL');
   const [dueDate, setDueDate] = useState('');
 
@@ -90,8 +88,7 @@ export const Rent = () => {
       setRowsLoading(true);
       const params = new URLSearchParams({ status });
       if (search) params.set('search', search);
-      if (areaId) params.set('areaId', areaId);
-      if (buildingId) params.set('buildingId', buildingId);
+      if (propertyId) params.set('propertyId', propertyId);
       if (dueDate) params.set('dueDate', dueDate);
       const res = await api.get(`/rent/overview?${params.toString()}`);
       setRows(res);
@@ -109,21 +106,13 @@ export const Rent = () => {
   useEffect(() => {
     fetchOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, status, areaId, buildingId, dueDate]);
+  }, [search, status, propertyId, dueDate]);
 
   useEffect(() => {
-    api.get('/rent/areas').then(setAreas).catch(() => {});
+    api.get('/rent/properties/all').then(setProperties).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const params = areaId ? `?areaId=${areaId}` : '';
-    api.get(`/rent/buildings${params}`).then(setBuildings).catch(() => {});
-    setBuildingId('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [areaId]);
-
-  const areaOptions = [{ value: '', label: 'All Areas' }, ...areas.map((a) => ({ value: a.id, label: a.name }))];
-  const buildingOptions = [{ value: '', label: 'All Buildings' }, ...buildings.map((b) => ({ value: b.id, label: b.name }))];
+  const propertyOptions = [{ value: '', label: 'All Properties' }, ...properties.map((p) => ({ value: p.id, label: p.name }))];
 
   if (loading || !data) {
     return (
@@ -150,14 +139,14 @@ export const Rent = () => {
             Property & Tenant Management
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-xl">
-            Buildings, rooms, tenants, and rent collection across every area.
+            Properties, rooms, tenants, and rent collection in one place.
           </p>
         </div>
 
         <div className="grid grid-cols-2 lg:flex gap-2 shrink-0">
-          <Link to="/rent/areas" className="btn btn-primary">
+          <Link to="/rent/properties" className="btn btn-primary">
             <Plus className="w-4 h-4" />
-            <span>Manage Areas</span>
+            <span>Manage Properties</span>
           </Link>
           <Link to="/rent/collection" className="btn bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm">
             <Wallet className="w-4 h-4" />
@@ -199,10 +188,10 @@ export const Rent = () => {
 
       {/* Primary stat grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Total Buildings" value={data.totalBuildings} subtitle={`${data.totalRooms} rooms total`} icon={Building2} color="brand" />
+        <StatCard title="Total Properties" value={data.totalProperties} subtitle={`${data.totalRooms} rooms total`} icon={Building2} color="brand" />
         <StatCard title="Occupied Rooms" value={data.occupiedRooms} subtitle={`${data.vacantRooms} vacant`} icon={DoorOpen} color="purple" />
         <StatCard title="Collected (This Cycle)" value={formatCurrency(data.collectedRent)} subtitle={`Expected ${formatCurrency(data.expectedRent)}`} icon={CheckCircle2} color="emerald" />
-        <StatCard title="Rent Pending" value={formatCurrency(data.pendingRent)} subtitle="Across all cycles" icon={Clock} color="rose" />
+        <StatCard title="Rent Pending" value={formatCurrency(data.pendingRent)} subtitle="Across all bills" icon={Clock} color="rose" />
       </div>
 
       {/* Unified tenant/room-wise payment overview */}
@@ -212,20 +201,17 @@ export const Rent = () => {
           <span>Tenant &amp; Room Payment Overview</span>
         </h3>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Rent and electricity combined into one balance per occupied room. Electricity only counts where billing is enabled for that building.
+          Rent and electricity combined into one balance per occupied room. Electricity only counts where billing is enabled for that property.
         </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="search-field flex-1">
           <Search className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
-          <input type="search" aria-label="Search tenant, room or building" placeholder="Search tenant, room no. or building…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <div className="sm:w-44">
-          <SearchableSelect mode="button" value={areaId} options={areaOptions} onSelect={(opt) => setAreaId(opt.value)} ariaLabel="Filter by area" />
+          <input type="search" aria-label="Search tenant, room or property" placeholder="Search tenant, room no. or property…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="sm:w-48">
-          <SearchableSelect mode="button" value={buildingId} options={buildingOptions} onSelect={(opt) => setBuildingId(opt.value)} ariaLabel="Filter by building" />
+          <SearchableSelect mode="button" value={propertyId} options={propertyOptions} onSelect={(opt) => setPropertyId(opt.value)} ariaLabel="Filter by property" />
         </div>
         <div className="sm:w-40">
           <SearchableSelect mode="button" value={status} options={STATUS_FILTER_OPTIONS} onSelect={(opt) => setStatus(opt.value)} ariaLabel="Filter by payment status" />
@@ -245,14 +231,14 @@ export const Rent = () => {
             <LayoutGrid className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
             <div className="font-semibold text-slate-700 dark:text-slate-300">No occupied rooms found</div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {search || status !== 'ALL' || areaId || buildingId || dueDate ? 'No rooms match your filters.' : 'Occupy a room to start tracking combined rent & electricity dues.'}
+              {search || status !== 'ALL' || propertyId || dueDate ? 'No rooms match your filters.' : 'Occupy a room to start tracking combined rent & electricity dues.'}
             </p>
           </div>
         ) : (
           <>
             <ul className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
               {rows.map((row) => (
-                <li key={row.tenancyId}>
+                <li key={row.contractId}>
                   <Link to={`/rent/rooms/${row.roomId}`} className="block p-4 pb-2.5 space-y-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -262,7 +248,7 @@ export const Rent = () => {
                         </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                           <MapPin className="w-3 h-3 shrink-0" />
-                          {row.area.name} · {row.building.name} · Room {row.room.roomNumber}
+                          {row.property.name} · Room {row.room.roomNumber}
                         </div>
                       </div>
                       <span className={`badge shrink-0 ${getStatusBadgeClass(row.status)}`}>{row.status}</span>
@@ -276,7 +262,7 @@ export const Rent = () => {
                       <div>
                         <div className="text-[10px] font-bold uppercase text-slate-400">Electricity</div>
                         <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {row.building.electricityBilling ? formatCurrency(row.electricityCharge) : '—'}
+                          {row.property.electricityBilling ? formatCurrency(row.electricityCharge) : '—'}
                         </div>
                       </div>
                       <div>
@@ -308,7 +294,7 @@ export const Rent = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th scope="col">Area / Building / Room</th>
+                    <th scope="col">Property / Room</th>
                     <th scope="col">Tenant</th>
                     <th scope="col">Rent Cycle / Due</th>
                     <th scope="col" className="text-right">Monthly Rent</th>
@@ -323,21 +309,21 @@ export const Rent = () => {
                 <tbody>
                   {rows.map((row) => (
                     <tr
-                      key={row.tenancyId}
+                      key={row.contractId}
                       className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                       onClick={() => navigate(`/rent/rooms/${row.roomId}`)}
                     >
                       <td>
                         <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                          {row.building.name} · {row.room.roomNumber}
+                          {row.property.name} · {row.room.roomNumber}
                         </span>
-                        <div className="text-xs text-slate-400 mt-0.5">{row.area.name}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{row.property.city}</div>
                       </td>
                       <td className="text-slate-700 dark:text-slate-200 font-semibold whitespace-nowrap">{row.tenant.name}</td>
                       <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{cycleLabel(row.currentCycle)}</td>
                       <td className="text-right text-slate-700 dark:text-slate-200 whitespace-nowrap">{formatCurrency(row.rentCharge)}</td>
                       <td className="text-right text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                        {row.building.electricityBilling ? (
+                        {row.property.electricityBilling ? (
                           <span className="inline-flex items-center gap-1 justify-end">
                             <Zap className="w-3 h-3 text-amber-500" />
                             {formatCurrency(row.electricityCharge)}

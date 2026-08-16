@@ -5,7 +5,7 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /** Re-aggregates a bill's payments and writes back amountPaid/status/
  * paymentDate/paymentMode — the same recompute-after-every-mutation pattern
- * used for Invoice and RentTenancy, never incremented in place. Returns the
+ * used for Invoice and RentBill, never incremented in place. Returns the
  * refreshed bill (with its payments, most recent first). */
 const recomputeElectricityBill = async (billId) => {
   const bill = await prisma.rentElectricityBill.findUnique({
@@ -57,11 +57,11 @@ const addElectricityBill = async (req, res, next) => {
 
     const room = await prisma.rentRoom.findUnique({
       where: { id: roomId },
-      include: { building: { select: { electricityBilling: true, electricityRate: true, name: true } } }
+      include: { property: { select: { electricityBilling: true, electricityRate: true, name: true } } }
     });
     if (!room) return res.status(404).json({ error: 'Room not found' });
-    if (!room.building.electricityBilling) {
-      return res.status(400).json({ error: `Electricity billing is not enabled for ${room.building.name}.` });
+    if (!room.property.electricityBilling) {
+      return res.status(400).json({ error: `Electricity billing is not enabled for ${room.property.name}.` });
     }
 
     const current = parseFloat(currentReading);
@@ -90,16 +90,16 @@ const addElectricityBill = async (req, res, next) => {
       return res.status(400).json({ error: `Current reading (${current}) cannot be less than the previous reading (${previous}).` });
     }
 
-    const ratePerUnit = room.building.electricityRate;
+    const ratePerUnit = room.property.electricityRate;
     const unitsConsumed = round2(current - previous);
     const amount = round2(unitsConsumed * ratePerUnit);
 
-    const activeTenancy = await prisma.rentTenancy.findFirst({ where: { roomId, status: 'ACTIVE' } });
+    const activeContract = await prisma.rentContract.findFirst({ where: { roomId, status: 'ACTIVE' } });
 
     const bill = await prisma.rentElectricityBill.create({
       data: {
         roomId,
-        tenancyId: activeTenancy?.id || null,
+        contractId: activeContract?.id || null,
         billDate: billDate ? new Date(billDate) : devDate.now(),
         previousReading: previous,
         currentReading: current,
@@ -201,7 +201,7 @@ const updateElectricityBill = async (req, res, next) => {
         await prisma.rentElectricityPayment.create({
           data: {
             billId: id,
-            tenancyId: refreshed.tenancyId,
+            contractId: refreshed.contractId,
             amount: pending,
             paymentDate: paymentDate ? new Date(paymentDate) : devDate.now(),
             paymentMode: paymentMode || 'CASH',
@@ -247,7 +247,7 @@ const addElectricityPayment = async (req, res, next) => {
     await prisma.rentElectricityPayment.create({
       data: {
         billId: id,
-        tenancyId: bill.tenancyId,
+        contractId: bill.contractId,
         amount: payAmount,
         paymentDate: paymentDate ? new Date(paymentDate) : devDate.now(),
         paymentMode: paymentMode || 'CASH',
@@ -282,7 +282,7 @@ const markElectricityBillPaid = async (req, res, next) => {
     await prisma.rentElectricityPayment.create({
       data: {
         billId: id,
-        tenancyId: bill.tenancyId,
+        contractId: bill.contractId,
         amount: pending,
         paymentDate: paymentDate ? new Date(paymentDate) : devDate.now(),
         paymentMode: paymentMode || 'CASH'
@@ -377,11 +377,10 @@ const deleteElectricityBill = async (req, res, next) => {
 
 const getElectricityBills = async (req, res, next) => {
   try {
-    const { areaId, buildingId, status } = req.query;
+    const { propertyId, status } = req.query;
 
     const where = {};
-    if (buildingId) where.room = { buildingId };
-    if (areaId) where.room = { ...(where.room || {}), building: { areaId } };
+    if (propertyId) where.room = { propertyId };
     if (status && status !== 'ALL') where.status = status;
 
     const bills = await prisma.rentElectricityBill.findMany({
@@ -391,10 +390,10 @@ const getElectricityBills = async (req, res, next) => {
           select: {
             id: true,
             roomNumber: true,
-            building: { select: { id: true, name: true, area: { select: { id: true, name: true } } } }
+            property: { select: { id: true, name: true, city: true } }
           }
         },
-        tenancy: { select: { id: true, tenant: { select: { id: true, name: true } } } },
+        contract: { select: { id: true, tenant: { select: { id: true, name: true } } } },
         payments: { orderBy: { paymentDate: 'desc' } }
       },
       orderBy: { billDate: 'desc' }

@@ -41,8 +41,8 @@ export const RentReports = () => {
     }
 
     const data = rows.map((r) => ({
-      'Area': r.room.building.area.name,
-      'Building': r.room.building.name,
+      'Property': r.room.property.name,
+      'City': r.room.property.city,
       'Room': r.room.roomNumber,
       'Tenant': r.tenant.name,
       'Mobile': r.tenant.mobile,
@@ -63,7 +63,7 @@ export const RentReports = () => {
   };
 
   const overviewCards = stats ? [
-    { label: 'Expected Rent (This Cycle)', value: stats.expectedRent, note: `${stats.activeTenancyCount} active tenancies`, valueClass: 'text-slate-900 dark:text-white', noteClass: 'text-slate-400' },
+    { label: 'Expected Rent (This Cycle)', value: stats.expectedRent, note: `${stats.activeContractCount} active contracts`, valueClass: 'text-slate-900 dark:text-white', noteClass: 'text-slate-400' },
     { label: 'Collected (This Cycle)', value: stats.collectedRent, note: 'Payments received this cycle', valueClass: 'text-emerald-600 dark:text-emerald-400', noteClass: 'text-emerald-500' },
     { label: 'Total Rent Pending', value: stats.pendingRent, note: 'Across all cycles, all rooms', valueClass: 'text-rose-600 dark:text-rose-400', noteClass: 'text-rose-500' },
     { label: 'Electricity Pending', value: stats.electricity.pendingAmount, note: `${stats.electricity.pendingCount} unpaid bill(s)`, valueClass: 'text-amber-600 dark:text-amber-400', noteClass: 'text-amber-500' },
@@ -77,7 +77,7 @@ export const RentReports = () => {
             <BarChart3 className="w-6 h-6 text-brand-500 shrink-0" />
             <span>Reports</span>
           </h2>
-          <p className="page-subtitle">Rent collection summary across every building</p>
+          <p className="page-subtitle">Rent collection summary across every property</p>
         </div>
         <button onClick={exportToExcel} className="btn btn-emerald w-full sm:w-auto shrink-0">
           <FileSpreadsheet className="w-4 h-4" />
@@ -107,7 +107,7 @@ export const RentReports = () => {
       <div className="card overflow-hidden">
         <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
           Rent Ledger
-          <span className="font-medium text-slate-500 dark:text-slate-400"> ({rows.length} active tenancies)</span>
+          <span className="font-medium text-slate-500 dark:text-slate-400"> ({rows.length} active contracts)</span>
         </h3>
 
         {loading ? (
@@ -117,17 +117,17 @@ export const RentReports = () => {
         ) : rows.length === 0 ? (
           <div className="p-10 sm:p-16 text-center">
             <FileText className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
-            <div className="font-semibold text-slate-700 dark:text-slate-300">No active tenancies yet</div>
+            <div className="font-semibold text-slate-700 dark:text-slate-300">No active contracts yet</div>
           </div>
         ) : (
           <>
             <ul className="xl:hidden divide-y divide-slate-100 dark:divide-slate-800">
               {rows.map((r) => (
-                <li key={r.tenancyId} className="p-4 space-y-2">
+                <li key={r.contractId} className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-bold text-sm text-slate-900 dark:text-white">{r.tenant.name}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">{r.room.building.area.name} · {r.room.building.name} · {r.room.roomNumber}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{r.room.property.name} · {r.room.roomNumber}</div>
                     </div>
                     {r.currentCycle && <span className={`badge shrink-0 ${getStatusBadgeClass(r.currentCycle.status)}`}>{r.currentCycle.status}</span>}
                   </div>
@@ -144,7 +144,7 @@ export const RentReports = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th scope="col">Area / Building / Room</th>
+                    <th scope="col">Property / Room</th>
                     <th scope="col">Tenant</th>
                     <th scope="col">Current Cycle</th>
                     <th scope="col" className="text-right">Rent</th>
@@ -155,8 +155,8 @@ export const RentReports = () => {
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.tenancyId}>
-                      <td className="text-slate-800 dark:text-slate-200 whitespace-nowrap">{r.room.building.area.name} · {r.room.building.name} · {r.room.roomNumber}</td>
+                    <tr key={r.contractId}>
+                      <td className="text-slate-800 dark:text-slate-200 whitespace-nowrap">{r.room.property.name} · {r.room.roomNumber}</td>
                       <td className="font-semibold text-slate-900 dark:text-white">{r.tenant.name}</td>
                       <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{cycleLabel(r.currentCycle)}</td>
                       <td className="text-right text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatCurrency(r.monthlyRent)}</td>

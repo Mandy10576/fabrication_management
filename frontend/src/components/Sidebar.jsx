@@ -40,6 +40,7 @@ import {
   KeyRound,
   MapPin,
   Zap,
+  Receipt,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
@@ -82,7 +83,9 @@ const NAV_GROUPS = [
         icon: KeyRound,
         children: [
           { label: 'Dashboard', path: '/rent', icon: LayoutDashboard, end: true },
-          { label: 'Areas', path: '/rent/areas', icon: MapPin },
+          { label: 'Properties', path: '/rent/properties', icon: MapPin },
+          { label: 'Tenants', path: '/rent/tenants', icon: Users },
+          { label: 'Bills', path: '/rent/bills', icon: Receipt },
           { label: 'Rent Collection', path: '/rent/collection', icon: Wallet },
           { label: 'Electricity', path: '/rent/electricity', icon: Zap },
           { label: 'Reports', path: '/rent/reports', icon: BarChart3 },
@@ -115,7 +118,9 @@ const prefetch = (path) => {
     else if (path === '/projects/active') api.get('/projects?status=ACTIVE&search=&limit=20');
     else if (path === '/work-history') api.get('/worklogs?limit=20');
     else if (path === '/rent') api.get('/rent/dashboard');
-    else if (path === '/rent/areas') api.get('/rent/areas?search=');
+    else if (path === '/rent/properties') api.get('/rent/properties?search=');
+    else if (path === '/rent/tenants') api.get('/rent/tenants?search=');
+    else if (path === '/rent/bills') api.get('/rent/bills');
     else if (path === '/rent/collection') api.get('/rent/collection?status=ALL&search=');
     else if (path === '/rent/electricity') api.get('/rent/electricity?status=ALL');
   } catch (e) {}

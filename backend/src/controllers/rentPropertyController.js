@@ -1,57 +1,32 @@
 const prisma = require('../config/prisma');
-const { computeTenancySummary, buildCombinedPaymentHistory } = require('./rentTenancyController');
 const { getElectricityDueForRoom } = require('./rentElectricityController');
+const { summarizeContract, buildCombinedPaymentHistory } = require('./rentBillController');
 
 // ---------------------------------------------------------------------------
-// Areas
+// Properties
 // ---------------------------------------------------------------------------
 
-const getAreas = async (req, res, next) => {
+const getProperties = async (req, res, next) => {
   try {
     const { search } = req.query;
     const where = search
-      ? { name: { contains: search, mode: 'insensitive' } }
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { city: { contains: search, mode: 'insensitive' } },
+            { addressLine1: { contains: search, mode: 'insensitive' } }
+          ]
+        }
       : {};
 
-    const areas = await prisma.rentArea.findMany({
+    const properties = await prisma.rentProperty.findMany({
       where,
       orderBy: { name: 'asc' },
-      include: {
-        _count: { select: { buildings: true } },
-        buildings: { select: { id: true, _count: { select: { rooms: true } }, rooms: { select: { status: true } } } }
-      }
+      include: { rooms: { select: { status: true } } }
     });
 
-    const withCounts = areas.map((area) => {
-      const totalRooms = area.buildings.reduce((sum, b) => sum + b.rooms.length, 0);
-      const occupiedRooms = area.buildings.reduce((sum, b) => sum + b.rooms.filter((r) => r.status === 'OCCUPIED').length, 0);
-      const { buildings, ...rest } = area;
-      return { ...rest, totalRooms, occupiedRooms };
-    });
-
-    res.json(withCounts);
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getAreaById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const area = await prisma.rentArea.findUnique({
-      where: { id },
-      include: {
-        buildings: {
-          orderBy: { name: 'asc' },
-          include: { rooms: { select: { id: true, status: true, monthlyRent: true } } }
-        }
-      }
-    });
-
-    if (!area) return res.status(404).json({ error: 'Area not found' });
-
-    const buildings = area.buildings.map((b) => {
-      const { rooms, ...rest } = b;
+    const withCounts = properties.map((p) => {
+      const { rooms, ...rest } = p;
       return {
         ...rest,
         roomCount: rooms.length,
@@ -60,100 +35,71 @@ const getAreaById = async (req, res, next) => {
       };
     });
 
-    res.json({ ...area, buildings });
+    res.json(withCounts);
   } catch (error) {
     next(error);
   }
 };
 
-const createArea = async (req, res, next) => {
+/** Flat property list — powers filter dropdowns that need every property up
+ * front rather than only the ones surviving the current result set. */
+const getAllProperties = async (req, res, next) => {
   try {
-    const { name, notes } = req.body;
-    if (!name) return res.status(400).json({ error: 'Area name is required' });
-
-    const area = await prisma.rentArea.create({ data: { name, notes: notes || null } });
-    res.status(201).json(area);
-  } catch (error) {
-    next(error);
-  }
-};
-
-const updateArea = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { name, notes } = req.body;
-    if (!name) return res.status(400).json({ error: 'Area name is required' });
-
-    const area = await prisma.rentArea.update({ where: { id }, data: { name, notes: notes || null } });
-    res.json(area);
-  } catch (error) {
-    next(error);
-  }
-};
-
-const deleteArea = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const existing = await prisma.rentArea.findUnique({
-      where: { id },
-      include: { _count: { select: { buildings: true } } }
+    const properties = await prisma.rentProperty.findMany({
+      select: { id: true, name: true, city: true },
+      orderBy: { name: 'asc' }
     });
-    if (!existing) return res.status(404).json({ error: 'Area not found or already deleted' });
+    res.json(properties);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (existing._count.buildings > 0) {
-      return res.status(400).json({
-        error: `Cannot delete '${existing.name}' because it has ${existing._count.buildings} building(s). Remove them first.`
-      });
+const createProperty = async (req, res, next) => {
+  try {
+    const {
+      name, addressLine1, addressLine2, city, state, pinCode, type,
+      totalFloors, yearBuilt, description, totalRooms, electricityBilling, electricityRate, notes
+    } = req.body;
+
+    if (!name || !addressLine1 || !city) {
+      return res.status(400).json({ error: 'Property name, address, and city are required' });
     }
 
-    await prisma.rentArea.delete({ where: { id } });
-    res.json({ message: 'Area deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ---------------------------------------------------------------------------
-// Buildings
-// ---------------------------------------------------------------------------
-
-const createBuilding = async (req, res, next) => {
-  try {
-    const { areaId } = req.params;
-    const { name, address, totalRooms, electricityBilling, electricityRate, notes } = req.body;
-    if (!name || !address) return res.status(400).json({ error: 'Building name and address are required' });
-
-    const area = await prisma.rentArea.findUnique({ where: { id: areaId } });
-    if (!area) return res.status(404).json({ error: 'Area not found' });
-
-    const building = await prisma.rentBuilding.create({
+    const property = await prisma.rentProperty.create({
       data: {
-        areaId,
         name,
-        address,
+        addressLine1,
+        addressLine2: addressLine2 || null,
+        city,
+        state: state || null,
+        pinCode: pinCode || null,
+        type: type || 'RESIDENTIAL',
+        totalFloors: totalFloors !== undefined && totalFloors !== '' ? parseInt(totalFloors, 10) : null,
+        yearBuilt: yearBuilt !== undefined && yearBuilt !== '' ? parseInt(yearBuilt, 10) : null,
+        description: description || null,
         totalRooms: parseInt(totalRooms, 10) || 0,
         electricityBilling: Boolean(electricityBilling),
         electricityRate: electricityRate !== undefined && electricityRate !== '' ? parseFloat(electricityRate) || 0 : 10,
         notes: notes || null
       }
     });
-    res.status(201).json(building);
+    res.status(201).json(property);
   } catch (error) {
     next(error);
   }
 };
 
-const getBuildingById = async (req, res, next) => {
+const getPropertyById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const building = await prisma.rentBuilding.findUnique({
+    const property = await prisma.rentProperty.findUnique({
       where: { id },
       include: {
-        area: { select: { id: true, name: true } },
         rooms: {
           orderBy: { roomNumber: 'asc' },
           include: {
-            tenancies: {
+            contracts: {
               where: { status: 'ACTIVE' },
               take: 1,
               include: { tenant: { select: { id: true, name: true, mobile: true } } }
@@ -163,50 +109,64 @@ const getBuildingById = async (req, res, next) => {
       }
     });
 
-    if (!building) return res.status(404).json({ error: 'Building not found' });
+    if (!property) return res.status(404).json({ error: 'Property not found' });
 
-    const rooms = building.rooms.map((r) => {
-      const { tenancies, ...rest } = r;
-      return { ...rest, currentTenancy: tenancies[0] || null };
+    const rooms = property.rooms.map((r) => {
+      const { contracts, ...rest } = r;
+      return { ...rest, currentContract: contracts[0] || null };
     });
 
-    res.json({ ...building, rooms });
+    res.json({ ...property, rooms });
   } catch (error) {
     next(error);
   }
 };
 
-const updateBuilding = async (req, res, next) => {
+const updateProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, address, totalRooms, electricityBilling, electricityRate, notes } = req.body;
-    if (!name || !address) return res.status(400).json({ error: 'Building name and address are required' });
+    const {
+      name, addressLine1, addressLine2, city, state, pinCode, type,
+      totalFloors, yearBuilt, description, totalRooms, electricityBilling, electricityRate, notes
+    } = req.body;
 
-    const building = await prisma.rentBuilding.update({
+    if (!name || !addressLine1 || !city) {
+      return res.status(400).json({ error: 'Property name, address, and city are required' });
+    }
+
+    const property = await prisma.rentProperty.update({
       where: { id },
       data: {
         name,
-        address,
+        addressLine1,
+        addressLine2: addressLine2 || null,
+        city,
+        state: state || null,
+        pinCode: pinCode || null,
+        type: type || 'RESIDENTIAL',
+        totalFloors: totalFloors !== undefined && totalFloors !== '' ? parseInt(totalFloors, 10) : null,
+        yearBuilt: yearBuilt !== undefined && yearBuilt !== '' ? parseInt(yearBuilt, 10) : null,
+        description: description || null,
         totalRooms: parseInt(totalRooms, 10) || 0,
         electricityBilling: Boolean(electricityBilling),
         electricityRate: electricityRate !== undefined && electricityRate !== '' ? parseFloat(electricityRate) || 0 : 10,
         notes: notes || null
       }
     });
-    res.json(building);
+    res.json(property);
   } catch (error) {
     next(error);
   }
 };
 
-const deleteBuilding = async (req, res, next) => {
+const deleteProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const existing = await prisma.rentBuilding.findUnique({
+    const existing = await prisma.rentProperty.findUnique({
       where: { id },
       include: { _count: { select: { rooms: true } } }
     });
-    if (!existing) return res.status(404).json({ error: 'Building not found or already deleted' });
+    if (!existing) return res.status(404).json({ error: 'Property not found or already deleted' });
 
     if (existing._count.rooms > 0) {
       return res.status(400).json({
@@ -214,26 +174,8 @@ const deleteBuilding = async (req, res, next) => {
       });
     }
 
-    await prisma.rentBuilding.delete({ where: { id } });
-    res.json({ message: 'Building deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/** Flat building list (optionally scoped to one area) — powers the Building
- * filter dropdown on the Rent Dashboard overview, which needs every building
- * up front rather than only the ones surviving the current result set. */
-const getAllBuildings = async (req, res, next) => {
-  try {
-    const { areaId } = req.query;
-    const where = areaId ? { areaId } : {};
-    const buildings = await prisma.rentBuilding.findMany({
-      where,
-      select: { id: true, name: true, areaId: true },
-      orderBy: { name: 'asc' }
-    });
-    res.json(buildings);
+    await prisma.rentProperty.delete({ where: { id } });
+    res.json({ message: 'Property deleted successfully' });
   } catch (error) {
     next(error);
   }
@@ -245,21 +187,27 @@ const getAllBuildings = async (req, res, next) => {
 
 const createRoom = async (req, res, next) => {
   try {
-    const { buildingId } = req.params;
-    const { roomNumber, monthlyRent } = req.body;
+    const { propertyId } = req.params;
+    const { roomNumber, floor, roomType, areaSqft, electricityMeterNumber, monthlyRent, depositAmount, furnishingStatus, notes } = req.body;
     if (!roomNumber || monthlyRent === undefined || monthlyRent === null) {
       return res.status(400).json({ error: 'Room number and monthly rent are required' });
     }
 
-    const building = await prisma.rentBuilding.findUnique({ where: { id: buildingId } });
-    if (!building) return res.status(404).json({ error: 'Building not found' });
+    const property = await prisma.rentProperty.findUnique({ where: { id: propertyId } });
+    if (!property) return res.status(404).json({ error: 'Property not found' });
 
     const room = await prisma.rentRoom.create({
       data: {
-        buildingId,
+        propertyId,
         roomNumber,
+        floor: floor || null,
+        roomType: roomType || null,
+        areaSqft: areaSqft !== undefined && areaSqft !== '' ? parseFloat(areaSqft) : null,
+        electricityMeterNumber: electricityMeterNumber || null,
         monthlyRent: parseFloat(monthlyRent) || 0,
-        notes: req.body.notes || null
+        depositAmount: depositAmount !== undefined && depositAmount !== '' ? parseFloat(depositAmount) : null,
+        furnishingStatus: furnishingStatus || 'UNFURNISHED',
+        notes: notes || null
       }
     });
     res.status(201).json(room);
@@ -274,12 +222,12 @@ const getRoomById = async (req, res, next) => {
     const room = await prisma.rentRoom.findUnique({
       where: { id },
       include: {
-        building: { include: { area: { select: { id: true, name: true } } } },
-        tenancies: {
+        property: true,
+        contracts: {
           orderBy: { startDate: 'desc' },
           include: {
             tenant: { include: { documents: { orderBy: { createdAt: 'desc' } } } },
-            payments: { orderBy: { paymentDate: 'desc' } },
+            bills: { orderBy: { cycleStart: 'desc' }, include: { payments: { orderBy: { paymentDate: 'desc' } } } },
             electricityPayments: { orderBy: { paymentDate: 'desc' } }
           }
         },
@@ -292,35 +240,33 @@ const getRoomById = async (req, res, next) => {
 
     if (!room) return res.status(404).json({ error: 'Room not found' });
 
-    const activeTenancy = room.tenancies.find((t) => t.status === 'ACTIVE') || null;
-    const currentTenancy = activeTenancy
+    const activeContract = room.contracts.find((c) => c.status === 'ACTIVE') || null;
+    const currentContract = activeContract
       ? {
-          ...activeTenancy,
-          summary: computeTenancySummary(activeTenancy),
-          combinedPayments: buildCombinedPaymentHistory(activeTenancy.payments, activeTenancy.electricityPayments)
+          ...activeContract,
+          summary: summarizeContract(activeContract),
+          combinedPayments: buildCombinedPaymentHistory(
+            activeContract.bills.flatMap((b) => b.payments.map((p) => ({ ...p, cycleStart: b.cycleStart }))),
+            activeContract.electricityPayments
+          )
         }
       : null;
 
-    const tenancyHistory = room.tenancies
-      .filter((t) => t.status !== 'ACTIVE')
-      .map((t) => ({ ...t, summary: computeTenancySummary(t) }));
+    const contractHistory = room.contracts
+      .filter((c) => c.status !== 'ACTIVE')
+      .map((c) => ({ ...c, summary: summarizeContract(c) }));
 
-    // All electricity payments across every bill for this room, most recent
-    // first — the room-level "Electricity History" (independent of which
-    // tenancy was current when each payment landed).
     const electricityPaymentHistory = room.electricityBills
       .flatMap((b) => b.payments.map((p) => ({ ...p, billId: b.id, billDate: b.billDate })))
       .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
 
-    const currentDues = activeTenancy
-      ? {
-          rentDue: currentTenancy.summary.currentCycle?.pending || 0,
-          electricityDue: await getElectricityDueForRoom(id),
-        }
-      : { rentDue: 0, electricityDue: await getElectricityDueForRoom(id) };
+    const currentDues = {
+      rentDue: currentContract?.summary.totalPending || 0,
+      electricityDue: await getElectricityDueForRoom(id)
+    };
     currentDues.totalDue = Math.round((currentDues.rentDue + currentDues.electricityDue + Number.EPSILON) * 100) / 100;
 
-    res.json({ ...room, currentTenancy, tenancyHistory, electricityPaymentHistory, currentDues });
+    res.json({ ...room, currentContract, contractHistory, electricityPaymentHistory, currentDues });
   } catch (error) {
     next(error);
   }
@@ -329,14 +275,24 @@ const getRoomById = async (req, res, next) => {
 const updateRoom = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { roomNumber, monthlyRent, notes } = req.body;
+    const { roomNumber, floor, roomType, areaSqft, electricityMeterNumber, monthlyRent, depositAmount, furnishingStatus, notes } = req.body;
     if (!roomNumber || monthlyRent === undefined || monthlyRent === null) {
       return res.status(400).json({ error: 'Room number and monthly rent are required' });
     }
 
     const room = await prisma.rentRoom.update({
       where: { id },
-      data: { roomNumber, monthlyRent: parseFloat(monthlyRent) || 0, notes: notes || null }
+      data: {
+        roomNumber,
+        floor: floor || null,
+        roomType: roomType || null,
+        areaSqft: areaSqft !== undefined && areaSqft !== '' ? parseFloat(areaSqft) : null,
+        electricityMeterNumber: electricityMeterNumber || null,
+        monthlyRent: parseFloat(monthlyRent) || 0,
+        depositAmount: depositAmount !== undefined && depositAmount !== '' ? parseFloat(depositAmount) : null,
+        furnishingStatus: furnishingStatus || 'UNFURNISHED',
+        notes: notes || null
+      }
     });
     res.json(room);
   } catch (error) {
@@ -349,13 +305,13 @@ const deleteRoom = async (req, res, next) => {
     const { id } = req.params;
     const existing = await prisma.rentRoom.findUnique({
       where: { id },
-      include: { _count: { select: { tenancies: true, electricityBills: true } } }
+      include: { _count: { select: { contracts: true, electricityBills: true } } }
     });
     if (!existing) return res.status(404).json({ error: 'Room not found or already deleted' });
 
-    if (existing._count.tenancies > 0) {
+    if (existing._count.contracts > 0) {
       return res.status(400).json({
-        error: `Cannot delete room '${existing.roomNumber}' because it has tenancy history. Rooms with any current or past tenant are kept permanently.`
+        error: `Cannot delete room '${existing.roomNumber}' because it has contract history. Rooms with any current or past tenant are kept permanently.`
       });
     }
 
@@ -367,16 +323,12 @@ const deleteRoom = async (req, res, next) => {
 };
 
 module.exports = {
-  getAreas,
-  getAreaById,
-  createArea,
-  updateArea,
-  deleteArea,
-  createBuilding,
-  getAllBuildings,
-  getBuildingById,
-  updateBuilding,
-  deleteBuilding,
+  getProperties,
+  getAllProperties,
+  createProperty,
+  getPropertyById,
+  updateProperty,
+  deleteProperty,
   createRoom,
   getRoomById,
   updateRoom,
