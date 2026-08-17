@@ -8,7 +8,7 @@ import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/format
 import {
   DoorOpen, ArrowLeft, User, Phone, MapPin, CreditCard, FileText, Upload, Camera,
   Trash2, Plus, LogOut, Wallet, History, Zap, AlertCircle, UserPlus, Search, Edit2, Receipt,
-  CalendarDays, Gauge, ShieldCheck, X
+  CalendarDays, Gauge, ShieldCheck, X, RefreshCw
 } from 'lucide-react';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -92,6 +92,11 @@ export const RentRoomDetail = () => {
   // End contract
   const [showEndModal, setShowEndModal] = useState(false);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Manual "Generate Bill Now" — same idempotent engine the daily cron
+  // uses, scoped to this room's contract. Independent of electricity —
+  // rent bills never need a meter reading, they're purely date-driven.
+  const [generatingBill, setGeneratingBill] = useState(false);
 
   // Combined Record Payment
   const [showCombinedModal, setShowCombinedModal] = useState(false);
@@ -291,6 +296,28 @@ export const RentRoomDetail = () => {
       toast.error(err.message || 'Failed to end contract');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Always produces a bill: tries the normal (cycle-must-have-ended) path
+  // first, and if there's nothing billable that way (the current cycle just
+  // hasn't ended yet), automatically falls back to force-generating that
+  // in-progress cycle — a single "Generate Bill" action either way.
+  const handleGenerateBill = async () => {
+    try {
+      setGeneratingBill(true);
+      let res = await api.post('/rent/bills/generate', { contractId: room.currentContract.id });
+      let forced = false;
+      if (res.generated === 0) {
+        res = await api.post('/rent/bills/generate', { contractId: room.currentContract.id, force: true });
+        forced = true;
+      }
+      toast.success(res.generated > 0 ? `Bill generated${forced ? ' for the current cycle' : ''}` : 'A bill for this cycle already exists.');
+      fetchRoom();
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate bill');
+    } finally {
+      setGeneratingBill(false);
     }
   };
 
@@ -753,6 +780,10 @@ export const RentRoomDetail = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto flex-wrap">
+                <Link to={`/rent/contracts/${currentContract.id}`} className="btn btn-secondary flex-1 sm:flex-none">
+                  <FileText className="w-4 h-4" />
+                  <span>Contract Details</span>
+                </Link>
                 <button onClick={handleOpenEditTenant} className="btn btn-secondary flex-1 sm:flex-none">
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
@@ -869,12 +900,20 @@ export const RentRoomDetail = () => {
 
           {/* Bills */}
           <div className="card overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-brand-500" />
-                <span>Bills</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">A bill only appears here once its rent cycle has fully ended.</p>
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-brand-500" />
+                  <span>Bills</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">A bill only appears here once its rent cycle has fully ended.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={handleGenerateBill} disabled={generatingBill} className="btn btn-sm btn-secondary">
+                  <RefreshCw className={`w-3.5 h-3.5 ${generatingBill ? 'animate-spin' : ''}`} />
+                  <span>{generatingBill ? 'Generating…' : 'Generate Bill Now'}</span>
+                </button>
+              </div>
             </div>
             {currentContract.summary.cycles.length === 0 ? (
               <p className="text-sm text-slate-400 py-8 text-center">No bills generated yet — the first bill will appear once the current cycle ends.</p>
@@ -883,7 +922,10 @@ export const RentRoomDetail = () => {
                 {currentContract.summary.cycles.map((c) => (
                   <li key={c.billId} className="p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{cycleLabel(c)}</div>
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        {cycleLabel(c)}
+                        {c.forced && <span className="badge bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800">Forced</span>}
+                      </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         Expected {formatCurrency(c.expected)} · Paid {formatCurrency(c.paid)}
                         {c.lateFeeApplied > 0 && <span className="text-amber-600 dark:text-amber-400"> · Late fee {formatCurrency(c.lateFeeApplied)}</span>}

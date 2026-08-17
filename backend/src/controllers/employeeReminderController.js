@@ -6,35 +6,43 @@ const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); re
 
 /** Daily end-of-day digest (unlike the rent reminder, this always sends —
  * "what happened today" is relevant every day, not just when something's
- * overdue): how many active employees got attendance marked today, and
- * whether any work log entries were recorded today. */
+ * overdue). Attendance itself defaults to PRESENT for every active employee
+ * unless an admin explicitly overrides a day to ABSENT/leave/etc. (see
+ * computeAttendanceForRange in attendanceService.js) — so there's nothing to
+ * "remind" about there; this only flags admin-marked absences, plus which
+ * projects/sites had work logged today so the admin remembers to fill in
+ * anything missing. */
 const buildEmployeeReminderPayload = async () => {
   const today = new Date();
   const dayStart = startOfDay(today);
   const dayEnd = endOfDay(today);
 
-  const [activeCount, attendanceToday, workLogsToday] = await Promise.all([
+  const [activeCount, absentToday, workLogsToday] = await Promise.all([
     prisma.employee.count({ where: { isActive: true } }),
-    prisma.attendance.findMany({ where: { date: { gte: dayStart, lte: dayEnd } }, select: { status: true } }),
-    prisma.workLog.count({ where: { visitDate: { gte: dayStart, lte: dayEnd } } })
+    prisma.attendance.findMany({
+      where: { date: { gte: dayStart, lte: dayEnd }, status: { in: ['ABSENT', 'UNPAID_LEAVE'] } },
+      select: { employee: { select: { name: true } } }
+    }),
+    prisma.workLog.findMany({
+      where: { visitDate: { gte: dayStart, lte: dayEnd } },
+      select: { project: { select: { name: true } } }
+    })
   ]);
-
-  const presentCount = attendanceToday.filter((a) => a.status === 'PRESENT' || a.status === 'PAID_LEAVE').length;
-  const markedCount = attendanceToday.length;
 
   const parts = [];
   if (activeCount === 0) {
     parts.push('No active employees yet.');
-  } else if (markedCount === 0) {
-    parts.push(`Attendance not marked yet for any of ${activeCount} employees today.`);
+  } else if (absentToday.length > 0) {
+    parts.push(`${absentToday.map((a) => a.employee.name).join(', ')} marked absent today.`);
   } else {
-    parts.push(`${presentCount} of ${activeCount} employees marked present today.`);
+    parts.push(`All ${activeCount} employees present today.`);
   }
 
-  if (workLogsToday === 0) {
+  if (workLogsToday.length === 0) {
     parts.push('No work log entries today — add what work got done.');
   } else {
-    parts.push(`${workLogsToday} work log ${workLogsToday === 1 ? 'entry' : 'entries'} recorded today.`);
+    const sites = [...new Set(workLogsToday.map((w) => w.project.name))];
+    parts.push(`Work logged today at ${sites.join(', ')}.`);
   }
 
   return {

@@ -2,7 +2,6 @@ const prisma = require('../config/prisma');
 const { getElectricityDueForRoom } = require('./rentElectricityController');
 const { runDailyBillingCycle } = require('../services/rentBillingService');
 const { sendToAllSubscriptions } = require('../services/pushService');
-const { normalizeToUTCMidnight } = require('../utils/dateCalc');
 const devDate = require('../utils/devDate');
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -17,13 +16,15 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
  * here is by definition already overdue — there's no "due soon" for a bill
  * that hasn't been generated yet. */
 const buildRentReminderPayload = async () => {
-  const throughDay = normalizeToUTCMidnight(devDate.now());
+  const now = devDate.now();
   const [openBills, propertiesWithElectricity] = await Promise.all([
     prisma.rentBill.findMany({
-      // Defensive re-check: only ever alert on a bill whose own cycle has
-      // actually ended — see summarizeContract for why this is re-verified
-      // here too, not just trusted from generation time.
-      where: { status: { in: ['UNPAID', 'PARTIAL'] }, contract: { status: 'ACTIVE' }, cycleEnd: { lt: throughDay } },
+      // Defensive re-check, via dueDate rather than cycleEnd: a forced bill
+      // (see forceGenerateCurrentCycleBill) has a dueDate scheduled past
+      // its own cycleEnd, so "dueDate already passed" is true precisely
+      // when a bill — forced or naturally generated — is actually overdue,
+      // with no separate `forced` exception needed here.
+      where: { status: { in: ['UNPAID', 'PARTIAL'] }, contract: { status: 'ACTIVE' }, dueDate: { lt: now } },
       include: { contract: { select: { id: true, roomId: true } } }
     }),
     prisma.rentRoom.findMany({
@@ -33,7 +34,7 @@ const buildRentReminderPayload = async () => {
   ]);
 
   const overdueContracts = new Set(openBills.map((b) => b.contract.id));
-  const totalRentPending = round2(openBills.reduce((sum, b) => sum + Math.max(0, b.rentAmount + b.lateFeeApplied - b.amountPaid), 0));
+  const totalRentPending = round2(openBills.reduce((sum, b) => sum + Math.max(0, b.rentAmount + b.lateFeeApplied + b.miscAmount - b.discountAmount - b.amountPaid), 0));
 
   let totalElectricityPending = 0;
   for (const room of propertiesWithElectricity) {

@@ -4,7 +4,7 @@ import { getApiBase } from '../services/api';
  * Fetches the generated PDF as a Blob from the backend (@react-pdf/renderer).
  * Shared by downloadPDF and sharePDF so the request logic lives in one place.
  * @param {string} [docId] - Document database ID
- * @param {string} [docType] - Document type ('invoice' | 'quotation')
+ * @param {string} [docType] - Document type ('invoice' | 'quotation' | 'rent-bill')
  */
 const fetchPdfBlob = async (docId = null, docType = null) => {
   // Shared with services/api.js so the backend origin is declared once.
@@ -22,6 +22,8 @@ const fetchPdfBlob = async (docId = null, docType = null) => {
     requestUrl = `${API_BASE}/invoices/${docId}/pdf`;
   } else if (docType === 'quotation' && docId) {
     requestUrl = `${API_BASE}/quotations/${docId}/pdf`;
+  } else if (docType === 'rent-bill' && docId) {
+    requestUrl = `${API_BASE}/rent/bills/${docId}/pdf`;
   } else {
     console.warn('⚠️ Missing docType or docId for React PDF stream. Requesting render fallback endpoint.');
     requestUrl = `${API_BASE}/pdf/render`;
@@ -42,7 +44,7 @@ const fetchPdfBlob = async (docId = null, docType = null) => {
  * @param {string} elementId - DOM ID of printable element (fallback/reference)
  * @param {string} filename - Desired output filename (.pdf)
  * @param {string} [docId] - Document database ID
- * @param {string} [docType] - Document type ('invoice' | 'quotation')
+ * @param {string} [docType] - Document type ('invoice' | 'quotation' | 'rent-bill')
  */
 export const downloadPDF = async (elementId = 'printable-invoice', filename = 'document.pdf', docId = null, docType = null) => {
   console.log(`🚀 [React PDF Export] Requesting binary stream for docType="${docType}", docId="${docId}"`);
@@ -73,7 +75,7 @@ export const downloadPDF = async (elementId = 'printable-invoice', filename = 'd
  * false if this device/browser doesn't support sharing files, so the caller
  * can fall back to downloadPDF.
  * @param {string} docId - Document database ID
- * @param {string} docType - Document type ('invoice' | 'quotation')
+ * @param {string} docType - Document type ('invoice' | 'quotation' | 'rent-bill')
  * @param {string} filename - Desired output filename (.pdf)
  */
 export const sharePDF = async (docId, docType, filename = 'document.pdf') => {

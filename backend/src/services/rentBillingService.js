@@ -3,8 +3,8 @@
 // idempotent against each other: the daily cron, the manual "Generate Bills"
 // admin action, and the one-time data migration script.
 const prisma = require('../config/prisma');
-const { listBillableCycles } = require('./rentCycleService');
-const { addDaysUTC } = require('../utils/dateCalc');
+const { listBillableCycles, getCycleForDate } = require('./rentCycleService');
+const { addDaysUTC, normalizeToUTCMidnight } = require('../utils/dateCalc');
 const devDate = require('../utils/devDate');
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -30,6 +30,35 @@ const generateBillsForContract = async (contract, throughDate = devDate.now(), g
   }));
 
   return prisma.rentBill.createMany({ data: rows, skipDuplicates: true });
+};
+
+/** The one sanctioned exception to "a bill only exists once its cycle has
+ * ended": force-generates a bill for the cycle currently in progress, for
+ * an admin who explicitly wants to bill (or collect) ahead of schedule.
+ * Stamped `forced: true` so every place that re-checks the ended-cycle rule
+ * (summarizeContract, getBills, the reminder digest) knows to let it
+ * through anyway. A no-op if that cycle already has a bill (forced or
+ * naturally generated) — never overwrites an existing bill's payment
+ * history, same idempotency guarantee as generateBillsForContract. */
+const forceGenerateCurrentCycleBill = async (contract, throughDate = devDate.now()) => {
+  if (contract.status !== 'ACTIVE') return { count: 0 };
+
+  const cycleStartDay = normalizeToUTCMidnight(contract.startDate).getUTCDate();
+  const { cycleStart, cycleEnd } = getCycleForDate(cycleStartDay, throughDate);
+
+  const result = await prisma.rentBill.createMany({
+    data: [{
+      contractId: contract.id,
+      cycleStart,
+      cycleEnd,
+      dueDate: addDaysUTC(cycleEnd, contract.gracePeriodDays),
+      rentAmount: contract.monthlyRent,
+      generatedBy: 'MANUAL',
+      forced: true
+    }],
+    skipDuplicates: true
+  });
+  return result;
 };
 
 /** Runs bill generation for every ACTIVE contract, plus any ENDED contract
@@ -82,7 +111,7 @@ const recomputeBill = async (billId) => {
   if (!bill) return null;
 
   const amountPaid = round2(bill.payments.reduce((sum, p) => sum + p.amount, 0));
-  const amountDue = round2(bill.rentAmount + bill.lateFeeApplied);
+  const amountDue = Math.max(0, round2(bill.rentAmount + bill.lateFeeApplied + bill.miscAmount - bill.discountAmount));
   let status = 'UNPAID';
   if (amountPaid > 0 && amountPaid >= amountDue - 0.01) status = 'PAID';
   else if (amountPaid > 0) status = 'PARTIAL';
@@ -103,6 +132,7 @@ const runDailyBillingCycle = async (throughDate = devDate.now()) => {
 module.exports = {
   round2,
   generateBillsForContract,
+  forceGenerateCurrentCycleBill,
   generateBillsForAllContracts,
   applyLateFees,
   recomputeBill,

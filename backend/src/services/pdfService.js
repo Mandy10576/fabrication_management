@@ -51,7 +51,29 @@ async function generateQuotationPDFBuffer(quotation, company) {
   return buffer;
 }
 
+/**
+ * Generates a Rent Bill PDF buffer using React PDF engine
+ * @param {object} bill
+ * @param {object} company
+ * @param {object|null} electricityBill - the electricity bill from the same billing round, if any (informational only, kept out of the rent totals)
+ * @returns {Promise<Buffer>}
+ */
+async function generateRentBillPDFBuffer(bill, company, electricityBill = null) {
+  const ReactPDF = await getReactPdfModule();
+  const { setReactPdfModule, RentBillPDFDocument } = require('../utils/reactPdfTemplates');
+  setReactPdfModule(ReactPDF);
+
+  const element = React.createElement(RentBillPDFDocument, { bill, company, electricityBill });
+  const renderToBuffer = ReactPDF.renderToBuffer || (ReactPDF.default && ReactPDF.default.renderToBuffer);
+  if (typeof renderToBuffer !== 'function') {
+    throw new Error('renderToBuffer function not found on @react-pdf/renderer module');
+  }
+  const buffer = await renderToBuffer(element);
+  return buffer;
+}
+
 module.exports = {
   generateInvoicePDFBuffer,
-  generateQuotationPDFBuffer
+  generateQuotationPDFBuffer,
+  generateRentBillPDFBuffer
 };

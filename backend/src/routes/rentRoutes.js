@@ -13,7 +13,7 @@ const {
   deleteRoom
 } = require('../controllers/rentPropertyController');
 const { getTenants, createTenant, updateTenant, uploadTenantDocuments, deleteTenantDocument } = require('../controllers/rentTenantController');
-const { startContract, updateContract, endContract, getRentCollection, getRentOverview } = require('../controllers/rentContractController');
+const { getContractById, deleteContract, startContract, updateContract, endContract, getRentCollection, getRentOverview } = require('../controllers/rentContractController');
 const {
   generateBills,
   getBills,
@@ -21,8 +21,10 @@ const {
   addBillPayment,
   updateBillPayment,
   deleteBillPayment,
+  updateBillCharge,
   addCombinedPayment
 } = require('../controllers/rentBillController');
+const { downloadRentBillPDF } = require('../controllers/pdfController');
 const {
   addElectricityBill,
   updateElectricityBill,
@@ -58,6 +60,8 @@ router.get('/properties/all', authenticate, getAllProperties);
 router.get('/bills', authenticate, getBills);
 router.post('/bills/generate', authenticate, generateBills);
 router.get('/bills/:id', authenticate, getBillById);
+router.get('/bills/:id/pdf', authenticate, downloadRentBillPDF);
+router.patch('/bills/:id/charge', authenticate, updateBillCharge);
 router.post('/bills/:id/payments', authenticate, addBillPayment);
 router.put('/bills/:id/payments/:paymentId', authenticate, updateBillPayment);
 router.delete('/bills/:id/payments/:paymentId', authenticate, deleteBillPayment);
@@ -79,8 +83,10 @@ router.post('/tenants/:id/documents', authenticate, upload.array('documents', 5)
 router.delete('/tenants/:id/documents/:documentId', authenticate, deleteTenantDocument);
 
 // Contracts
+router.get('/contracts/:id', authenticate, getContractById);
 router.put('/contracts/:id', authenticate, updateContract);
 router.patch('/contracts/:id/end', authenticate, endContract);
+router.delete('/contracts/:id', authenticate, deleteContract);
 router.post('/contracts/:id/combined-payments', authenticate, addCombinedPayment);
 
 // Properties

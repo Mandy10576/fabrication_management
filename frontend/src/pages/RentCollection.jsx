@@ -5,7 +5,7 @@ import { useToast, useConfirm } from '../context/ToastContext';
 import { Modal } from '../components/ui/Modal';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
-import { Wallet, Search, AlertCircle, User, MapPin, Edit2, Trash2, Receipt, X } from 'lucide-react';
+import { Wallet, Search, AlertCircle, User, MapPin, Edit2, Trash2, Receipt, X, Zap } from 'lucide-react';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
@@ -26,8 +26,9 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const today = () => new Date().toISOString().split('T')[0];
 const cycleLabel = (c) => `${formatDate(c.cycleStart)} – ${formatDate(c.cycleEnd)}`;
 
-const emptyPaymentForm = (pending) => ({
-  amount: pending > 0.01 ? pending : '',
+const emptyPaymentForm = (rentPending, electricityPending = 0) => ({
+  amount: rentPending > 0.01 ? rentPending : '',
+  electricityAmount: electricityPending > 0.01 ? electricityPending : '',
   paymentDate: today(),
   paymentMode: 'CASH',
   referenceNo: '',
@@ -82,7 +83,7 @@ export const RentCollection = () => {
   const handleOpenPayment = (row) => {
     setActiveRow(row);
     setEditingPaymentId(null);
-    setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0));
+    setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0, row.electricityPending || 0));
     setError('');
     setShowPaymentModal(true);
   };
@@ -98,6 +99,7 @@ export const RentCollection = () => {
       setEditingPaymentId(latest.id);
       setPaymentForm({
         amount: latest.amount,
+        electricityAmount: '',
         paymentDate: latest.paymentDate ? latest.paymentDate.split('T')[0] : today(),
         paymentMode: latest.paymentMode,
         referenceNo: latest.referenceNo || '',
@@ -105,7 +107,7 @@ export const RentCollection = () => {
       });
     } else {
       setEditingPaymentId(null);
-      setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0));
+      setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0, row.electricityPending || 0));
     }
     setShowPaymentModal(true);
   };
@@ -114,6 +116,7 @@ export const RentCollection = () => {
     setEditingPaymentId(p.id);
     setPaymentForm({
       amount: p.amount,
+      electricityAmount: '',
       paymentDate: p.paymentDate ? p.paymentDate.split('T')[0] : today(),
       paymentMode: p.paymentMode,
       referenceNo: p.referenceNo || '',
@@ -124,7 +127,7 @@ export const RentCollection = () => {
 
   const handleCancelEditPaymentRow = () => {
     setEditingPaymentId(null);
-    setPaymentForm(emptyPaymentForm(activeRow?.currentCycle?.pending || 0));
+    setPaymentForm(emptyPaymentForm(activeRow?.currentCycle?.pending || 0, activeRow?.electricityPending || 0));
     setError('');
   };
 
@@ -144,12 +147,27 @@ export const RentCollection = () => {
         await api.put(`/rent/bills/${activeRow.currentCycle.billId}/payments/${editingPaymentId}`, paymentForm);
         toast.success('Payment updated');
       } else {
-        await api.post(`/rent/bills/${activeRow.currentCycle.billId}/payments`, paymentForm);
-        toast.success('Rent payment recorded');
+        const rentAmt = parseFloat(paymentForm.amount) || 0;
+        const elecAmt = parseFloat(paymentForm.electricityAmount) || 0;
+        if (rentAmt <= 0 && elecAmt <= 0) {
+          setError('Enter an amount for rent, electricity, or both.');
+          setSaving(false);
+          return;
+        }
+        await api.post(`/rent/contracts/${activeRow.contractId}/combined-payments`, {
+          rentAmount: paymentForm.amount || 0,
+          rentBillId: activeRow.currentCycle?.billId || null,
+          electricityAmount: paymentForm.electricityAmount || 0,
+          paymentDate: paymentForm.paymentDate,
+          paymentMode: paymentForm.paymentMode,
+          referenceNo: paymentForm.referenceNo,
+          notes: paymentForm.notes
+        });
+        toast.success('Payment recorded');
       }
       const updated = await refreshActiveRow(activeRow.contractId);
       setEditingPaymentId(null);
-      setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0));
+      setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0, updated?.electricityPending || 0));
     } catch (err) {
       setError(err.message || 'Failed to save payment');
     } finally {
@@ -166,7 +184,7 @@ export const RentCollection = () => {
       const updated = await refreshActiveRow(activeRow.contractId);
       if (editingPaymentId === p.id) {
         setEditingPaymentId(null);
-        setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0));
+        setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0, updated?.electricityPending || 0));
       }
     } catch (err) {
       toast.error(err.message || 'Failed to delete payment');
@@ -174,7 +192,11 @@ export const RentCollection = () => {
   };
 
   const propertyOptions = [{ value: '', label: 'All Properties' }, ...properties.map((p) => ({ value: p.id, label: p.name }))];
-  const canSubmitPayment = activeRow && (round2(activeRow.currentCycle?.pending || 0) > 0.01 || editingPaymentId);
+  const canSubmitPayment = activeRow && (
+    round2(activeRow.currentCycle?.pending || 0) > 0.01 ||
+    round2(activeRow.electricityPending || 0) > 0.01 ||
+    editingPaymentId
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -233,12 +255,18 @@ export const RentCollection = () => {
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {row.currentCycle ? cycleLabel(row.currentCycle) : '—'}
                     </div>
-                    {row.totalPending > 0 ? (
-                      <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.totalPending)} due</span>
+                    {row.grandTotalPending > 0 ? (
+                      <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.grandTotalPending)} due</span>
                     ) : (
                       <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Settled</span>
                     )}
                   </div>
+                  {row.electricityBilling && row.electricityCharge > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>Electricity {formatCurrency(row.electricityCharge)}{row.electricityPending > 0.01 ? ` · ${formatCurrency(row.electricityPending)} due` : ' · Paid'}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleOpenPayment(row)} className="btn btn-sm btn-emerald flex-1">
                       <Wallet className="w-4 h-4" />
@@ -263,6 +291,7 @@ export const RentCollection = () => {
                     <th scope="col">Current Cycle</th>
                     <th scope="col" className="text-right">Rent</th>
                     <th scope="col" className="text-right">Paid</th>
+                    <th scope="col" className="text-right">Electricity</th>
                     <th scope="col" className="text-right">Total Pending</th>
                     <th scope="col" className="text-center">Status</th>
                     <th scope="col" className="text-right">Actions</th>
@@ -282,8 +311,17 @@ export const RentCollection = () => {
                       <td className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{row.currentCycle ? cycleLabel(row.currentCycle) : '—'}</td>
                       <td className="text-right font-semibold text-slate-900 dark:text-white whitespace-nowrap">{formatCurrency(row.monthlyRent)}</td>
                       <td className="text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{formatCurrency(row.currentCycle?.paid || 0)}</td>
-                      <td className={`text-right font-bold whitespace-nowrap ${row.totalPending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                        {formatCurrency(row.totalPending)}
+                      <td className="text-right whitespace-nowrap">
+                        {row.electricityBilling && row.electricityCharge > 0 ? (
+                          <span className={`font-semibold ${row.electricityPending > 0.01 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                            {formatCurrency(row.electricityCharge)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 dark:text-slate-700">—</span>
+                        )}
+                      </td>
+                      <td className={`text-right font-bold whitespace-nowrap ${row.grandTotalPending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {formatCurrency(row.grandTotalPending)}
                       </td>
                       <td className="text-center">{row.currentCycle && <span className={`badge ${getStatusBadgeClass(row.currentCycle.status)}`}>{row.currentCycle.status}</span>}</td>
                       <td className="text-right">
@@ -348,6 +386,23 @@ export const RentCollection = () => {
               </div>
             </div>
 
+            {activeRow.electricityBilling && activeRow.electricityCharge > 0 && (
+              <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40">
+                <div>
+                  <div className="text-[10px] font-bold uppercase text-amber-600/70 dark:text-amber-400/70 flex items-center gap-1"><Zap className="w-3 h-3" /> Electricity</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{formatCurrency(activeRow.electricityCharge)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase text-amber-600/70 dark:text-amber-400/70">Paid</div>
+                  <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(activeRow.electricityPaid)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase text-amber-600/70 dark:text-amber-400/70">Pending</div>
+                  <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-0.5">{formatCurrency(activeRow.electricityPending)}</div>
+                </div>
+              </div>
+            )}
+
             {activeRow.currentCyclePayments && activeRow.currentCyclePayments.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400 mb-2">
@@ -384,7 +439,7 @@ export const RentCollection = () => {
             )}
 
             {!canSubmitPayment ? (
-              <p className="text-sm text-slate-400 text-center py-2">This cycle is fully paid. Edit or delete a payment above to make changes.</p>
+              <p className="text-sm text-slate-400 text-center py-2">Rent{activeRow.electricityBilling ? ' and electricity are' : ' is'} fully paid for this cycle. Edit or delete a payment above to make changes.</p>
             ) : (
               <form id="collection-payment-form" onSubmit={handleSubmitPayment} className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -400,25 +455,31 @@ export const RentCollection = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`grid grid-cols-1 ${!editingPaymentId && activeRow.electricityBilling ? 'sm:grid-cols-2' : ''} gap-4`}>
                   <div>
-                    <label htmlFor="cp-amount" className="label">Amount (₹) *</label>
-                    <input id="cp-amount" type="number" min="0.01" step="any" required value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} className="input font-semibold" />
+                    <label htmlFor="cp-amount" className="label">{editingPaymentId || !activeRow.electricityBilling ? 'Amount (₹)' : 'Rent Amount (₹)'}</label>
+                    <input id="cp-amount" type="number" min="0" step="any" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} className="input font-semibold" />
                   </div>
+                  {!editingPaymentId && activeRow.electricityBilling && (
+                    <div>
+                      <label htmlFor="cp-electricity-amount" className="label">Electricity Amount (₹)</label>
+                      <input id="cp-electricity-amount" type="number" min="0" step="any" value={paymentForm.electricityAmount} onChange={(e) => setPaymentForm((p) => ({ ...p, electricityAmount: e.target.value }))} className="input font-semibold" />
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="cp-date" className="label">Payment Date</label>
                     <input id="cp-date" type="date" value={paymentForm.paymentDate} onChange={(e) => setPaymentForm((p) => ({ ...p, paymentDate: e.target.value }))} className="input" />
                   </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="cp-mode" className="label">Payment Mode</label>
                     <SearchableSelect id="cp-mode" mode="button" value={paymentForm.paymentMode} options={PAYMENT_MODE_OPTIONS} onSelect={(opt) => setPaymentForm((p) => ({ ...p, paymentMode: opt.value }))} />
                   </div>
-                  <div>
-                    <label htmlFor="cp-ref" className="label">Reference No.</label>
-                    <input id="cp-ref" type="text" placeholder="Optional" value={paymentForm.referenceNo} onChange={(e) => setPaymentForm((p) => ({ ...p, referenceNo: e.target.value }))} className="input" />
-                  </div>
+                </div>
+                <div>
+                  <label htmlFor="cp-ref" className="label">Reference No.</label>
+                  <input id="cp-ref" type="text" placeholder="Optional" value={paymentForm.referenceNo} onChange={(e) => setPaymentForm((p) => ({ ...p, referenceNo: e.target.value }))} className="input" />
                 </div>
                 <div>
                   <label htmlFor="cp-notes" className="label">Notes</label>

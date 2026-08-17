@@ -37,6 +37,7 @@ const Rent = lazy(() => import('./pages/Rent').then(m => ({ default: m.Rent })))
 const RentProperties = lazy(() => import('./pages/RentProperties').then(m => ({ default: m.RentProperties })));
 const RentPropertyDetail = lazy(() => import('./pages/RentPropertyDetail').then(m => ({ default: m.RentPropertyDetail })));
 const RentRoomDetail = lazy(() => import('./pages/RentRoomDetail').then(m => ({ default: m.RentRoomDetail })));
+const RentContractDetail = lazy(() => import('./pages/RentContractDetail').then(m => ({ default: m.RentContractDetail })));
 const RentTenants = lazy(() => import('./pages/RentTenants').then(m => ({ default: m.RentTenants })));
 const RentBills = lazy(() => import('./pages/RentBills').then(m => ({ default: m.RentBills })));
 const RentCollection = lazy(() => import('./pages/RentCollection').then(m => ({ default: m.RentCollection })));
@@ -142,6 +143,7 @@ const ProtectedLayout = () => {
                 <Route path="/rent/properties" element={<RentProperties />} />
                 <Route path="/rent/properties/:id" element={<RentPropertyDetail />} />
                 <Route path="/rent/rooms/:id" element={<RentRoomDetail />} />
+                <Route path="/rent/contracts/:id" element={<RentContractDetail />} />
                 <Route path="/rent/tenants" element={<RentTenants />} />
                 <Route path="/rent/bills" element={<RentBills />} />
                 <Route path="/rent/collection" element={<RentCollection />} />

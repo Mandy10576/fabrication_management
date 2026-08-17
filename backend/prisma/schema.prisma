@@ -498,14 +498,29 @@ model RentBill {
   dueDate        DateTime // = cycleEnd + contract.gracePeriodDays, fixed at generation — never generatedAt-based
   rentAmount     Float // snapshot of contract.monthlyRent at generation time
   lateFeeApplied Float             @default(0) // stamped once when first overdue, never recomputed after
+  // Ad-hoc extra charge an admin can attach to a bill (e.g. a repair, a
+  // one-off fee) — free-form, so miscLabel says what it's for. Zero/null
+  // means no misc charge is attached. Set via PATCH /bills/:id/charge.
+  miscAmount     Float             @default(0)
+  miscLabel      String?
+  // Flat discount applied against this bill at generation time (e.g. a
+  // goodwill reduction) — subtracted from the total, never below 0.
+  discountAmount Float             @default(0)
   // amountPaid/status are denormalized and recomputed after every payment
   // mutation — same re-aggregate-and-rederive pattern as
   // RentElectricityBill — never trust them as source of truth, that's the
-  // `payments` ledger below. Compared against (rentAmount + lateFeeApplied).
+  // `payments` ledger below. Compared against (rentAmount + lateFeeApplied + miscAmount - discountAmount).
   amountPaid     Float             @default(0)
   status         String            @default("UNPAID") // UNPAID, PARTIAL, PAID
   generatedAt    DateTime          @default(now())
   generatedBy    String            @default("AUTO") // MANUAL, AUTO
+  // True only for a bill an admin explicitly force-generated for a cycle
+  // that hadn't ended yet (POST /bills/generate with force:true) — the one
+  // sanctioned exception to "a bill only exists once its cycle has ended".
+  // Every visibility check that re-verifies that rule (summarizeContract,
+  // getBills, the reminder digest) must also let `forced` bills through,
+  // or a forced bill would be created but stay permanently invisible.
+  forced         Boolean           @default(false)
   notes          String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt

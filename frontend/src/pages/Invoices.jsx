@@ -3,10 +3,11 @@ import { useFY } from '../context/FYContext';
 import { api } from '../services/api';
 import { useToast, useConfirm } from '../context/ToastContext';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShareModal } from '../components/ShareModal';
 import { Modal } from '../components/ui/Modal';
 import { SearchableSelect } from '../components/SearchableSelect';
+import { ActionsMenu } from '../components/ActionsMenu';
 import {
   FileText,
   Search,
@@ -19,7 +20,9 @@ import {
   Clock,
   Calendar,
   History,
-  CheckCircle2
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const STATUS_FILTER_OPTIONS = [
@@ -48,15 +51,15 @@ export const Invoices = () => {
   const { selectedFY } = useFY();
   const toast = useToast();
   const confirm = useConfirm();
+  const navigate = useNavigate();
 
   const [invoices, setInvoices] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [gstFilter, setGstFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const [shareInvoice, setShareInvoice] = useState(null);
   const [paymentModalInvoice, setPaymentModalInvoice] = useState(null);
@@ -76,38 +79,49 @@ export const Invoices = () => {
     : 0;
   const isFullyPaid = Boolean(paymentModalInvoice) && paymentBalanceDue <= 0.01;
 
-  const fetchInvoices = async (isLoadMore = false) => {
+  // Fetches every invoice matching the current filters (not just one page) —
+  // pagination below is done client-side so "page 3's total" can be a plain
+  // sum over that page's slice, no separate aggregate endpoint needed. Fine
+  // at this business's invoice volumes; revisit with server-side paging if
+  // a financial year ever grows into the thousands of invoices.
+  const fetchInvoices = async () => {
     try {
-      if (isLoadMore) setLoadingMore(true);
-      else setLoading(true);
-
-      const cursorParam = isLoadMore && nextCursor ? `&cursor=${nextCursor}` : '';
-      const url = `/invoices?financialYearId=${selectedFY}&status=${statusFilter}&gstType=${gstFilter}&search=${encodeURIComponent(search)}&limit=20${cursorParam}`;
+      setLoading(true);
+      const url = `/invoices?financialYearId=${selectedFY}&status=${statusFilter}&gstType=${gstFilter}&search=${encodeURIComponent(search)}&all=true`;
       const res = await api.get(url);
-
-      const newItems = Array.isArray(res) ? res : (res.items || []);
-      const newNextCursor = res.nextCursor || null;
-      const newHasMore = Boolean(res.hasMore);
-
-      if (isLoadMore) {
-        setInvoices(prev => [...prev, ...newItems]);
-      } else {
-        setInvoices(newItems);
-      }
-      setNextCursor(newNextCursor);
-      setHasMore(newHasMore);
+      setInvoices(Array.isArray(res) ? res : (res.items || []));
     } catch (err) {
       console.error('Failed to load invoices:', err);
       toast.error(err.message || 'Failed to load invoices');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
     fetchInvoices();
   }, [selectedFY, statusFilter, gstFilter, search]);
+
+  // Any filter change (or the financial year switching) invalidates the
+  // current page — land back on page 1 instead of showing an empty page 4
+  // for a filter that now only has two pages of results.
+  useEffect(() => {
+    setPage(1);
+  }, [selectedFY, statusFilter, gstFilter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(invoices.length / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
+  const pageInvoices = invoices.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE);
+  const pageTotal = pageInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+  const pageReceived = pageInvoices.reduce((sum, inv) => sum + (inv.amountReceived || 0), 0);
+  const pageBalanceDue = pageInvoices.reduce((sum, inv) => sum + (inv.balanceDue || 0), 0);
+
+  // A compact page-number strip: always show first, last, current ±1, with
+  // "…" gaps — the classic pattern that stays readable even at page 50.
+  const pageNumbers = () => {
+    const nums = new Set([1, totalPages, clampedPage, clampedPage - 1, clampedPage + 1]);
+    return Array.from(nums).filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+  };
 
   const handleDuplicate = async (id) => {
     const ok = await confirm({
@@ -310,11 +324,30 @@ export const Invoices = () => {
           </div>
         ) : (
           <>
+            {pageInvoices.length > 0 && (
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs sm:text-sm">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Page {clampedPage} of {totalPages} · {invoices.length} invoice{invoices.length === 1 ? '' : 's'} total
+                </span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    This page — Total: <strong className="text-slate-900 dark:text-white">{formatCurrency(pageTotal)}</strong>
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Received: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(pageReceived)}</strong>
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Due: <strong className={pageBalanceDue > 0.01 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>{formatCurrency(pageBalanceDue)}</strong>
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Card view — up to xl. The desktop table needs 9 columns, which
                 only stops being cramped once the sidebar and the content area
                 are both wide enough. */}
             <ul className="xl:hidden divide-y divide-slate-100 dark:divide-slate-800">
-              {invoices.map((inv) => (
+              {pageInvoices.map((inv) => (
                 <li key={inv.id} className="p-4 space-y-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -424,7 +457,7 @@ export const Invoices = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => (
+                  {pageInvoices.map((inv) => (
                     <tr key={inv.id}>
                       <td className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
                         <Link to={`/invoices/${inv.id}`} className="hover:text-brand-500 transition-colors">
@@ -459,47 +492,17 @@ export const Invoices = () => {
                         </button>
                       </td>
                       <td>
-                        <div className="flex items-center justify-end gap-1">
-                          <Link
-                            to={`/invoices/${inv.id}`}
-                            className="btn-icon btn-icon-soft hover:text-brand-500"
-                            aria-label={`View invoice ${inv.invoiceNumber}`}
-                            title="View / Print A4 Invoice"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={() => handleOpenPaymentModal(inv)}
-                            className="btn-icon btn-icon-soft hover:text-emerald-500"
-                            aria-label={`Record payment for ${inv.invoiceNumber}`}
-                            title="Record Payment"
-                          >
-                            <IndianRupee className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setShareInvoice(inv)}
-                            className="btn-icon btn-icon-soft hover:text-indigo-500"
-                            aria-label={`Share invoice ${inv.invoiceNumber}`}
-                            title="Share via WhatsApp/Email"
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDuplicate(inv.id)}
-                            className="btn-icon btn-icon-soft hover:text-purple-500"
-                            aria-label={`Duplicate invoice ${inv.invoiceNumber}`}
-                            title="Duplicate Invoice"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(inv.id, inv.invoiceNumber)}
-                            className="btn-icon btn-danger-soft"
-                            aria-label={`Delete invoice ${inv.invoiceNumber}`}
-                            title="Delete Invoice"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div className="flex items-center justify-end">
+                          <ActionsMenu
+                            ariaLabel={`More actions for invoice ${inv.invoiceNumber}`}
+                            items={[
+                              { icon: Eye, label: 'View / Print', onClick: () => navigate(`/invoices/${inv.id}`) },
+                              { icon: IndianRupee, label: 'Record Payment', onClick: () => handleOpenPaymentModal(inv) },
+                              { icon: Share2, label: 'Share', onClick: () => setShareInvoice(inv) },
+                              { icon: Copy, label: 'Duplicate', onClick: () => handleDuplicate(inv.id) },
+                              { icon: Trash2, label: 'Delete', onClick: () => handleDelete(inv.id, inv.invoiceNumber), danger: true }
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -510,17 +513,41 @@ export const Invoices = () => {
           </>
         )}
 
-        {hasMore && (
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800 text-center">
-            <button onClick={() => fetchInvoices(true)} disabled={loadingMore} className="btn btn-secondary">
-              {loadingMore ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                  <span>Loading…</span>
-                </>
-              ) : (
-                <span>Load More Invoices</span>
-              )}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={clampedPage === 1}
+              className="btn-icon btn-icon-soft"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {pageNumbers().map((n, i, arr) => (
+              <React.Fragment key={n}>
+                {i > 0 && arr[i - 1] !== n - 1 && <span className="px-1 text-slate-400 select-none">…</span>}
+                <button
+                  onClick={() => setPage(n)}
+                  aria-current={n === clampedPage ? 'page' : undefined}
+                  className={`min-w-[2.25rem] h-9 px-2 rounded-lg text-sm font-semibold transition-colors ${
+                    n === clampedPage
+                      ? 'bg-brand-600 text-white shadow'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {n}
+                </button>
+              </React.Fragment>
+            ))}
+
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={clampedPage === totalPages}
+              className="btn-icon btn-icon-soft"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         )}

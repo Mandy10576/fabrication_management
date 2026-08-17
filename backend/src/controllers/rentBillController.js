@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
-const { round2, generateBillsForContract, generateBillsForAllContracts, recomputeBill } = require('../services/rentBillingService');
+const { round2, generateBillsForContract, forceGenerateCurrentCycleBill, generateBillsForAllContracts, recomputeBill } = require('../services/rentBillingService');
 const { getElectricityDueForRoom } = require('./rentElectricityController');
 const { normalizeToUTCMidnight } = require('../utils/dateCalc');
 const devDate = require('../utils/devDate');
@@ -16,17 +16,19 @@ const devDate = require('../utils/devDate');
  * rule bill generation is supposed to enforce at write time. Re-checking it
  * here too means a bad row (e.g. a legacy advance payment migrated onto a
  * not-yet-ended cycle) can never show as a premature "current" due, no
- * matter how it ended up in the table. */
+ * matter how it ended up in the table. The one exception is a bill stamped
+ * `forced: true` — an admin explicitly asked to bill ahead of schedule via
+ * "Force Generate", so it's allowed through even mid-cycle. */
 const summarizeContract = (contract, throughDate = devDate.now()) => {
   const ended = contract.status === 'ENDED' && contract.endDate;
   const throughDay = normalizeToUTCMidnight(ended ? contract.endDate : throughDate);
 
   const cycles = (contract.bills || [])
-    .filter((bill) => ended || new Date(bill.cycleEnd).getTime() < throughDay.getTime())
+    .filter((bill) => ended || bill.forced || new Date(bill.cycleEnd).getTime() < throughDay.getTime())
     .slice()
     .sort((a, b) => new Date(b.cycleStart).getTime() - new Date(a.cycleStart).getTime())
     .map((bill) => {
-      const expected = round2(bill.rentAmount + bill.lateFeeApplied);
+      const expected = Math.max(0, round2(bill.rentAmount + bill.lateFeeApplied + bill.miscAmount - bill.discountAmount));
       const pending = Math.max(0, round2(expected - bill.amountPaid));
       return {
         billId: bill.id,
@@ -36,9 +38,13 @@ const summarizeContract = (contract, throughDate = devDate.now()) => {
         expected,
         rentAmount: bill.rentAmount,
         lateFeeApplied: bill.lateFeeApplied,
+        miscAmount: bill.miscAmount,
+        miscLabel: bill.miscLabel,
+        discountAmount: bill.discountAmount,
         paid: bill.amountPaid,
         pending,
-        status: bill.status
+        status: bill.status,
+        forced: bill.forced
       };
     });
   const totalPending = round2(cycles.reduce((sum, c) => sum + c.pending, 0));
@@ -78,16 +84,57 @@ const buildCombinedPaymentHistory = (rentPayments, electricityPayments) => {
 /** Manual "Generate Bills" action — same idempotent function the daily cron
  * uses, so calling it never creates a duplicate for an already-billed
  * cycle. Optionally scoped to one contract via `contractId` in the body;
- * otherwise runs for every ACTIVE/ENDED contract. */
+ * otherwise runs for every ACTIVE/ENDED contract.
+ *
+ * `force: true` (only valid together with `contractId`) is the one
+ * sanctioned way to bill a cycle before it's ended — see
+ * forceGenerateCurrentCycleBill. Everywhere else in the app, "not yet
+ * ended" means "not billable", full stop. */
 const generateBills = async (req, res, next) => {
   try {
-    const { contractId } = req.body || {};
+    const { contractId, force, rentAmount, lateFee, discountAmount, miscAmount, miscLabel, notes } = req.body || {};
 
     if (contractId) {
       const contract = await prisma.rentContract.findUnique({ where: { id: contractId } });
       if (!contract) return res.status(404).json({ error: 'Contract not found' });
-      const result = await generateBillsForContract(contract, devDate.now(), 'MANUAL');
-      return res.status(201).json({ generated: result.count || 0 });
+
+      if (force && contract.status !== 'ACTIVE') {
+        return res.status(400).json({ error: 'Only an active contract has a current cycle to force-bill.' });
+      }
+
+      const miscAmt = round2(parseFloat(miscAmount) || 0);
+      if (miscAmt > 0 && !miscLabel?.trim()) {
+        return res.status(400).json({ error: 'Enter what the miscellaneous charge is for.' });
+      }
+
+      const result = force
+        ? await forceGenerateCurrentCycleBill(contract, devDate.now())
+        : await generateBillsForContract(contract, devDate.now(), 'MANUAL');
+
+      // Overrides entered on the manual-generate form apply to the bill
+      // this call just created — rent amount, late fee, discount, misc
+      // charge, notes. Only meaningful when exactly one new cycle was
+      // billed (the normal case for a manual single-contract generate) —
+      // found via the most recent cycleStart for this contract.
+      if ((result.count || 0) > 0) {
+        const newestBill = await prisma.rentBill.findFirst({ where: { contractId }, orderBy: { cycleStart: 'desc' } });
+        if (newestBill) {
+          const data = {
+            lateFeeApplied: round2(parseFloat(lateFee) || 0),
+            discountAmount: round2(parseFloat(discountAmount) || 0),
+            miscAmount: miscAmt,
+            miscLabel: miscAmt > 0 ? miscLabel.trim() : null,
+            notes: notes?.trim() || null
+          };
+          if (rentAmount !== undefined && rentAmount !== '' && !isNaN(parseFloat(rentAmount))) {
+            data.rentAmount = round2(parseFloat(rentAmount));
+          }
+          await prisma.rentBill.update({ where: { id: newestBill.id }, data });
+          await recomputeBill(newestBill.id);
+        }
+      }
+
+      return res.status(201).json({ generated: result.count || 0, forced: !!force });
     }
 
     const generated = await generateBillsForAllContracts(devDate.now());
@@ -130,8 +177,9 @@ const getBills = async (req, res, next) => {
     // Defensive re-check: never list a bill whose own cycle hasn't actually
     // ended yet (for a still-active contract) — see summarizeContract for
     // why this must be enforced again here, not just at generation time.
+    // `forced` bills are the one sanctioned exception (see generateBills).
     const throughDay = normalizeToUTCMidnight(devDate.now());
-    where.AND = [{ OR: [{ cycleEnd: { lt: throughDay } }, { contract: { status: 'ENDED' } }] }];
+    where.AND = [{ OR: [{ cycleEnd: { lt: throughDay } }, { contract: { status: 'ENDED' } }, { forced: true }] }];
 
     const bills = await prisma.rentBill.findMany({
       where,
@@ -147,7 +195,7 @@ const getBills = async (req, res, next) => {
       orderBy: { cycleStart: 'desc' }
     });
 
-    res.json(bills.map((b) => ({ ...b, amountDue: round2(b.rentAmount + b.lateFeeApplied - b.amountPaid) })));
+    res.json(bills.map((b) => ({ ...b, amountDue: Math.max(0, round2(b.rentAmount + b.lateFeeApplied + b.miscAmount - b.discountAmount - b.amountPaid)) })));
   } catch (error) {
     next(error);
   }
@@ -164,7 +212,7 @@ const getBillById = async (req, res, next) => {
       }
     });
     if (!bill) return res.status(404).json({ error: 'Bill not found' });
-    res.json({ ...bill, amountDue: round2(bill.rentAmount + bill.lateFeeApplied - bill.amountPaid) });
+    res.json({ ...bill, amountDue: Math.max(0, round2(bill.rentAmount + bill.lateFeeApplied + bill.miscAmount - bill.discountAmount - bill.amountPaid)) });
   } catch (error) {
     next(error);
   }
@@ -252,6 +300,40 @@ const deleteBillPayment = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
+// Miscellaneous charge — one free-form extra line an admin can attach to a
+// bill (e.g. a repair, a one-off fee), on top of rent + late fee. Setting
+// miscAmount to 0 clears it. Never touches the payment ledger — just
+// changes what the bill is due for, so amountPaid/status get recomputed
+// the same way a payment mutation would.
+// ---------------------------------------------------------------------------
+
+const updateBillCharge = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { miscAmount, miscLabel } = req.body;
+
+    const bill = await prisma.rentBill.findUnique({ where: { id } });
+    if (!bill) return res.status(404).json({ error: 'Bill not found' });
+
+    const amt = round2(parseFloat(miscAmount) || 0);
+    if (amt < 0) return res.status(400).json({ error: 'Charge amount cannot be negative.' });
+    if (amt > 0 && !miscLabel?.trim()) {
+      return res.status(400).json({ error: 'Enter what this miscellaneous charge is for.' });
+    }
+
+    await prisma.rentBill.update({
+      where: { id },
+      data: { miscAmount: amt, miscLabel: amt > 0 ? miscLabel.trim() : null }
+    });
+
+    const updated = await recomputeBill(id);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // Combined Rent + Electricity payment — one admin action, one receipt, that
 // may settle a rent bill, electricity, or both at once (with a partial
 // split between them). Each side is still just a normal RentBillPayment /
@@ -283,7 +365,7 @@ const addCombinedPayment = async (req, res, next) => {
       if (!targetBill) {
         return res.status(400).json({ error: 'Selected rent bill is not valid for this contract.' });
       }
-      const pending = round2(targetBill.rentAmount + targetBill.lateFeeApplied - targetBill.amountPaid);
+      const pending = Math.max(0, round2(targetBill.rentAmount + targetBill.lateFeeApplied + targetBill.miscAmount - targetBill.discountAmount - targetBill.amountPaid));
       if (rentAmt > pending + 0.01) {
         return res.status(400).json({ error: `Rent amount cannot exceed the pending amount of ₹${pending.toFixed(2)} for that bill.` });
       }
@@ -307,7 +389,7 @@ const addCombinedPayment = async (req, res, next) => {
         });
         const paid = await tx.rentBillPayment.aggregate({ where: { billId: targetBill.id }, _sum: { amount: true } });
         const amountPaid = round2(paid._sum.amount || 0);
-        const amountDue = round2(targetBill.rentAmount + targetBill.lateFeeApplied);
+        const amountDue = Math.max(0, round2(targetBill.rentAmount + targetBill.lateFeeApplied + targetBill.miscAmount - targetBill.discountAmount));
         let status = 'UNPAID';
         if (amountPaid > 0 && amountPaid >= amountDue - 0.01) status = 'PAID';
         else if (amountPaid > 0) status = 'PARTIAL';
@@ -375,5 +457,6 @@ module.exports = {
   addBillPayment,
   updateBillPayment,
   deleteBillPayment,
+  updateBillCharge,
   addCombinedPayment
 };

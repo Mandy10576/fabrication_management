@@ -7,6 +7,51 @@ const devDate = require('../utils/devDate');
 // Contracts (room assignment periods — this IS the tenant-history record)
 // ---------------------------------------------------------------------------
 
+const getContractById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const contract = await prisma.rentContract.findUnique({
+      where: { id },
+      include: {
+        tenant: true,
+        room: { include: { property: true } },
+        bills: { orderBy: { cycleStart: 'desc' }, include: { payments: { orderBy: { paymentDate: 'desc' } } } }
+      }
+    });
+    if (!contract) return res.status(404).json({ error: 'Contract not found' });
+
+    res.json({ ...contract, summary: summarizeContract(contract) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Hard delete — permanently removes the contract and every bill/payment
+ * under it (cascades via the schema's onDelete: Cascade on RentBill).
+ * Electricity bills/payments billed under this contract are kept, just
+ * un-linked (their contractId is nulled by the schema's onDelete: SetNull),
+ * since electricity is its own independent ledger. If the contract is the
+ * room's current occupant, the room is freed in the same transaction —
+ * mirrors endContract's dual-write, since there'd otherwise be no contract
+ * left to ever vacate it. */
+const deleteContract = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const contract = await prisma.rentContract.findUnique({ where: { id } });
+    if (!contract) return res.status(404).json({ error: 'Contract not found' });
+
+    const ops = [prisma.rentContract.delete({ where: { id } })];
+    if (contract.status === 'ACTIVE') {
+      ops.push(prisma.rentRoom.update({ where: { id: contract.roomId }, data: { status: 'VACANT' } }));
+    }
+    await prisma.$transaction(ops);
+
+    res.json({ message: 'Contract deleted permanently' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const startContract = async (req, res, next) => {
   try {
     const { roomId } = req.params;
@@ -188,7 +233,8 @@ const getRentCollection = async (req, res, next) => {
           select: {
             id: true,
             roomNumber: true,
-            property: { select: { id: true, name: true, city: true } }
+            property: { select: { id: true, name: true, city: true, electricityBilling: true } },
+            electricityBills: { orderBy: { billDate: 'desc' } }
           }
         }
       },
@@ -198,15 +244,35 @@ const getRentCollection = async (req, res, next) => {
     let results = contracts.map((c) => {
       const summary = summarizeContract(c);
       const currentBill = c.bills.find((b) => summary.currentCycle && b.id === summary.currentCycle.billId) || null;
+
+      const hasElectricity = c.room.property.electricityBilling;
+      const allElectricityBills = hasElectricity ? c.room.electricityBills : [];
+      const openElectricityBills = allElectricityBills.filter((b) => b.status !== 'PAID');
+      let electricityCharge = 0;
+      let electricityPaid = 0;
+      if (openElectricityBills.length > 0) {
+        electricityCharge = round2(openElectricityBills.reduce((sum, b) => sum + b.amount, 0));
+        electricityPaid = round2(openElectricityBills.reduce((sum, b) => sum + b.amountPaid, 0));
+      } else if (allElectricityBills.length > 0) {
+        electricityCharge = allElectricityBills[0].amount;
+        electricityPaid = allElectricityBills[0].amountPaid;
+      }
+      const electricityPending = round2(electricityCharge - electricityPaid);
+
       return {
         contractId: c.id,
         tenant: c.tenant,
-        room: c.room,
+        room: { ...c.room, electricityBills: undefined },
         monthlyRent: c.monthlyRent,
         startDate: c.startDate,
         currentCycle: summary.currentCycle,
         currentCyclePayments: currentBill ? currentBill.payments : [],
-        totalPending: summary.totalPending
+        totalPending: summary.totalPending,
+        electricityBilling: hasElectricity,
+        electricityCharge,
+        electricityPaid,
+        electricityPending,
+        grandTotalPending: round2(summary.totalPending + electricityPending)
       };
     });
 
@@ -330,6 +396,8 @@ const getRentOverview = async (req, res, next) => {
 };
 
 module.exports = {
+  getContractById,
+  deleteContract,
   startContract,
   updateContract,
   endContract,
