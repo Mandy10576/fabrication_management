@@ -154,15 +154,19 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
                 </tr>
               ))}
             </tbody>
-            {/* Total Row */}
-            <tfoot>
-              <tr style={{ borderTop: '2px solid #cbd5e1', borderBottom: '2px solid #cbd5e1', fontWeight: '700', fontSize: '11px', color: '#0f172a' }}>
-                <td colSpan={3} style={{ padding: '8px 6px', fontWeight: '800', textTransform: 'uppercase' }}>Total</td>
-                <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '800' }}></td>
-                <td colSpan={2}></td>
-                <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '800', fontSize: '13px' }}>{Number(invoice.subtotal).toFixed(2)}</td>
-              </tr>
-            </tfoot>
+            {/* Total Row — skipped for NON_GST invoices, where it would just
+                repeat the same figure as the Total banner below (no tax to
+                separate it from the subtotal). */}
+            {invoice.gstType !== 'NON_GST' && (
+              <tfoot>
+                <tr style={{ borderTop: '2px solid #cbd5e1', borderBottom: '2px solid #cbd5e1', fontWeight: '700', fontSize: '11px', color: '#0f172a' }}>
+                  <td colSpan={3} style={{ padding: '8px 6px', fontWeight: '800', textTransform: 'uppercase' }}>Total</td>
+                  <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '800' }}></td>
+                  <td colSpan={2}></td>
+                  <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: '800', fontSize: '13px' }}>{Number(invoice.subtotal).toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
 
@@ -195,10 +199,12 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
               <td style={{ width: '45%', verticalAlign: 'top' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                   <tbody>
-                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '4px 0', color: '#475569', fontWeight: '500', textAlign: 'left' }}>Sub Total</td>
-                      <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(invoice.subtotal)}</td>
-                    </tr>
+                    {invoice.gstType !== 'NON_GST' && (
+                      <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '4px 0', color: '#475569', fontWeight: '500', textAlign: 'left' }}>Sub Total</td>
+                        <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>{formatCurrency(invoice.subtotal)}</td>
+                      </tr>
+                    )}
 
                     {invoice.discount > 0 && (
                       <tr style={{ borderBottom: '1px solid #f1f5f9' }}>

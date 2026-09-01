@@ -432,13 +432,15 @@ const InvoicePDFDocument = ({ invoice, company }) => {
         ),
 
         // Footer Total Row (Qty is left blank — summing quantities across
-        // mismatched units, e.g. sq ft + kg, produces a meaningless number)
-        React.createElement(View, { style: styles.tableFooterRow },
+        // mismatched units, e.g. sq ft + kg, produces a meaningless number).
+        // Skipped for NON_GST invoices — with no tax added, this would just
+        // repeat the same figure as the Total banner below.
+        invoice.gstType !== 'NON_GST' ? React.createElement(View, { style: styles.tableFooterRow },
           React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, { width: '58%' }] }, 'TOTAL'),
           React.createElement(Text, { style: [styles.tableCell, styles.colQty] }, ''),
           React.createElement(Text, { style: [styles.tableCell, { width: '21%' }] }, ''),
           React.createElement(Text, { style: [styles.tableCell, styles.tableCellBold, styles.colAmt] }, Number(invoice.subtotal).toFixed(2))
-        )
+        ) : null
       ),
 
       // Summary Section
@@ -458,10 +460,12 @@ const InvoicePDFDocument = ({ invoice, company }) => {
 
         // Right Column (Totals)
         React.createElement(View, { style: styles.summaryRight },
-          React.createElement(View, { style: styles.calcRow },
+          // Same reasoning as the footer row above — redundant with Total
+          // when there's no tax to separate it from the subtotal.
+          invoice.gstType !== 'NON_GST' ? React.createElement(View, { style: styles.calcRow },
             React.createElement(Text, { style: styles.metaLabel }, 'Sub Total'),
             React.createElement(Text, { style: styles.metaValue }, formatCurrency(invoice.subtotal))
-          ),
+          ) : null,
 
           invoice.discount > 0 ? React.createElement(View, { style: styles.calcRow },
             React.createElement(Text, { style: styles.metaLabel }, 'Discount'),
