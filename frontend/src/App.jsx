@@ -41,7 +41,6 @@ const RentContractDetail = lazy(() => import('./pages/RentContractDetail').then(
 const RentTenants = lazy(() => import('./pages/RentTenants').then(m => ({ default: m.RentTenants })));
 const RentBills = lazy(() => import('./pages/RentBills').then(m => ({ default: m.RentBills })));
 const RentCollection = lazy(() => import('./pages/RentCollection').then(m => ({ default: m.RentCollection })));
-const RentElectricity = lazy(() => import('./pages/RentElectricity').then(m => ({ default: m.RentElectricity })));
 const RentReports = lazy(() => import('./pages/RentReports').then(m => ({ default: m.RentReports })));
 
 /**
@@ -147,7 +146,6 @@ const ProtectedLayout = () => {
                 <Route path="/rent/tenants" element={<RentTenants />} />
                 <Route path="/rent/bills" element={<RentBills />} />
                 <Route path="/rent/collection" element={<RentCollection />} />
-                <Route path="/rent/electricity" element={<RentElectricity />} />
                 <Route path="/rent/reports" element={<RentReports />} />
                 <Route path="/company" element={<CompanySettings />} />
                 <Route path="/backup" element={<BackupRestore />} />

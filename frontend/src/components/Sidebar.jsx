@@ -39,7 +39,6 @@ import {
   ListChecks,
   KeyRound,
   MapPin,
-  Zap,
   Receipt,
 } from 'lucide-react';
 
@@ -87,7 +86,6 @@ const NAV_GROUPS = [
           { label: 'Tenants', path: '/rent/tenants', icon: Users },
           { label: 'Bills', path: '/rent/bills', icon: Receipt },
           { label: 'Rent Collection', path: '/rent/collection', icon: Wallet },
-          { label: 'Electricity', path: '/rent/electricity', icon: Zap },
           { label: 'Reports', path: '/rent/reports', icon: BarChart3 },
         ],
       },
@@ -122,7 +120,6 @@ const prefetch = (path) => {
     else if (path === '/rent/tenants') api.get('/rent/tenants?search=');
     else if (path === '/rent/bills') api.get('/rent/bills');
     else if (path === '/rent/collection') api.get('/rent/collection?status=ALL&search=');
-    else if (path === '/rent/electricity') api.get('/rent/electricity?status=ALL');
   } catch (e) {}
 };
 
