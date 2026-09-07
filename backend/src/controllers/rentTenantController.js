@@ -143,10 +143,37 @@ const deleteTenantDocument = async (req, res, next) => {
   }
 };
 
+/** Only a tenant with zero contracts (never housed) can be deleted — same
+ * "keep anyone with history permanently" rule as deleteRoom. A tenant who
+ * was ever actually housed stays in the directory forever, tied to their
+ * rent/payment history. */
+const deleteTenant = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.rentTenant.findUnique({
+      where: { id },
+      include: { _count: { select: { contracts: true } } }
+    });
+    if (!existing) return res.status(404).json({ error: 'Tenant not found or already deleted' });
+
+    if (existing._count.contracts > 0) {
+      return res.status(400).json({
+        error: `Cannot delete '${existing.name}' because they have contract history. Tenants who have ever been housed are kept permanently.`
+      });
+    }
+
+    await prisma.rentTenant.delete({ where: { id } });
+    res.json({ message: 'Tenant deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTenants,
   createTenant,
   updateTenant,
   uploadTenantDocuments,
-  deleteTenantDocument
+  deleteTenantDocument,
+  deleteTenant
 };

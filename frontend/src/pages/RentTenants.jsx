@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { useToast } from '../context/ToastContext';
+import { useToast, useConfirm } from '../context/ToastContext';
 import { Modal } from '../components/ui/Modal';
-import { Users, Search, Plus, Phone, MapPin, DoorOpen, Edit2, AlertCircle } from 'lucide-react';
+import { Users, Search, Plus, Phone, MapPin, DoorOpen, Edit2, Trash2, AlertCircle } from 'lucide-react';
 
 const EMPTY_FORM = {
   name: '', mobile: '', alternatePhone: '', email: '', dob: '', emergencyContactName: '', emergencyContactPhone: '',
@@ -12,6 +12,7 @@ const EMPTY_FORM = {
 
 export const RentTenants = () => {
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +64,22 @@ export const RentTenants = () => {
     });
     setError('');
     setShowModal(true);
+  };
+
+  const handleDelete = async (tenant) => {
+    const ok = await confirm({
+      title: `Delete ${tenant.name}?`,
+      message: 'This permanently removes the tenant and their uploaded documents from the directory. Only tenants who have never been housed can be deleted.',
+      confirmText: 'Delete tenant'
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/rent/tenants/${tenant.id}`);
+      toast.success(`${tenant.name} deleted`);
+      fetchTenants();
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete tenant');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -168,6 +185,16 @@ export const RentTenants = () => {
                     <button onClick={() => handleOpenEdit(tenant)} className="btn-icon btn-icon-soft" aria-label={`Edit ${tenant.name}`}>
                       <Edit2 className="w-4 h-4" />
                     </button>
+                    {!active && (
+                      <button
+                        onClick={() => handleDelete(tenant)}
+                        className="btn-icon btn-icon-soft hover:text-rose-500"
+                        aria-label={`Delete ${tenant.name}`}
+                        title="Delete tenant"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </li>
               );
