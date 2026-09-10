@@ -138,6 +138,19 @@ export const RentRoomDetail = () => {
   const [billPaySaving, setBillPaySaving] = useState(false);
   const [billPayError, setBillPayError] = useState('');
 
+  // Per-bill Record Payment for one specific rent cycle's bill (from the
+  // Bills list below) — same pattern as the electricity per-bill modal
+  // above, so any bill (current cycle or an older unpaid one) can be paid
+  // directly, not just via the "oldest pending cycle" combined-payment
+  // shortcut. Goes through the same combined-payments endpoint the rest of
+  // rent collection uses, so it shows up on Rent Collection automatically.
+  const [showRentBillPaymentModal, setShowRentBillPaymentModal] = useState(false);
+  const [payingRentBill, setPayingRentBill] = useState(null);
+  const [rentBillPaymentForm, setRentBillPaymentForm] = useState(emptyBillPaymentForm(0));
+  const [editingRentBillPaymentId, setEditingRentBillPaymentId] = useState(null);
+  const [rentBillPaySaving, setRentBillPaySaving] = useState(false);
+  const [rentBillPayError, setRentBillPayError] = useState('');
+
   const fetchRoom = async () => {
     try {
       setLoading(true);
@@ -664,6 +677,100 @@ export const RentRoomDetail = () => {
     }
   };
 
+  // -------------------------------------------------------------------------
+  // Per-bill rent payment — same pattern as the electricity per-bill modal
+  // above, but for one specific cycle's rent bill from the Bills list.
+  // -------------------------------------------------------------------------
+
+  const handleOpenRentBillPayment = (cycle) => {
+    setPayingRentBill(cycle);
+    setEditingRentBillPaymentId(null);
+    setRentBillPaymentForm(emptyBillPaymentForm(cycle.pending));
+    setRentBillPayError('');
+    setShowRentBillPaymentModal(true);
+  };
+
+  const handleEditRentBillPaymentRow = (p) => {
+    setEditingRentBillPaymentId(p.id);
+    setRentBillPaymentForm({
+      amount: p.amount,
+      paymentDate: p.paymentDate ? p.paymentDate.split('T')[0] : today(),
+      paymentMode: p.paymentMode,
+      referenceNo: p.referenceNo || '',
+      notes: p.notes || ''
+    });
+    setRentBillPayError('');
+  };
+
+  const handleCancelEditRentBillPaymentRow = () => {
+    setEditingRentBillPaymentId(null);
+    setRentBillPaymentForm(emptyBillPaymentForm(payingRentBill?.pending || 0));
+    setRentBillPayError('');
+  };
+
+  const refreshPayingRentBill = async (billId) => {
+    const fresh = await fetchRoom();
+    const updatedCycle = fresh?.currentContract?.summary?.cycles?.find((c) => c.billId === billId) || null;
+    setPayingRentBill(updatedCycle);
+    return updatedCycle;
+  };
+
+  const handleSubmitRentBillPayment = async (e) => {
+    e.preventDefault();
+    setRentBillPayError('');
+    try {
+      setRentBillPaySaving(true);
+      if (editingRentBillPaymentId) {
+        await api.put(`/rent/bills/${payingRentBill.billId}/payments/${editingRentBillPaymentId}`, rentBillPaymentForm);
+        toast.success('Payment updated');
+      } else {
+        const amt = parseFloat(rentBillPaymentForm.amount) || 0;
+        if (amt <= 0) {
+          setRentBillPayError('Enter a payment amount.');
+          setRentBillPaySaving(false);
+          return;
+        }
+        // Goes through the same combined-payments endpoint the rest of rent
+        // collection uses (with electricityAmount fixed at 0), so this
+        // payment lands on the exact same ledger Rent Collection reads from
+        // — no separate write path to keep in sync.
+        await api.post(`/rent/contracts/${room.currentContract.id}/combined-payments`, {
+          rentAmount: rentBillPaymentForm.amount,
+          rentBillId: payingRentBill.billId,
+          electricityAmount: 0,
+          paymentDate: rentBillPaymentForm.paymentDate,
+          paymentMode: rentBillPaymentForm.paymentMode,
+          referenceNo: rentBillPaymentForm.referenceNo,
+          notes: rentBillPaymentForm.notes
+        });
+        toast.success('Payment recorded');
+      }
+      const updated = await refreshPayingRentBill(payingRentBill.billId);
+      setEditingRentBillPaymentId(null);
+      setRentBillPaymentForm(emptyBillPaymentForm(updated?.pending || 0));
+    } catch (err) {
+      setRentBillPayError(err.message || 'Failed to save payment');
+    } finally {
+      setRentBillPaySaving(false);
+    }
+  };
+
+  const handleDeleteRentBillPaymentRow = async (p) => {
+    const ok = await confirm({ title: 'Delete this payment?', message: 'This removes the payment record and recalculates the bill balance.', confirmText: 'Delete payment' });
+    if (!ok) return;
+    try {
+      await api.delete(`/rent/bills/${payingRentBill.billId}/payments/${p.id}`);
+      toast.success('Payment deleted');
+      const updated = await refreshPayingRentBill(payingRentBill.billId);
+      if (editingRentBillPaymentId === p.id) {
+        setEditingRentBillPaymentId(null);
+        setRentBillPaymentForm(emptyBillPaymentForm(updated?.pending || 0));
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete payment');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-6" role="status" aria-label="Loading room">
@@ -691,6 +798,11 @@ export const RentRoomDetail = () => {
     ? currentContract.summary.cycles
         .flatMap((c) => (currentContract.bills?.find((b) => b.id === c.billId)?.payments || []).map((p) => ({ ...p, billId: c.billId })))
         .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
+    : [];
+  // Cycle objects from summary.cycles don't carry their own payments array —
+  // look them up from the raw bills (which do) for the per-bill modal below.
+  const payingRentBillPayments = payingRentBill
+    ? currentContract?.bills?.find((b) => b.id === payingRentBill.billId)?.payments || []
     : [];
 
   return (
@@ -938,6 +1050,9 @@ export const RentRoomDetail = () => {
                         <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Settled</span>
                       )}
                       <span className={`badge ${getStatusBadgeClass(c.status)}`}>{c.status}</span>
+                      <button onClick={() => handleOpenRentBillPayment(c)} className="btn-icon w-7 h-7 text-slate-400 hover:text-emerald-500" aria-label="Record payment" title={c.pending > 0 ? 'Record payment' : 'View payments'}>
+                        <Wallet className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -2012,6 +2127,144 @@ export const RentRoomDetail = () => {
                 <div>
                   <label htmlFor="bp-notes" className="label">Notes</label>
                   <textarea id="bp-notes" rows={2} placeholder="Optional" value={billPaymentForm.notes} onChange={(e) => setBillPaymentForm((p) => ({ ...p, notes: e.target.value }))} className="textarea" />
+                </div>
+              </form>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Per-bill rent payment modal — opened from the Wallet icon on a
+          specific cycle in the Bills list above. Same ledger as Rent
+          Collection's "Record Payment", so a payment made here shows up
+          there immediately on next load — same backend, same tables. */}
+      <Modal
+        open={showRentBillPaymentModal}
+        onClose={() => setShowRentBillPaymentModal(false)}
+        title="Record Payment"
+        icon={Wallet}
+        footer={
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <button type="button" onClick={() => setShowRentBillPaymentModal(false)} className="btn btn-secondary sm:min-w-[7rem]">Close</button>
+            {payingRentBill && (round2(payingRentBill.pending) > 0.01 || editingRentBillPaymentId) && (
+              <button type="submit" form="rent-bill-payment-form" disabled={rentBillPaySaving} className="btn btn-primary sm:min-w-[9rem]">
+                {rentBillPaySaving ? 'Saving…' : editingRentBillPaymentId ? 'Update Payment' : 'Record Payment'}
+              </button>
+            )}
+          </div>
+        }
+      >
+        {payingRentBill && (
+          <div className="space-y-5">
+            <p className="text-xs text-slate-500 dark:text-slate-400">{cycleLabel(payingRentBill)}</p>
+
+            <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Expected</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{formatCurrency(payingRentBill.expected)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Paid</div>
+                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(payingRentBill.paid)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase text-slate-400">Pending</div>
+                <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-0.5">{formatCurrency(payingRentBill.pending)}</div>
+              </div>
+            </div>
+
+            {payingRentBillPayments.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400 mb-2">
+                  <Receipt className="w-3.5 h-3.5" />
+                  Payments Recorded
+                </div>
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
+                  {payingRentBillPayments.map((p) => (
+                    <li key={p.id} className={`p-3 flex items-center justify-between gap-3 ${editingRentBillPaymentId === p.id ? 'bg-brand-50 dark:bg-brand-950/30' : ''}`}>
+                      <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(p.amount)}</div>
+                        {formatDate(p.paymentDate)} · {p.paymentMode.replace('_', ' ')}
+                        {p.referenceNo && <span> · Ref: {p.referenceNo}</span>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => handleEditRentBillPaymentRow(p)} className="btn-icon w-7 h-7 text-slate-400 hover:text-brand-500" aria-label="Edit payment" title="Correct payment">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => handleDeleteRentBillPaymentRow(p)} className="btn-icon w-7 h-7 text-slate-400 hover:text-rose-500" aria-label="Delete payment">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {rentBillPayError && (
+              <div role="alert" className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-sm flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="min-w-0 break-words">{rentBillPayError}</span>
+              </div>
+            )}
+
+            {round2(payingRentBill.pending) <= 0.01 && !editingRentBillPaymentId ? (
+              <p className="text-sm text-slate-400 text-center py-2">This bill is fully paid. Edit or delete a payment above to make changes.</p>
+            ) : (
+              <form id="rent-bill-payment-form" onSubmit={handleSubmitRentBillPayment} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400">
+                    <Wallet className="w-3.5 h-3.5" />
+                    {editingRentBillPaymentId ? 'Edit Payment' : 'New Payment'}
+                  </div>
+                  {editingRentBillPaymentId && (
+                    <button type="button" onClick={handleCancelEditRentBillPaymentRow} className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1">
+                      <X className="w-3 h-3" />
+                      Cancel edit
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="rbp-amount" className="label">Amount *</label>
+                    <input
+                      id="rbp-amount"
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      required
+                      value={rentBillPaymentForm.amount}
+                      onChange={(e) => setRentBillPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+                      className="input font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="rbp-date" className="label">Payment Date</label>
+                    <input
+                      id="rbp-date"
+                      type="date"
+                      value={rentBillPaymentForm.paymentDate}
+                      onChange={(e) => setRentBillPaymentForm((p) => ({ ...p, paymentDate: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="rbp-mode" className="label">Payment Mode</label>
+                    <SearchableSelect id="rbp-mode" mode="button" value={rentBillPaymentForm.paymentMode} options={PAYMENT_MODE_OPTIONS} onSelect={(opt) => setRentBillPaymentForm((p) => ({ ...p, paymentMode: opt.value }))} />
+                  </div>
+                  <div>
+                    <label htmlFor="rbp-ref" className="label">Reference No.</label>
+                    <input id="rbp-ref" type="text" placeholder="Optional" value={rentBillPaymentForm.referenceNo} onChange={(e) => setRentBillPaymentForm((p) => ({ ...p, referenceNo: e.target.value }))} className="input" />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="rbp-notes" className="label">Notes</label>
+                  <textarea id="rbp-notes" rows={2} placeholder="Optional" value={rentBillPaymentForm.notes} onChange={(e) => setRentBillPaymentForm((p) => ({ ...p, notes: e.target.value }))} className="textarea" />
                 </div>
               </form>
             )}

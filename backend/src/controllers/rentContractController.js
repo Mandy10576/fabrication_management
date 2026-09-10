@@ -259,6 +259,13 @@ const getRentCollection = async (req, res, next) => {
       }
       const electricityPending = round2(electricityCharge - electricityPaid);
 
+      // The table's Rent/Paid/Status columns all describe the *current* cycle
+      // only, while totalPending sums every unpaid cycle. Splitting the two
+      // out means the row can explain a "PAID this cycle but still owes"
+      // case instead of looking self-contradictory.
+      const currentCyclePending = summary.currentCycle?.pending || 0;
+      const rentArrears = round2(Math.max(0, summary.totalPending - currentCyclePending));
+
       return {
         contractId: c.id,
         tenant: c.tenant,
@@ -268,6 +275,8 @@ const getRentCollection = async (req, res, next) => {
         currentCycle: summary.currentCycle,
         currentCyclePayments: currentBill ? currentBill.payments : [],
         totalPending: summary.totalPending,
+        currentCyclePending,
+        rentArrears,
         electricityBilling: hasElectricity,
         electricityCharge,
         electricityPaid,

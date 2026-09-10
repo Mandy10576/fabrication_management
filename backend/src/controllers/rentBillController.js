@@ -148,24 +148,29 @@ const generateBills = async (req, res, next) => {
 // Bills (list/detail)
 // ---------------------------------------------------------------------------
 
+const BILL_SORTS = {
+  cycle_desc: { cycleStart: 'desc' },
+  cycle_asc: { cycleStart: 'asc' },
+  tenant_asc: { contract: { tenant: { name: 'asc' } } },
+  tenant_desc: { contract: { tenant: { name: 'desc' } } },
+  status_asc: { status: 'asc' },
+  due_desc: { cycleStart: 'desc' },
+  due_asc: { cycleStart: 'desc' }
+};
+
 const getBills = async (req, res, next) => {
   try {
-    const { propertyId, status, search, month } = req.query;
+    const { propertyId, status, search, month, sort } = req.query;
 
     const where = {};
     if (status && status !== 'ALL') where.status = status;
-    if (propertyId || search) {
-      where.contract = {
-        room: {
-          ...(propertyId ? { propertyId } : {}),
-          ...(search ? { roomNumber: { contains: search, mode: 'insensitive' } } : {})
-        }
-      };
-    }
+    if (propertyId) where.contract = { room: { propertyId } };
     if (search) {
       where.OR = [
         { contract: { tenant: { name: { contains: search, mode: 'insensitive' } } } },
-        { contract: { room: { roomNumber: { contains: search, mode: 'insensitive' } } } }
+        { contract: { tenant: { mobile: { contains: search, mode: 'insensitive' } } } },
+        { contract: { room: { roomNumber: { contains: search, mode: 'insensitive' } } } },
+        { contract: { room: { property: { name: { contains: search, mode: 'insensitive' } } } } }
       ];
     }
     if (month) {
@@ -192,10 +197,15 @@ const getBills = async (req, res, next) => {
         },
         payments: { orderBy: { paymentDate: 'desc' } }
       },
-      orderBy: { cycleStart: 'desc' }
+      orderBy: BILL_SORTS[sort] || BILL_SORTS.cycle_desc
     });
 
-    res.json(bills.map((b) => ({ ...b, amountDue: Math.max(0, round2(b.rentAmount + b.lateFeeApplied + b.miscAmount - b.discountAmount - b.amountPaid)) })));
+    const result = bills.map((b) => ({ ...b, amountDue: Math.max(0, round2(b.rentAmount + b.lateFeeApplied + b.miscAmount - b.discountAmount - b.amountPaid)) }));
+    // amountDue is derived after the query, so it can't be an orderBy.
+    if (sort === 'due_desc') result.sort((a, b) => b.amountDue - a.amountDue);
+    else if (sort === 'due_asc') result.sort((a, b) => a.amountDue - b.amountDue);
+
+    res.json(result);
   } catch (error) {
     next(error);
   }

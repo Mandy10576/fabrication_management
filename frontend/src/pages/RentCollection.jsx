@@ -46,14 +46,30 @@ export const RentCollection = () => {
   const [status, setStatus] = useState('ALL');
   const [propertyId, setPropertyId] = useState('');
 
-  // Record Payment — full ledger for a contract's current cycle (add/edit/
-  // delete individual payments), same pattern as the Electricity module.
+  // Record Payment — full ledger for a contract (add/edit/delete individual
+  // payments), same pattern as the Electricity module. `cycleOptions` holds
+  // every one of the contract's bills (current cycle plus any older unpaid
+  // arrears), so a payment can be recorded against whichever one the tenant
+  // is actually paying off, not just the current cycle.
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeRow, setActiveRow] = useState(null);
   const [paymentForm, setPaymentForm] = useState(emptyPaymentForm(0));
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [cycleOptions, setCycleOptions] = useState([]);
+  const [selectedBillId, setSelectedBillId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const selectedCycle = cycleOptions.find((c) => c.billId === selectedBillId) || null;
+  const oldestUnpaidFirst = (cycles) => [...cycles].filter((c) => c.pending > 0.01).sort((a, b) => new Date(a.cycleStart) - new Date(b.cycleStart));
+
+  const loadContractCycles = async (contractId) => {
+    const contract = await api.get(`/rent/contracts/${contractId}`);
+    return contract.summary.cycles.map((c) => ({
+      ...c,
+      payments: contract.bills.find((b) => b.id === c.billId)?.payments || []
+    }));
+  };
 
   const fetchRows = async () => {
     try {
@@ -80,36 +96,68 @@ export const RentCollection = () => {
     api.get('/rent/properties/all').then(setProperties).catch(() => {});
   }, []);
 
-  const handleOpenPayment = (row) => {
+  const handleOpenPayment = async (row) => {
     setActiveRow(row);
     setEditingPaymentId(null);
-    setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0, row.electricityPending || 0));
     setError('');
+    setCycleOptions([]);
+    setSelectedBillId(null);
     setShowPaymentModal(true);
+    try {
+      const cycles = await loadContractCycles(row.contractId);
+      setCycleOptions(cycles);
+      // Default to the oldest unpaid cycle — that's the arrears the tenant
+      // should be clearing first — falling back to the current cycle (or
+      // its most recent bill) when everything is already settled.
+      const defaultCycle = oldestUnpaidFirst(cycles)[0] || cycles[0] || null;
+      setSelectedBillId(defaultCycle?.billId || null);
+      setPaymentForm(emptyPaymentForm(defaultCycle?.pending || 0, row.electricityPending || 0));
+    } catch (err) {
+      toast.error(err.message || 'Failed to load billing cycles');
+    }
   };
 
   // Row-level "Edit" — jumps straight into correcting the most recent
-  // payment for this cycle, instead of landing on the blank add-payment
-  // form the Wallet action opens.
-  const handleOpenEditLatest = (row) => {
+  // payment for the current cycle, instead of landing on the blank
+  // add-payment form the Wallet action opens.
+  const handleOpenEditLatest = async (row) => {
     setActiveRow(row);
     setError('');
-    const latest = row.currentCyclePayments && row.currentCyclePayments[0];
-    if (latest) {
-      setEditingPaymentId(latest.id);
-      setPaymentForm({
-        amount: latest.amount,
-        electricityAmount: '',
-        paymentDate: latest.paymentDate ? latest.paymentDate.split('T')[0] : today(),
-        paymentMode: latest.paymentMode,
-        referenceNo: latest.referenceNo || '',
-        notes: latest.notes || ''
-      });
-    } else {
-      setEditingPaymentId(null);
-      setPaymentForm(emptyPaymentForm(row.currentCycle?.pending || 0, row.electricityPending || 0));
-    }
+    setCycleOptions([]);
+    setSelectedBillId(null);
     setShowPaymentModal(true);
+    try {
+      const cycles = await loadContractCycles(row.contractId);
+      setCycleOptions(cycles);
+      const currentCycleId = row.currentCycle?.billId || null;
+      setSelectedBillId(currentCycleId);
+      const currentCycleObj = cycles.find((c) => c.billId === currentCycleId);
+      const latest = currentCycleObj?.payments?.[0];
+      if (latest) {
+        setEditingPaymentId(latest.id);
+        setPaymentForm({
+          amount: latest.amount,
+          electricityAmount: '',
+          paymentDate: latest.paymentDate ? latest.paymentDate.split('T')[0] : today(),
+          paymentMode: latest.paymentMode,
+          referenceNo: latest.referenceNo || '',
+          notes: latest.notes || ''
+        });
+      } else {
+        setEditingPaymentId(null);
+        setPaymentForm(emptyPaymentForm(currentCycleObj?.pending || 0, row.electricityPending || 0));
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to load billing cycles');
+    }
+  };
+
+  const handleSelectCycle = (billId) => {
+    setSelectedBillId(billId);
+    setEditingPaymentId(null);
+    setError('');
+    const c = cycleOptions.find((x) => x.billId === billId);
+    setPaymentForm(emptyPaymentForm(c?.pending || 0, activeRow?.electricityPending || 0));
   };
 
   const handleEditPaymentRow = (p) => {
@@ -127,15 +175,16 @@ export const RentCollection = () => {
 
   const handleCancelEditPaymentRow = () => {
     setEditingPaymentId(null);
-    setPaymentForm(emptyPaymentForm(activeRow?.currentCycle?.pending || 0, activeRow?.electricityPending || 0));
+    setPaymentForm(emptyPaymentForm(selectedCycle?.pending || 0, activeRow?.electricityPending || 0));
     setError('');
   };
 
   const refreshActiveRow = async (contractId) => {
-    const fresh = await fetchRows();
+    const [fresh, cycles] = await Promise.all([fetchRows(), loadContractCycles(contractId)]);
     const updated = fresh.find((r) => r.contractId === contractId) || null;
     setActiveRow(updated);
-    return updated;
+    setCycleOptions(cycles);
+    return { updated, cycles };
   };
 
   const handleSubmitPayment = async (e) => {
@@ -144,7 +193,7 @@ export const RentCollection = () => {
     try {
       setSaving(true);
       if (editingPaymentId) {
-        await api.put(`/rent/bills/${activeRow.currentCycle.billId}/payments/${editingPaymentId}`, paymentForm);
+        await api.put(`/rent/bills/${selectedBillId}/payments/${editingPaymentId}`, paymentForm);
         toast.success('Payment updated');
       } else {
         const rentAmt = parseFloat(paymentForm.amount) || 0;
@@ -156,7 +205,7 @@ export const RentCollection = () => {
         }
         await api.post(`/rent/contracts/${activeRow.contractId}/combined-payments`, {
           rentAmount: paymentForm.amount || 0,
-          rentBillId: activeRow.currentCycle?.billId || null,
+          rentBillId: selectedBillId || null,
           electricityAmount: paymentForm.electricityAmount || 0,
           paymentDate: paymentForm.paymentDate,
           paymentMode: paymentForm.paymentMode,
@@ -165,9 +214,14 @@ export const RentCollection = () => {
         });
         toast.success('Payment recorded');
       }
-      const updated = await refreshActiveRow(activeRow.contractId);
+      const { updated, cycles } = await refreshActiveRow(activeRow.contractId);
       setEditingPaymentId(null);
-      setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0, updated?.electricityPending || 0));
+      // Stay on the same cycle if it still has something pending, otherwise
+      // jump to whatever's oldest and unpaid next.
+      const stillPending = cycles.find((c) => c.billId === selectedBillId && c.pending > 0.01);
+      const nextCycle = stillPending || oldestUnpaidFirst(cycles)[0] || cycles[0] || null;
+      setSelectedBillId(nextCycle?.billId || null);
+      setPaymentForm(emptyPaymentForm(nextCycle?.pending || 0, updated?.electricityPending || 0));
     } catch (err) {
       setError(err.message || 'Failed to save payment');
     } finally {
@@ -179,12 +233,13 @@ export const RentCollection = () => {
     const ok = await confirm({ title: 'Delete this payment?', message: 'This removes the payment record and recalculates pending rent.', confirmText: 'Delete payment' });
     if (!ok) return;
     try {
-      await api.delete(`/rent/bills/${activeRow.currentCycle.billId}/payments/${p.id}`);
+      await api.delete(`/rent/bills/${selectedBillId}/payments/${p.id}`);
       toast.success('Payment deleted');
-      const updated = await refreshActiveRow(activeRow.contractId);
+      const { updated, cycles } = await refreshActiveRow(activeRow.contractId);
       if (editingPaymentId === p.id) {
         setEditingPaymentId(null);
-        setPaymentForm(emptyPaymentForm(updated?.currentCycle?.pending || 0, updated?.electricityPending || 0));
+        const stillCycle = cycles.find((c) => c.billId === selectedBillId) || null;
+        setPaymentForm(emptyPaymentForm(stillCycle?.pending || 0, updated?.electricityPending || 0));
       }
     } catch (err) {
       toast.error(err.message || 'Failed to delete payment');
@@ -192,8 +247,14 @@ export const RentCollection = () => {
   };
 
   const propertyOptions = [{ value: '', label: 'All Properties' }, ...properties.map((p) => ({ value: p.id, label: p.name }))];
+  const cycleSelectOptions = [...cycleOptions]
+    .sort((a, b) => new Date(a.cycleStart) - new Date(b.cycleStart))
+    .map((c) => ({
+      value: c.billId,
+      label: `${cycleLabel(c)} — ${c.pending > 0.01 ? `${formatCurrency(c.pending)} due` : 'Paid'}`
+    }));
   const canSubmitPayment = activeRow && (
-    round2(activeRow.currentCycle?.pending || 0) > 0.01 ||
+    round2(selectedCycle?.pending || 0) > 0.01 ||
     round2(activeRow.electricityPending || 0) > 0.01 ||
     editingPaymentId
   );
@@ -255,12 +316,17 @@ export const RentCollection = () => {
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {row.currentCycle ? cycleLabel(row.currentCycle) : '—'}
                     </div>
-                    {row.grandTotalPending > 0 ? (
+                    {row.grandTotalPending > 0.01 ? (
                       <span className="text-sm font-bold text-rose-600 dark:text-rose-400">{formatCurrency(row.grandTotalPending)} due</span>
                     ) : (
                       <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Settled</span>
                     )}
                   </div>
+                  {row.rentArrears > 0.01 && (
+                    <div className="text-xs text-rose-600 dark:text-rose-400">
+                      Includes {formatCurrency(row.rentArrears)} unpaid from earlier cycles
+                    </div>
+                  )}
                   {row.electricityBilling && row.electricityCharge > 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                       <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -320,10 +386,12 @@ export const RentCollection = () => {
                           <span className="text-slate-300 dark:text-slate-700">—</span>
                         )}
                       </td>
-                      <td className={`text-right font-bold whitespace-nowrap ${row.grandTotalPending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      <td className={`text-right font-bold whitespace-nowrap ${row.grandTotalPending > 0.01 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {formatCurrency(row.grandTotalPending)}
                       </td>
-                      <td className="text-center">{row.currentCycle && <span className={`badge ${getStatusBadgeClass(row.currentCycle.status)}`}>{row.currentCycle.status}</span>}</td>
+                      <td className="text-center">
+                        {row.currentCycle && <span className={`badge ${getStatusBadgeClass(row.currentCycle.status)}`}>{row.currentCycle.status}</span>}
+                      </td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {row.currentCyclePayments?.length > 0 && (
@@ -368,21 +436,39 @@ export const RentCollection = () => {
                 <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
                 {activeRow.room.property.name} · Room {activeRow.room.roomNumber}
               </div>
-              <div className="text-xs text-slate-400 mt-0.5">{activeRow.currentCycle ? cycleLabel(activeRow.currentCycle) : '—'}</div>
             </div>
 
+            {cycleOptions.length > 1 && (
+              <div>
+                <label className="label">Which bill is this payment for?</label>
+                <SearchableSelect
+                  mode="button"
+                  value={selectedBillId}
+                  options={cycleSelectOptions}
+                  onSelect={(opt) => handleSelectCycle(opt.value)}
+                  ariaLabel="Select billing cycle"
+                />
+                {oldestUnpaidFirst(cycleOptions).length > 1 && (
+                  <p className="text-[11px] text-rose-500 dark:text-rose-400 mt-1">
+                    This tenant has {oldestUnpaidFirst(cycleOptions).length} unpaid bills — clearing the oldest first is recommended.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
+              <div className="col-span-3 text-xs text-slate-400 -mb-1">{selectedCycle ? cycleLabel(selectedCycle) : '—'}</div>
               <div>
                 <div className="text-[10px] font-bold uppercase text-slate-400">Rent (Cycle)</div>
-                <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{formatCurrency(activeRow.currentCycle?.expected || activeRow.monthlyRent)}</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{formatCurrency(selectedCycle?.expected ?? activeRow.monthlyRent)}</div>
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase text-slate-400">Paid</div>
-                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(activeRow.currentCycle?.paid || 0)}</div>
+                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(selectedCycle?.paid || 0)}</div>
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase text-slate-400">Pending</div>
-                <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-0.5">{formatCurrency(activeRow.currentCycle?.pending || 0)}</div>
+                <div className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-0.5">{formatCurrency(selectedCycle?.pending || 0)}</div>
               </div>
             </div>
 
@@ -403,14 +489,14 @@ export const RentCollection = () => {
               </div>
             )}
 
-            {activeRow.currentCyclePayments && activeRow.currentCyclePayments.length > 0 && (
+            {selectedCycle?.payments && selectedCycle.payments.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400 mb-2">
                   <Receipt className="w-3.5 h-3.5" />
-                  Payments Recorded This Cycle
+                  Payments Recorded For This Bill
                 </div>
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
-                  {activeRow.currentCyclePayments.map((p) => (
+                  {selectedCycle.payments.map((p) => (
                     <li key={p.id} className={`p-3 flex items-center justify-between gap-3 ${editingPaymentId === p.id ? 'bg-brand-50 dark:bg-brand-950/30' : ''}`}>
                       <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
                         <div className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(p.amount)}</div>

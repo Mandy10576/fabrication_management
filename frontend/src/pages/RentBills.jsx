@@ -14,6 +14,16 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'PAID', label: 'Paid' },
 ];
 
+const SORT_OPTIONS = [
+  { value: 'cycle_desc', label: 'Newest Cycle First' },
+  { value: 'cycle_asc', label: 'Oldest Cycle First' },
+  { value: 'due_desc', label: 'Amount Due: High to Low' },
+  { value: 'due_asc', label: 'Amount Due: Low to High' },
+  { value: 'tenant_asc', label: 'Tenant: A to Z' },
+  { value: 'tenant_desc', label: 'Tenant: Z to A' },
+  { value: 'status_asc', label: 'Status' },
+];
+
 const TABS = [
   { value: 'generate', label: 'Generate' },
   { value: 'all', label: 'All Bills' },
@@ -44,6 +54,11 @@ export const RentBills = () => {
   const [genRoomDetailLoading, setGenRoomDetailLoading] = useState(false);
   const [genPreviousReading, setGenPreviousReading] = useState('');
   const [genCurrentReading, setGenCurrentReading] = useState('');
+  // Whether the tenant's earlier unpaid balance is counted in the summary
+  // total below. The carryover stays on its own earlier bill either way —
+  // this only chooses between "what this bill is worth" and "what the tenant
+  // owes in total" as the headline figure.
+  const [genIncludeCarryover, setGenIncludeCarryover] = useState(true);
 
   // All Bills tab
   const [bills, setBills] = useState([]);
@@ -51,6 +66,7 @@ export const RentBills = () => {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('ALL');
   const [propertyId, setPropertyId] = useState('');
+  const [sort, setSort] = useState('cycle_desc');
   const [downloadingBillId, setDownloadingBillId] = useState(null);
   const [sharingBillId, setSharingBillId] = useState(null);
 
@@ -157,6 +173,7 @@ export const RentBills = () => {
       if (search) params.set('search', search);
       if (status !== 'ALL') params.set('status', status);
       if (propertyId) params.set('propertyId', propertyId);
+      if (sort) params.set('sort', sort);
       const res = await api.get(`/rent/bills?${params.toString()}`);
       setBills(res);
     } catch (err) {
@@ -169,7 +186,7 @@ export const RentBills = () => {
   useEffect(() => {
     if (tab === 'all') fetchBills();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, search, status, propertyId]);
+  }, [tab, search, status, propertyId, sort]);
 
   // After a successful generate, jump to "All Bills" so the new bill is
   // immediately visible — the Generate tab only ever lists contracts, never
@@ -214,10 +231,11 @@ export const RentBills = () => {
   const previewDiscount = parseFloat(genDiscountAmount) || 0;
   const previewMisc = parseFloat(genMiscAmount) || 0;
   const previewPreviousBalance = selectedContract?.totalPending || 0;
+  const carryoverApplied = genIncludeCarryover ? previewPreviousBalance : 0;
   const previewNetDue = round2(
     Math.max(0, previewRent + previewLateFee + previewMisc - previewDiscount)
     + (electricityAmountPreview || 0)
-    + previewPreviousBalance
+    + carryoverApplied
   );
 
   const resetGenerateForm = () => {
@@ -566,13 +584,35 @@ export const RentBills = () => {
                     </div>
                   )}
                   {previewPreviousBalance > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-rose-600 dark:text-rose-400">Previous Balance Carryover</span>
-                      <span className="font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(previewPreviousBalance)}</span>
-                    </div>
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <label htmlFor="gen-include-carryover" className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            id="gen-include-carryover"
+                            type="checkbox"
+                            checked={genIncludeCarryover}
+                            onChange={(e) => setGenIncludeCarryover(e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                          />
+                          <span className={genIncludeCarryover ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 line-through'}>
+                            Previous Balance Carryover
+                          </span>
+                        </label>
+                        <span className={`font-semibold ${genIncludeCarryover ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 line-through'}`}>
+                          {formatCurrency(previewPreviousBalance)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        {genIncludeCarryover
+                          ? 'Total below shows everything this tenant owes. The carryover stays on its own earlier bill — it is not added to this bill.'
+                          : 'Total below shows only this bill. The earlier unpaid balance is still owed on its own bill.'}
+                      </p>
+                    </>
                   )}
                   <div className="flex items-center justify-between pt-2 mt-1.5 border-t border-slate-200 dark:border-slate-800">
-                    <span className="font-bold text-slate-900 dark:text-white">Total Net Due</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {previewPreviousBalance > 0 && genIncludeCarryover ? 'Total Net Due (incl. arrears)' : 'Total Net Due'}
+                    </span>
                     <span className="font-bold text-lg text-brand-600 dark:text-brand-400">{formatCurrency(previewNetDue)}</span>
                   </div>
                 </div>
@@ -610,6 +650,9 @@ export const RentBills = () => {
             </div>
             <div className="sm:w-56">
               <SearchableSelect mode="button" value={propertyId} options={propertyOptions} onSelect={(opt) => setPropertyId(opt.value)} ariaLabel="Filter by property" />
+            </div>
+            <div className="sm:w-56">
+              <SearchableSelect mode="button" value={sort} options={SORT_OPTIONS} onSelect={(opt) => setSort(opt.value)} ariaLabel="Sort bills" />
             </div>
           </div>
 
