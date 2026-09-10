@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { useToast } from '../context/ToastContext';
+import { useToast, useConfirm } from '../context/ToastContext';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
 import { downloadPDF, sharePDF } from '../utils/pdfExport';
-import { Receipt, Search, RefreshCw, Zap, CheckCircle2, Download, Send, Loader2, MapPin, User, Home, ClipboardCheck } from 'lucide-react';
+import { Receipt, Search, RefreshCw, Zap, CheckCircle2, Download, Send, Loader2, MapPin, User, Home, ClipboardCheck, Trash2 } from 'lucide-react';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Bills' },
@@ -33,6 +33,7 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export const RentBills = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const [tab, setTab] = useState('generate');
   const [properties, setProperties] = useState([]);
 
@@ -69,6 +70,7 @@ export const RentBills = () => {
   const [sort, setSort] = useState('cycle_desc');
   const [downloadingBillId, setDownloadingBillId] = useState(null);
   const [sharingBillId, setSharingBillId] = useState(null);
+  const [deletingBillId, setDeletingBillId] = useState(null);
 
   const billPdfFilename = (bill) => `Rent_Bill_${bill.contract.tenant.name.replace(/\s+/g, '_')}_${new Date(bill.cycleStart).toISOString().slice(0, 7)}.pdf`;
 
@@ -180,6 +182,31 @@ export const RentBills = () => {
       toast.error(err.message || 'Failed to load bills');
     } finally {
       setBillsLoading(false);
+    }
+  };
+
+  // Hard delete — permanently removes the bill and any payments recorded
+  // against it, regardless of status (an admin explicitly asked for this to
+  // work even on PAID/PARTIAL bills, e.g. to undo a wrongly generated one).
+  const handleDeleteBill = async (bill) => {
+    const hasPayments = (bill.amountPaid || 0) > 0.01;
+    const ok = await confirm({
+      title: `Delete this bill for ${bill.contract.tenant.name}?`,
+      message: hasPayments
+        ? `This bill has ${formatCurrency(bill.amountPaid)} in recorded payments — deleting it permanently erases those payment records too. This cannot be undone.`
+        : 'This permanently removes the bill. This cannot be undone.',
+      confirmText: hasPayments ? 'Delete bill and its payments' : 'Delete bill'
+    });
+    if (!ok) return;
+    try {
+      setDeletingBillId(bill.id);
+      await api.delete(`/rent/bills/${bill.id}`);
+      toast.success('Bill deleted');
+      fetchBills();
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete bill');
+    } finally {
+      setDeletingBillId(null);
     }
   };
 
@@ -720,6 +747,15 @@ export const RentBills = () => {
                               title="Download PDF"
                             >
                               {downloadingBillId === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBill(b)}
+                              disabled={deletingBillId === b.id}
+                              className="btn-icon btn-icon-soft hover:text-rose-500"
+                              aria-label={`Delete bill for ${b.contract.tenant.name}`}
+                              title="Delete bill"
+                            >
+                              {deletingBillId === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           </div>
                         </td>

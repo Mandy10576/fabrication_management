@@ -18,6 +18,7 @@ const {
   generateBills,
   getBills,
   getBillById,
+  deleteBill,
   addBillPayment,
   updateBillPayment,
   deleteBillPayment,
@@ -60,6 +61,7 @@ router.get('/properties/all', authenticate, getAllProperties);
 router.get('/bills', authenticate, getBills);
 router.post('/bills/generate', authenticate, generateBills);
 router.get('/bills/:id', authenticate, getBillById);
+router.delete('/bills/:id', authenticate, deleteBill);
 router.get('/bills/:id/pdf', authenticate, downloadRentBillPDF);
 router.patch('/bills/:id/charge', authenticate, updateBillCharge);
 router.post('/bills/:id/payments', authenticate, addBillPayment);

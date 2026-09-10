@@ -228,6 +228,24 @@ const getBillById = async (req, res, next) => {
   }
 };
 
+/** Hard delete — permanently removes the bill and every payment recorded
+ * against it (RentBillPayment cascades via the schema's onDelete: Cascade
+ * on RentBill), regardless of status. Unlike deleteContract/deleteTenant
+ * there's no dependent room/contract state to clean up here — a bill is a
+ * leaf record — so this is a straight delete with no side effects. */
+const deleteBill = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.rentBill.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Bill not found or already deleted' });
+
+    await prisma.rentBill.delete({ where: { id } });
+    res.json({ message: 'Bill deleted permanently' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Bill payments
 // ---------------------------------------------------------------------------
@@ -464,6 +482,7 @@ module.exports = {
   generateBills,
   getBills,
   getBillById,
+  deleteBill,
   addBillPayment,
   updateBillPayment,
   deleteBillPayment,
