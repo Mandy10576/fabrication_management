@@ -18,9 +18,16 @@ const getTenants = async (req, res, next) => {
       where,
       orderBy: { name: 'asc' },
       take: 50,
-      include: { contracts: { where: { status: 'ACTIVE' }, select: { id: true, roomId: true } } }
+      include: {
+        contracts: { where: { status: 'ACTIVE' }, select: { id: true, roomId: true } },
+        // Total across every contract ever (not just the active one above) —
+        // the frontend needs this to warn accurately before a delete, since
+        // an ended contract still carries bill/payment history even though
+        // it won't show up as "currently housed".
+        _count: { select: { contracts: true } }
+      }
     });
-    res.json(tenants);
+    res.json(tenants.map((t) => ({ ...t, everHoused: t._count.contracts > 0, _count: undefined })));
   } catch (error) {
     next(error);
   }
@@ -143,27 +150,31 @@ const deleteTenantDocument = async (req, res, next) => {
   }
 };
 
-/** Only a tenant with zero contracts (never housed) can be deleted — same
- * "keep anyone with history permanently" rule as deleteRoom. A tenant who
- * was ever actually housed stays in the directory forever, tied to their
- * rent/payment history. */
+/** Hard delete — permanently removes the tenant and every contract they ever
+ * held, cascading to that contract's bills and payments (RentBill/
+ * RentBillPayment cascade via the schema's onDelete: Cascade on
+ * RentContract, same as deleteContract). Electricity bills/payments billed
+ * under those contracts are kept, just un-linked (their contractId is
+ * nulled by the schema's onDelete: SetNull) — electricity is its own
+ * independent ledger. Any room the tenant currently occupies is freed in
+ * the same transaction. Tenant documents cascade via the schema too. */
 const deleteTenant = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const existing = await prisma.rentTenant.findUnique({
+    const tenant = await prisma.rentTenant.findUnique({
       where: { id },
-      include: { _count: { select: { contracts: true } } }
+      include: { contracts: { select: { id: true, status: true, roomId: true } } }
     });
-    if (!existing) return res.status(404).json({ error: 'Tenant not found or already deleted' });
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found or already deleted' });
 
-    if (existing._count.contracts > 0) {
-      return res.status(400).json({
-        error: `Cannot delete '${existing.name}' because they have contract history. Tenants who have ever been housed are kept permanently.`
-      });
-    }
+    const ops = tenant.contracts.map((c) => prisma.rentContract.delete({ where: { id: c.id } }));
+    tenant.contracts
+      .filter((c) => c.status === 'ACTIVE')
+      .forEach((c) => ops.push(prisma.rentRoom.update({ where: { id: c.roomId }, data: { status: 'VACANT' } })));
+    ops.push(prisma.rentTenant.delete({ where: { id } }));
 
-    await prisma.rentTenant.delete({ where: { id } });
-    res.json({ message: 'Tenant deleted successfully' });
+    await prisma.$transaction(ops);
+    res.json({ message: 'Tenant deleted permanently' });
   } catch (error) {
     next(error);
   }

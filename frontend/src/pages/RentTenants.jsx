@@ -67,10 +67,14 @@ export const RentTenants = () => {
   };
 
   const handleDelete = async (tenant) => {
+    const active = tenant.contracts?.[0] || null;
+    const everHoused = tenant.everHoused;
     const ok = await confirm({
       title: `Delete ${tenant.name}?`,
-      message: 'This permanently removes the tenant and their uploaded documents from the directory. Only tenants who have never been housed can be deleted.',
-      confirmText: 'Delete tenant'
+      message: everHoused
+        ? `This permanently erases ${tenant.name}'s entire history — every contract, rent bill, and payment record — along with their documents. This cannot be undone.${active ? ' Their current room will be freed up.' : ''}`
+        : 'This permanently removes the tenant and their uploaded documents from the directory.',
+      confirmText: everHoused ? 'Delete tenant and all history' : 'Delete tenant'
     });
     if (!ok) return;
     try {
@@ -185,16 +189,14 @@ export const RentTenants = () => {
                     <button onClick={() => handleOpenEdit(tenant)} className="btn-icon btn-icon-soft" aria-label={`Edit ${tenant.name}`}>
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    {!active && (
-                      <button
-                        onClick={() => handleDelete(tenant)}
-                        className="btn-icon btn-icon-soft hover:text-rose-500"
-                        aria-label={`Delete ${tenant.name}`}
-                        title="Delete tenant"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDelete(tenant)}
+                      className="btn-icon btn-icon-soft hover:text-rose-500"
+                      aria-label={`Delete ${tenant.name}`}
+                      title="Delete tenant"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </li>
               );
