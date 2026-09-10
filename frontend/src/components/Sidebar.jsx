@@ -86,7 +86,6 @@ const NAV_GROUPS = [
           { label: 'Tenants', path: '/rent/tenants', icon: Users },
           { label: 'Bills', path: '/rent/bills', icon: Receipt },
           { label: 'Rent Collection', path: '/rent/collection', icon: Wallet },
-          { label: 'Reports', path: '/rent/reports', icon: BarChart3 },
         ],
       },
     ],
