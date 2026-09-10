@@ -385,6 +385,13 @@ model WorkLogPhoto {
 model RentProperty {
   id                 String     @id @default(uuid())
   name               String
+  // Who owns/lets this specific property, and their address. Both fall back
+  // to the company-wide owner name / address (CompanyDetails) on rent
+  // invoices when unset, so multi-landlord setups can bill under the right
+  // name and address per property. landlordAddress is free-form multi-line,
+  // rendered a line at a time like the company address.
+  landlordName       String?
+  landlordAddress    String?
   addressLine1       String
   addressLine2       String?
   city               String

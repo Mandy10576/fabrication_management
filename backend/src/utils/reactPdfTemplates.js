@@ -758,21 +758,21 @@ function getRentBillStyles() {
       body: { paddingHorizontal: 32, paddingTop: 16 },
 
       metaBar: {
-        flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 6, padding: 10, marginBottom: 12,
+        flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 6, padding: 10, marginBottom: 8,
       },
       metaCol: { flex: 1 },
       metaColLabel: { fontSize: 6.5, fontFamily: 'Inter', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 2 },
       metaColValue: { fontSize: 9, fontFamily: 'Inter', fontWeight: 800, color: '#0F172A' },
       metaColValueDue: { fontSize: 9, fontFamily: 'Inter', fontWeight: 800, color: '#B91C1C' },
 
-      detailsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+      detailsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
       detailsCol: { width: '48%' },
       sectionTitle: { fontSize: 7.5, fontFamily: 'Inter', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', marginBottom: 3 },
       entityName: { fontSize: 11, fontFamily: 'Inter', fontWeight: 800, color: '#0F172A', marginBottom: 2 },
       entityText: { fontSize: 8.5, color: '#334155', lineHeight: 1.5 },
 
       billBox: {
-        backgroundColor: '#1D4ED8', borderRadius: 8, padding: 14, marginBottom: 14,
+        backgroundColor: '#1D4ED8', borderRadius: 8, padding: 12, marginBottom: 10,
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       },
       billBoxLabel: { fontSize: 7.5, color: '#BFDBFE', fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 },
@@ -785,9 +785,6 @@ function getRentBillStyles() {
       statusBadge: { fontSize: 7.5, fontWeight: 800, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, textTransform: 'uppercase' },
 
       chargesHeader: { fontSize: 8.5, fontFamily: 'Inter', fontWeight: 700, color: '#0F172A', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 },
-      chargesRow: { flexDirection: 'row' },
-      chargesTable: { flex: 1, marginRight: 12 },
-      chartWrap: { width: 130, alignItems: 'center' },
 
       table: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 4 },
       tableHeadRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
@@ -802,24 +799,27 @@ function getRentBillStyles() {
       balanceLabel: { fontSize: 9.5, color: '#DC2626', fontWeight: 800 },
       balanceValue: { fontSize: 9.5, color: '#DC2626', fontWeight: 800, textAlign: 'right', flex: 1 },
 
-      chartCenterLabel: { fontSize: 6.5, color: '#94A3B8', textAlign: 'center' },
-      chartCenterValue: { fontSize: 9, fontFamily: 'Inter', fontWeight: 800, color: '#0F172A', textAlign: 'center' },
-      legendRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-      legendDot: { width: 6, height: 6, borderRadius: 3, marginRight: 4 },
-      legendText: { fontSize: 7, color: '#334155' },
+      donutSection: { marginTop: 6, alignItems: 'center' },
+      donutCanvas: { position: 'relative' },
+      donutCenterWrap: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+      donutCenterLabel: { fontSize: 7, color: '#94A3B8', textAlign: 'center' },
+      donutCenterValue: { fontSize: 10.5, fontFamily: 'Inter', fontWeight: 800, color: '#0F172A', textAlign: 'center', marginTop: 2 },
+      calloutBox: { position: 'absolute' },
+      calloutAmount: { fontSize: 10, fontFamily: 'Inter', fontWeight: 800, color: '#0F172A' },
+      calloutLabel: { fontSize: 7, color: '#94A3B8', marginTop: 1 },
 
-      wordsBox: { marginTop: 12, fontSize: 8.5, color: '#334155' },
+      wordsBox: { marginTop: 8, fontSize: 8.5, color: '#334155' },
       wordsLabel: { fontSize: 7.5, color: '#64748B', textTransform: 'uppercase', marginBottom: 2 },
 
-      termsBox: { marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+      termsBox: { marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
       termsTitle: { fontSize: 7.5, fontFamily: 'Inter', fontWeight: 700, color: '#0F172A', textTransform: 'uppercase', marginBottom: 3 },
       termsText: { fontSize: 7.5, color: '#64748B', lineHeight: 1.5 },
 
-      signatureRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+      signatureRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
       signatureLabel: { fontSize: 8, fontWeight: 700, color: '#0F172A' },
       signatureSub: { fontSize: 7.5, color: '#64748B', marginTop: 1 },
 
-      footerNote: { marginTop: 18, textAlign: 'center', fontSize: 7.5, color: '#94A3B8' },
+      footerNote: { marginTop: 10, textAlign: 'center', fontSize: 7.5, color: '#94A3B8' },
     });
   }
   return cachedRentBillStyles;
@@ -842,15 +842,28 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
   const tenant = bill.contract?.tenant || {};
   const room = bill.contract?.room || {};
   const property = room.property || {};
+  // Per-property landlord wins, so a portfolio let under different names/
+  // addresses bills correctly; otherwise fall back to the company-wide
+  // owner. Name and address fall back independently — setting only one is
+  // valid (e.g. same landlord, different correspondence address per building).
+  const landlordName = property.landlordName || comp.ownerName || comp.companyName;
+  const landlordAddr = property.landlordAddress ? parseAddress(property.landlordAddress) : compAddr;
 
   const rentAmount = bill.rentAmount || 0;
   const lateFee = bill.lateFeeApplied || 0;
   const miscAmount = bill.miscAmount || 0;
   const miscLabel = bill.miscLabel || 'Miscellaneous';
   const discountAmount = bill.discountAmount || 0;
-  const amountPaid = bill.amountPaid || 0;
-  const subTotal = round2(rentAmount + lateFee + miscAmount);
+  const rentPaid = bill.amountPaid || 0;
+  const electricityAmount = electricityBill?.amount || 0;
+  const electricityPaid = electricityBill?.amountPaid || 0;
+  const subTotal = round2(rentAmount + lateFee + miscAmount + electricityAmount);
+  // The invoice shows one combined figure to the tenant even though rent and
+  // electricity stay two separate ledgers behind the scenes (independent
+  // records, independent payments) — this merge is presentation-only, for
+  // this PDF's Total/Balance Due, and never written back to either ledger.
   const amountDue = Math.max(0, round2(subTotal - discountAmount));
+  const amountPaid = round2(rentPaid + electricityPaid);
   const balanceDue = round2(amountDue - amountPaid);
   const billNo = `RENT-${new Date(bill.cycleStart).getFullYear()}-${String(new Date(bill.cycleStart).getMonth() + 1).padStart(2, '0')}-${bill.id.slice(0, 6).toUpperCase()}`;
   const billingMonth = new Date(bill.cycleStart).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
@@ -860,30 +873,123 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
     PARTIAL: { bg: '#FEF3C7', color: '#B45309' },
     UNPAID: { bg: '#FEE2E2', color: '#B91C1C' }
   };
-  const statusStyle = statusColors[bill.status] || statusColors.UNPAID;
+  // Derived from the combined balance rather than bill.status (which only
+  // ever tracks the rent side) — otherwise a rent-only "PAID" bill would
+  // show that badge while electricity is still outstanding.
+  const displayStatus = balanceDue <= 0.01 ? 'PAID' : amountPaid > 0.01 ? 'PARTIAL' : 'UNPAID';
+  const statusStyle = statusColors[displayStatus] || statusColors.UNPAID;
 
   const chartSegments = [
-    { label: 'Rent', value: rentAmount, color: '#1D4ED8' },
-    { label: 'Late Fee', value: lateFee, color: '#F59E0B' },
-    { label: miscLabel, value: miscAmount, color: '#7C3AED' }
+    { label: 'Rent', value: rentAmount, color: '#1E3A8A' },
+    { label: 'Late Fee', value: lateFee, color: '#2563EB' },
+    { label: miscLabel, value: miscAmount, color: '#3B82F6' },
+    { label: 'Electricity', value: electricityAmount, color: '#93C5FD' }
   ].filter((s) => s.value > 0);
 
-  const { Svg, G, Circle } = getReactPdf();
-  const chartSize = 92, strokeW = 16, radius = (chartSize - strokeW) / 2, circumference = 2 * Math.PI * radius;
+  const { Svg, Circle, Line, Path } = getReactPdf();
   const chartTotal = chartSegments.reduce((s, x) => s + x.value, 0) || 1;
-  let arcOffset = 0;
-  const arcs = chartSegments.map((s, i) => {
-    const dash = (s.value / chartTotal) * circumference;
-    const el = React.createElement(Circle, {
-      key: i, cx: chartSize / 2, cy: chartSize / 2, r: radius,
-      stroke: s.color, strokeWidth: strokeW, fill: 'none',
-      // pdfkit's dash() rejects a zero-length segment (e.g. a single 100%
-      // slice would otherwise produce "circumference 0") — clamp the gap to
-      // a hairline minimum instead.
-      strokeDasharray: `${dash} ${Math.max(circumference - dash, 0.01)}`, strokeDashoffset: -arcOffset,
+
+  // Donut geometry — a thick ring (like an annotated chart callout), with
+  // each populated segment growing a leader line out to its own amount +
+  // label, laid out on whichever side of the ring it naturally points to.
+  // Canvas is sized so every callout box sits fully inside it — the labels
+  // are absolutely positioned siblings of the chart and nothing clips them,
+  // so a box that runs past the top edge would overlap the charges table
+  // sitting above, and one past the side would spill into the page margin.
+  const donutW = 520, donutH = 190;
+  const cx = donutW / 2, cy = donutH / 2;
+  const ringR = 52, strokeW = 22;
+  const ringOuter = ringR + strokeW / 2;
+  const ringInner = ringR - strokeW / 2;
+  const dotR = ringOuter + 4;
+  const kneeR = dotR + 14;
+  const calloutW = 120;
+  // Keeps each label column clear of the canvas edges: box spans
+  // [labelX - 6 - calloutW, labelX - 6] on the left, mirrored on the right.
+  const colOffset = 130;
+
+  // Each slice is drawn as an explicit annulus-sector Path rather than a
+  // dashed circle stroke: a dashed stroke's start point and sweep direction
+  // depend on how the renderer emits the circle, which silently desynced the
+  // slices from the leader lines (and left a visible gap in the ring). Real
+  // wedge geometry means the arcs and the callout angles come from the exact
+  // same math, so they can never drift apart.
+  const polar = (r, angleDeg) => {
+    const a = (angleDeg * Math.PI) / 180;
+    return { x: round2(cx + r * Math.cos(a)), y: round2(cy + r * Math.sin(a)) };
+  };
+
+  let angleCursor = -90; // 12 o'clock
+  const callouts = [];
+  const wedges = [];
+  chartSegments.forEach((s, i) => {
+    const sweep = (s.value / chartTotal) * 360;
+    // Bleed each slice a hair back into the previous one so adjacent fills
+    // can't leave a hairline seam where they meet.
+    const a0 = i === 0 ? angleCursor : angleCursor - 0.4;
+    const a1 = angleCursor + sweep;
+    const mid = angleCursor + sweep / 2;
+    const midRad = (mid * Math.PI) / 180;
+    const side = Math.cos(midRad) >= 0 ? 'right' : 'left';
+
+    callouts.push({
+      key: i, color: s.color, label: s.label, value: s.value, pct: round2((s.value / chartTotal) * 100), side,
+      dot: polar(dotR, mid),
+      knee: polar(kneeR, mid),
+      labelX: side === 'right' ? cx + colOffset : cx - colOffset
     });
-    arcOffset += dash;
-    return el;
+
+    if (chartSegments.length === 1) {
+      // A lone 100% slice has no start/end to draw an arc between — a plain
+      // stroked ring is the whole chart in that case.
+      wedges.push(React.createElement(Circle, {
+        key: i, cx, cy, r: ringR, stroke: s.color, strokeWidth: strokeW, fill: 'none'
+      }));
+    } else {
+      const o0 = polar(ringOuter, a0), o1 = polar(ringOuter, a1);
+      const i1 = polar(ringInner, a1), i0 = polar(ringInner, a0);
+      const largeArc = (a1 - a0) > 180 ? 1 : 0;
+      const d = [
+        `M ${o0.x} ${o0.y}`,
+        `A ${ringOuter} ${ringOuter} 0 ${largeArc} 1 ${o1.x} ${o1.y}`,
+        `L ${i1.x} ${i1.y}`,
+        `A ${ringInner} ${ringInner} 0 ${largeArc} 0 ${i0.x} ${i0.y}`,
+        'Z'
+      ].join(' ');
+      wedges.push(React.createElement(Path, { key: i, d, fill: s.color }));
+    }
+    angleCursor = a1;
+  });
+
+  // Place each label row: start from where its leader line points, then keep
+  // same-side rows from overlapping each other or running off the canvas.
+  // Thin slices bunched near the top would otherwise stack a label above the
+  // chart entirely and collide with the table above it.
+  const LABEL_HALF = 13;
+  const MIN_ROW_GAP = 24;
+  const minRowY = LABEL_HALF + 1;
+  const maxRowY = donutH - LABEL_HALF - 1;
+  // Only rowY moves — the knee stays on its slice's radius so the leader
+  // line always still points at the wedge it belongs to (a vertical
+  // connector bridges the two whenever the row got nudged).
+  const stackDown = (rows, baselineAt) => {
+    let prev = -Infinity;
+    rows.forEach((c, i) => {
+      c.rowY = Math.max(baselineAt(c, i), minRowY, prev + MIN_ROW_GAP);
+      prev = c.rowY;
+    });
+  };
+  ['left', 'right'].forEach((side) => {
+    const onSide = callouts.filter((c) => c.side === side).sort((a, b) => a.knee.y - b.knee.y);
+    if (onSide.length === 0) return;
+    stackDown(onSide, (c) => c.knee.y);
+    // If the stack ran past the bottom, slide the whole column up and
+    // re-space it so the gap survives the shift.
+    const overflow = onSide[onSide.length - 1].rowY - maxRowY;
+    if (overflow > 0) {
+      const shifted = onSide.map((c) => c.rowY - overflow);
+      stackDown(onSide, (_c, i) => shifted[i]);
+    }
   });
 
   return React.createElement(Document, null,
@@ -930,10 +1036,10 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
         React.createElement(View, { style: styles.detailsGrid },
           React.createElement(View, { style: styles.detailsCol },
             React.createElement(Text, { style: styles.sectionTitle }, 'LANDLORD DETAILS'),
-            React.createElement(Text, { style: styles.entityName }, comp.ownerName || comp.companyName),
+            React.createElement(Text, { style: styles.entityName }, landlordName),
             React.createElement(View, { style: styles.entityText },
               comp.phone ? React.createElement(Text, null, `Phone: ${comp.phone}`) : null,
-              ...compAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line))
+              ...landlordAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line))
             )
           ),
           React.createElement(View, { style: styles.detailsCol },
@@ -959,14 +1065,13 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
               React.createElement(Text, { style: styles.dueBoxLabel }, 'Due by'),
               React.createElement(Text, { style: styles.dueBoxValue }, formatDate(bill.dueDate))
             ),
-            React.createElement(Text, { style: [styles.statusBadge, { backgroundColor: statusStyle.bg, color: statusStyle.color }] }, bill.status)
+            React.createElement(Text, { style: [styles.statusBadge, { backgroundColor: statusStyle.bg, color: statusStyle.color }] }, displayStatus)
           )
         ),
 
-        // Charges + donut chart
+        // Charges table
         React.createElement(Text, { style: styles.chargesHeader }, 'Charges & Bill Components'),
-        React.createElement(View, { style: styles.chargesRow },
-          React.createElement(View, { style: styles.chargesTable },
+        React.createElement(View, null,
             React.createElement(View, { style: styles.table },
               React.createElement(View, { style: styles.tableHeadRow },
                 React.createElement(Text, { style: styles.tableHeadLabel }, 'Description'),
@@ -984,10 +1089,14 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
                 React.createElement(Text, { style: styles.tableLabel }, miscLabel),
                 React.createElement(Text, { style: styles.tableValue }, formatCurrency(miscAmount))
               ) : null,
-              React.createElement(View, { style: styles.tableRow },
-                React.createElement(Text, { style: styles.totalLabel }, 'Sub Total'),
-                React.createElement(Text, { style: styles.totalValue }, formatCurrency(subTotal))
-              ),
+              // Electricity is billed and paid through its own separate
+              // ledger behind the scenes, but on this invoice it's just
+              // another charge line feeding the same Total/Balance Due as
+              // rent and misc — the tenant sees one number to pay.
+              electricityBill ? React.createElement(View, { style: styles.tableRow },
+                React.createElement(Text, { style: styles.tableLabel }, `Electricity (${electricityBill.previousReading ?? '-'} to ${electricityBill.currentReading ?? '-'}, ${electricityBill.unitsConsumed} units @ Rs. ${electricityBill.ratePerUnit}/unit)`),
+                React.createElement(Text, { style: styles.tableValue }, formatCurrency(electricityAmount))
+              ) : null,
               discountAmount > 0 ? React.createElement(View, { style: styles.tableRow },
                 React.createElement(Text, { style: styles.tableLabel }, 'Discount'),
                 React.createElement(Text, { style: [styles.tableValue, { color: '#16A34A' }] }, `- ${formatCurrency(discountAmount)}`)
@@ -1005,36 +1114,50 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
                 React.createElement(Text, { style: styles.balanceValue }, formatCurrency(balanceDue))
               )
             )
-          ),
-          React.createElement(View, { style: styles.chartWrap },
-            React.createElement(Svg, { width: chartSize, height: chartSize, viewBox: `0 0 ${chartSize} ${chartSize}` },
-              React.createElement(G, { transform: `rotate(-90 ${chartSize / 2} ${chartSize / 2})` }, ...arcs)
-            ),
-            ...chartSegments.map((s, i) => React.createElement(View, { key: i, style: styles.legendRow },
-              React.createElement(View, { style: [styles.legendDot, { backgroundColor: s.color }] }),
-              React.createElement(Text, { style: styles.legendText }, `${s.label}: ${formatCurrency(s.value)}`)
-            ))
-          )
         ),
 
-        // Electricity — informational only, kept out of the rent totals above
-        // (rent and electricity stay separate ledgers; this is just shown
-        // for reference on the same PDF when a matching reading exists).
-        electricityBill ? React.createElement(View, { style: { marginTop: 12 } },
-          React.createElement(Text, { style: styles.chargesHeader }, 'Electricity Charges (Informational)'),
-          React.createElement(View, { style: styles.table },
-            React.createElement(View, { style: styles.tableRow },
-              React.createElement(Text, { style: styles.tableLabel }, 'Meter Reading'),
-              React.createElement(Text, { style: styles.tableValue }, `${electricityBill.previousReading ?? '-'} → ${electricityBill.currentReading ?? '-'} units`)
+        // Donut chart — a big ring with a leader line + amount/label/percent
+        // callout fanning out from each populated segment, and the combined
+        // total shown in the center hole.
+        chartSegments.length > 0 ? React.createElement(View, { style: styles.donutSection },
+          React.createElement(View, { style: [styles.donutCanvas, { width: donutW, height: donutH }] },
+            React.createElement(Svg, { width: donutW, height: donutH, viewBox: `0 0 ${donutW} ${donutH}` },
+              ...wedges,
+              ...callouts.map((c) => ([
+                React.createElement(Line, {
+                  key: `l1-${c.key}`, x1: c.dot.x, y1: c.dot.y, x2: c.knee.x, y2: c.knee.y,
+                  stroke: c.color, strokeWidth: 1, strokeDasharray: '2,2'
+                }),
+                React.createElement(Line, {
+                  key: `l2-${c.key}`, x1: c.knee.x, y1: c.rowY, x2: c.labelX, y2: c.rowY,
+                  stroke: c.color, strokeWidth: 1, strokeDasharray: '2,2'
+                }),
+                c.knee.y !== c.rowY ? React.createElement(Line, {
+                  key: `l3-${c.key}`, x1: c.knee.x, y1: c.knee.y, x2: c.knee.x, y2: c.rowY,
+                  stroke: c.color, strokeWidth: 1, strokeDasharray: '2,2'
+                }) : null,
+                React.createElement(Circle, { key: `d-${c.key}`, cx: c.dot.x, cy: c.dot.y, r: 3, fill: c.color })
+              ]))
             ),
-            React.createElement(View, { style: styles.tableRow },
-              React.createElement(Text, { style: styles.tableLabel }, `Units Consumed @ ₹${electricityBill.ratePerUnit}/unit`),
-              React.createElement(Text, { style: styles.tableValue }, `${electricityBill.unitsConsumed} units`)
+            React.createElement(View, {
+              style: [styles.donutCenterWrap, { width: ringInner * 2, height: ringInner * 2, left: cx - ringInner, top: cy - ringInner }]
+            },
+              React.createElement(Text, { style: styles.donutCenterLabel }, 'Total'),
+              React.createElement(Text, { style: styles.donutCenterValue }, formatCurrency(chartTotal))
             ),
-            React.createElement(View, { style: styles.tableRowLast },
-              React.createElement(Text, { style: styles.balanceLabel }, `Electricity Amount (${electricityBill.status})`),
-              React.createElement(Text, { style: styles.balanceValue }, formatCurrency(electricityBill.amount))
-            )
+            ...callouts.map((c) => React.createElement(View, {
+              key: c.key,
+              style: [
+                styles.calloutBox,
+                { width: calloutW, top: c.rowY - 13 },
+                c.side === 'right'
+                  ? { left: c.labelX + 6, alignItems: 'flex-start' }
+                  : { left: c.labelX - 6 - calloutW, alignItems: 'flex-end' }
+              ]
+            },
+              React.createElement(Text, { style: styles.calloutAmount }, formatCurrency(c.value)),
+              React.createElement(Text, { style: styles.calloutLabel }, `${c.label} · ${c.pct}%`)
+            ))
           )
         ) : null,
 
@@ -1059,7 +1182,7 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
             React.createElement(Text, { style: styles.signatureSub }, 'Authorized Signatory')
           ),
           React.createElement(View, null,
-            React.createElement(Text, { style: styles.signatureLabel }, `Landlord: ${comp.ownerName || comp.companyName}`),
+            React.createElement(Text, { style: styles.signatureLabel }, `Landlord: ${landlordName}`),
             comp.phone ? React.createElement(Text, { style: styles.signatureSub }, `Phone: ${comp.phone}`) : null
           )
         ),

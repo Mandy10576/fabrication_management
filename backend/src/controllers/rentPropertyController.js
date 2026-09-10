@@ -58,7 +58,7 @@ const getAllProperties = async (req, res, next) => {
 const createProperty = async (req, res, next) => {
   try {
     const {
-      name, addressLine1, addressLine2, city, state, pinCode, type,
+      name, landlordName, landlordAddress, addressLine1, addressLine2, city, state, pinCode, type,
       totalFloors, yearBuilt, description, totalRooms, electricityBilling, electricityRate, notes
     } = req.body;
 
@@ -69,6 +69,8 @@ const createProperty = async (req, res, next) => {
     const property = await prisma.rentProperty.create({
       data: {
         name,
+        landlordName: landlordName || null,
+        landlordAddress: landlordAddress || null,
         addressLine1,
         addressLine2: addressLine2 || null,
         city,
@@ -126,7 +128,7 @@ const updateProperty = async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
-      name, addressLine1, addressLine2, city, state, pinCode, type,
+      name, landlordName, landlordAddress, addressLine1, addressLine2, city, state, pinCode, type,
       totalFloors, yearBuilt, description, totalRooms, electricityBilling, electricityRate, notes
     } = req.body;
 
@@ -138,6 +140,8 @@ const updateProperty = async (req, res, next) => {
       where: { id },
       data: {
         name,
+        landlordName: landlordName || null,
+        landlordAddress: landlordAddress || null,
         addressLine1,
         addressLine2: addressLine2 || null,
         city,

@@ -12,7 +12,7 @@ const TYPE_OPTIONS = [
 ];
 
 const EMPTY_FORM = {
-  name: '', addressLine1: '', addressLine2: '', city: '', state: '', pinCode: '', type: 'RESIDENTIAL',
+  name: '', landlordName: '', landlordAddress: '', addressLine1: '', addressLine2: '', city: '', state: '', pinCode: '', type: 'RESIDENTIAL',
   totalFloors: '', yearBuilt: '', description: '', totalRooms: '', electricityBilling: false, electricityRate: '10', notes: ''
 };
 
@@ -57,6 +57,8 @@ export const RentProperties = () => {
     setEditingProperty(property);
     setFormData({
       name: property.name || '',
+      landlordName: property.landlordName || '',
+      landlordAddress: property.landlordAddress || '',
       addressLine1: property.addressLine1 || '',
       addressLine2: property.addressLine2 || '',
       city: property.city || '',
@@ -232,6 +234,17 @@ export const RentProperties = () => {
           <div>
             <label htmlFor="prop-name" className="label">Property / Building Name *</label>
             <input id="prop-name" type="text" required placeholder="e.g. Shree Complex" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} className="input" />
+          </div>
+
+          <div>
+            <label htmlFor="prop-landlord" className="label">Landlord Name</label>
+            <input id="prop-landlord" type="text" placeholder="Optional — who this property is let by" value={formData.landlordName} onChange={(e) => setFormData((p) => ({ ...p, landlordName: e.target.value }))} className="input" />
+          </div>
+
+          <div>
+            <label htmlFor="prop-landlord-address" className="label">Landlord Address</label>
+            <textarea id="prop-landlord-address" rows={2} placeholder="Optional — one line per row" value={formData.landlordAddress} onChange={(e) => setFormData((p) => ({ ...p, landlordAddress: e.target.value }))} className="textarea" />
+            <p className="text-[11px] text-slate-400 mt-1">Landlord name and address appear on this property's rent invoices. Leave either blank to fall back to the owner details from Company Settings.</p>
           </div>
 
           <div>
