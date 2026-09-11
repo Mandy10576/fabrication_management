@@ -97,10 +97,15 @@ export const RentPropertyDetail = () => {
   };
 
   const handleDelete = async (room) => {
+    if (room.status === 'OCCUPIED') {
+      toast.error(`A tenant currently occupies Room ${room.roomNumber} — end their contract first, then the room can be deleted.`);
+      return;
+    }
+
     const ok = await confirm({
       title: `Delete room "${room.roomNumber}"?`,
-      message: 'Rooms with any current or past tenant cannot be deleted, to keep contract history intact.',
-      confirmText: 'Delete room',
+      message: 'This permanently erases the room and every past tenant\'s contract, rent bills, payments, and electricity bills for it. This cannot be undone.',
+      confirmText: 'Delete room and all history',
     });
     if (!ok) return;
 

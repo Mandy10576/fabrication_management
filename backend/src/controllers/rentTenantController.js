@@ -2,9 +2,15 @@ const path = require('path');
 const prisma = require('../config/prisma');
 const { uploadFile } = require('../services/storageService');
 
+// Same cursor-page pattern as getClients/getEmployees/etc — `all=true` is
+// the escape hatch for a typeahead picker (RentRoomDetail's "Existing
+// Tenant" search) that wants a flat array of a small, already-narrowed
+// result set, never a real page-2. Without this split, the previous
+// hardcoded `take: 50` with no way to request more meant any tenant past
+// the 50th (alphabetically) was permanently invisible on the directory page.
 const getTenants = async (req, res, next) => {
   try {
-    const { search } = req.query;
+    const { search, limit, cursor, all } = req.query;
     const where = search
       ? {
           OR: [
@@ -14,20 +20,51 @@ const getTenants = async (req, res, next) => {
         }
       : {};
 
-    const tenants = await prisma.rentTenant.findMany({
-      where,
-      orderBy: { name: 'asc' },
-      take: 50,
-      include: {
-        contracts: { where: { status: 'ACTIVE' }, select: { id: true, roomId: true } },
-        // Total across every contract ever (not just the active one above) —
-        // the frontend needs this to warn accurately before a delete, since
-        // an ended contract still carries bill/payment history even though
-        // it won't show up as "currently housed".
-        _count: { select: { contracts: true } }
-      }
-    });
-    res.json(tenants.map((t) => ({ ...t, everHoused: t._count.contracts > 0, _count: undefined })));
+    const includeFields = {
+      contracts: { where: { status: 'ACTIVE' }, select: { id: true, roomId: true } },
+      // Total across every contract ever (not just the active one above) —
+      // the frontend needs this to warn accurately before a delete, since
+      // an ended contract still carries bill/payment history even though
+      // it won't show up as "currently housed".
+      _count: { select: { contracts: true } }
+    };
+    const withEverHoused = (t) => ({ ...t, everHoused: t._count.contracts > 0, _count: undefined });
+
+    if (all === 'true') {
+      const tenants = await prisma.rentTenant.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        take: 50,
+        include: includeFields
+      });
+      return res.json(tenants.map(withEverHoused));
+    }
+
+    const takeLimit = Math.min(100, parseInt(limit) || 20);
+    const take = takeLimit + 1;
+
+    const [totalCount, items] = await Promise.all([
+      prisma.rentTenant.count({ where }),
+      prisma.rentTenant.findMany({
+        where,
+        take,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        // name alone isn't unique — a stable id tiebreaker keeps cursor
+        // pagination correct when two tenants share a name.
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        include: includeFields
+      })
+    ]);
+
+    let hasMore = false;
+    let nextCursor = null;
+    if (items.length > takeLimit) {
+      hasMore = true;
+      items.pop();
+      nextCursor = items[items.length - 1]?.id || null;
+    }
+
+    res.json({ items: items.map(withEverHoused), nextCursor, hasMore, totalCount });
   } catch (error) {
     next(error);
   }

@@ -236,7 +236,7 @@ const getRoomById = async (req, res, next) => {
           }
         },
         electricityBills: {
-          orderBy: { billDate: 'desc' },
+          orderBy: { billingMonth: 'desc' },
           include: { payments: { orderBy: { paymentDate: 'desc' } } }
         }
       }
@@ -304,23 +304,35 @@ const updateRoom = async (req, res, next) => {
   }
 };
 
+/** Hard delete — permanently removes the room and every contract it ever
+ * held (past or present), cascading to that contract's bills and payments
+ * (RentBill/RentBillPayment cascade via the schema's onDelete: Cascade on
+ * RentContract, same as deleteContract/deleteTenant). Any electricity bills/
+ * payments billed under the room are removed too (RentElectricityBill.room
+ * is onDelete: Cascade). The only thing that blocks a delete is a tenant
+ * CURRENTLY occupying the room — that has to be ended first via "End
+ * Contract", same as any other in-progress tenancy. Past tenant history is
+ * a deliberate, irreversible trade-off the admin explicitly asked for. */
 const deleteRoom = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const existing = await prisma.rentRoom.findUnique({
+    const room = await prisma.rentRoom.findUnique({
       where: { id },
-      include: { _count: { select: { contracts: true, electricityBills: true } } }
+      include: { contracts: { select: { id: true, status: true } } }
     });
-    if (!existing) return res.status(404).json({ error: 'Room not found or already deleted' });
+    if (!room) return res.status(404).json({ error: 'Room not found or already deleted' });
 
-    if (existing._count.contracts > 0) {
+    if (room.contracts.some((c) => c.status === 'ACTIVE')) {
       return res.status(400).json({
-        error: `Cannot delete room '${existing.roomNumber}' because it has contract history. Rooms with any current or past tenant are kept permanently.`
+        error: `Cannot delete room '${room.roomNumber}' — a tenant currently occupies it. End their contract first.`
       });
     }
 
-    await prisma.rentRoom.delete({ where: { id } });
-    res.json({ message: 'Room deleted successfully' });
+    const ops = room.contracts.map((c) => prisma.rentContract.delete({ where: { id: c.id } }));
+    ops.push(prisma.rentRoom.delete({ where: { id } }));
+    await prisma.$transaction(ops);
+
+    res.json({ message: 'Room deleted permanently' });
   } catch (error) {
     next(error);
   }

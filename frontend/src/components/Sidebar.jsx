@@ -116,7 +116,7 @@ const prefetch = (path) => {
     else if (path === '/work-history') api.get('/worklogs?limit=20');
     else if (path === '/rent') api.get('/rent/dashboard');
     else if (path === '/rent/properties') api.get('/rent/properties?search=');
-    else if (path === '/rent/tenants') api.get('/rent/tenants?search=');
+    else if (path === '/rent/tenants') api.get('/rent/tenants?search=&limit=20');
     else if (path === '/rent/bills') api.get('/rent/bills');
     else if (path === '/rent/collection') api.get('/rent/collection?status=ALL&search=');
   } catch (e) {}

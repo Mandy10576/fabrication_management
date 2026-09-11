@@ -15,7 +15,11 @@ export const RentTenants = () => {
   const confirm = useConfirm();
 
   const [tenants, setTenants] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
@@ -23,15 +27,24 @@ export const RentTenants = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchTenants = async () => {
+  const fetchTenants = async (isLoadMore = false) => {
     try {
-      setLoading(true);
-      const res = await api.get(`/rent/tenants?search=${encodeURIComponent(search)}`);
-      setTenants(res);
+      if (isLoadMore) setLoadingMore(true);
+      else setLoading(true);
+
+      const cursorParam = isLoadMore && nextCursor ? `&cursor=${nextCursor}` : '';
+      const res = await api.get(`/rent/tenants?search=${encodeURIComponent(search)}&limit=20${cursorParam}`);
+
+      const newItems = res.items || [];
+      setTenants((prev) => (isLoadMore ? [...prev, ...newItems] : newItems));
+      setTotalCount(typeof res.totalCount === 'number' ? res.totalCount : newItems.length);
+      setNextCursor(res.nextCursor || null);
+      setHasMore(Boolean(res.hasMore));
     } catch (err) {
       toast.error(err.message || 'Failed to load tenants');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -134,6 +147,18 @@ export const RentTenants = () => {
         />
       </div>
 
+      {!loading && tenants.length > 0 && (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {search ? (
+            <>Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{tenants.length}</span> of{' '}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{totalCount}</span> matching "{search}"</>
+          ) : (
+            <>Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{tenants.length}</span> of{' '}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{totalCount}</span> tenants</>
+          )}
+        </p>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <div key={i} className="skeleton h-20 rounded-2xl" />)}
@@ -202,6 +227,21 @@ export const RentTenants = () => {
               );
             })}
           </ul>
+
+          {hasMore && (
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 text-center">
+              <button onClick={() => fetchTenants(true)} disabled={loadingMore} className="btn btn-secondary">
+                {loadingMore ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                    <span>Loading…</span>
+                  </>
+                ) : (
+                  <span>Load More Tenants</span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
