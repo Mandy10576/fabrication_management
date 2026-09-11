@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
-const { round2, generateBillsForContract, forceGenerateCurrentCycleBill, generateBillsForAllContracts, recomputeBill } = require('../services/rentBillingService');
+const { round2, generateBillsForContract, forceGenerateCurrentCycleBill, generateBillsForAllContracts, getBillableMonthsForContract, generateBillForCycle, recomputeBill } = require('../services/rentBillingService');
 const { getElectricityDueForRoom } = require('./rentElectricityController');
 const { normalizeToUTCMidnight } = require('../utils/dateCalc');
 const devDate = require('../utils/devDate');
@@ -92,13 +92,13 @@ const buildCombinedPaymentHistory = (rentPayments, electricityPayments) => {
  * ended" means "not billable", full stop. */
 const generateBills = async (req, res, next) => {
   try {
-    const { contractId, force, rentAmount, lateFee, discountAmount, miscAmount, miscLabel, notes } = req.body || {};
+    const { contractId, force, cycleStart: requestedCycleStartRaw, rentAmount, lateFee, discountAmount, miscAmount, miscLabel, notes } = req.body || {};
 
     if (contractId) {
       const contract = await prisma.rentContract.findUnique({ where: { id: contractId } });
       if (!contract) return res.status(404).json({ error: 'Contract not found' });
 
-      if (force && contract.status !== 'ACTIVE') {
+      if (force && !requestedCycleStartRaw && contract.status !== 'ACTIVE') {
         return res.status(400).json({ error: 'Only an active contract has a current cycle to force-bill.' });
       }
 
@@ -107,18 +107,44 @@ const generateBills = async (req, res, next) => {
         return res.status(400).json({ error: 'Enter what the miscellaneous charge is for.' });
       }
 
-      const result = force
-        ? await forceGenerateCurrentCycleBill(contract, devDate.now())
-        : await generateBillsForContract(contract, devDate.now(), 'MANUAL');
+      let result;
+      if (requestedCycleStartRaw) {
+        // An explicit billing month picked by the admin (the Generate
+        // tab's "Billing Month" field) — re-derived from the contract's
+        // real unbilled cycles rather than trusting the raw posted date,
+        // so a stale/tampered value can never create a bogus cycle.
+        const billableMonths = await getBillableMonthsForContract(contract);
+        const requested = normalizeToUTCMidnight(requestedCycleStartRaw).getTime();
+        const chosenCycle = billableMonths.find((c) => c.cycleStart.getTime() === requested);
+        if (!chosenCycle) {
+          return res.status(400).json({ error: 'That billing month is no longer available to generate for this contract (already billed, or not a valid cycle).' });
+        }
+        if (!chosenCycle.ended && !force) {
+          return res.status(400).json({ error: 'That billing month\'s cycle is still in progress — force-generate it if you want to bill ahead of schedule.' });
+        }
+        result = await generateBillForCycle(contract, chosenCycle.cycleStart, chosenCycle.cycleEnd, 'MANUAL', !chosenCycle.ended);
+      } else {
+        result = force
+          ? await forceGenerateCurrentCycleBill(contract, devDate.now())
+          : await generateBillsForContract(contract, devDate.now(), 'MANUAL');
+      }
 
       // Overrides entered on the manual-generate form apply to the bill
       // this call just created — rent amount, late fee, discount, misc
       // charge, notes. Only meaningful when exactly one new cycle was
-      // billed (the normal case for a manual single-contract generate) —
-      // found via the most recent cycleStart for this contract.
+      // billed (the normal case for a manual single-contract generate).
+      // When an explicit billing month was picked, the bill just created IS
+      // that exact cycle — looked up by its own cycleStart, never "the
+      // newest cycle for this contract", since an admin catching up an
+      // out-of-order backlog month could otherwise have these overrides
+      // wrongly applied to an unrelated, already-existing newer bill.
+      let newestBillCycleStart = null;
       if ((result.count || 0) > 0) {
-        const newestBill = await prisma.rentBill.findFirst({ where: { contractId }, orderBy: { cycleStart: 'desc' } });
+        const newestBill = requestedCycleStartRaw
+          ? await prisma.rentBill.findFirst({ where: { contractId, cycleStart: normalizeToUTCMidnight(requestedCycleStartRaw) } })
+          : await prisma.rentBill.findFirst({ where: { contractId }, orderBy: { cycleStart: 'desc' } });
         if (newestBill) {
+          newestBillCycleStart = newestBill.cycleStart;
           const data = {
             lateFeeApplied: round2(parseFloat(lateFee) || 0),
             discountAmount: round2(parseFloat(discountAmount) || 0),
@@ -134,7 +160,10 @@ const generateBills = async (req, res, next) => {
         }
       }
 
-      return res.status(201).json({ generated: result.count || 0, forced: !!force });
+      // cycleStart tells the caller which billing month this rent bill is
+      // for, so a co-generated electricity bill (see /rooms/:id/electricity)
+      // can default to the exact same billing month automatically.
+      return res.status(201).json({ generated: result.count || 0, forced: !!force, cycleStart: newestBillCycleStart });
     }
 
     const generated = await generateBillsForAllContracts(devDate.now());
@@ -427,7 +456,7 @@ const addCombinedPayment = async (req, res, next) => {
       if (elecAmt > 0) {
         const bills = await tx.rentElectricityBill.findMany({
           where: { roomId: contract.roomId, status: { not: 'PAID' } },
-          orderBy: { billDate: 'asc' }
+          orderBy: { billingMonth: 'asc' }
         });
 
         let remaining = elecAmt;

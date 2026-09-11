@@ -5,7 +5,7 @@ import { useToast, useConfirm } from '../context/ToastContext';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { formatCurrency, formatDate, getStatusBadgeClass } from '../utils/formatters';
 import { downloadPDF, sharePDF } from '../utils/pdfExport';
-import { Receipt, Search, RefreshCw, Zap, CheckCircle2, Download, Send, Loader2, MapPin, User, Home, ClipboardCheck, Trash2 } from 'lucide-react';
+import { Receipt, Search, RefreshCw, Zap, CheckCircle2, Download, Send, Loader2, MapPin, User, Home, ClipboardCheck, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Bills' },
@@ -53,6 +53,12 @@ export const RentBills = () => {
   const [genNotes, setGenNotes] = useState('');
   const [genRoomDetail, setGenRoomDetail] = useState(null);
   const [genRoomDetailLoading, setGenRoomDetailLoading] = useState(false);
+  // Every unbilled cycle for the loaded contract, oldest first — lets the
+  // admin explicitly pick which month to generate instead of the system
+  // silently deciding "whatever's next" behind the scenes.
+  const [billableMonths, setBillableMonths] = useState([]);
+  const [billableMonthsLoading, setBillableMonthsLoading] = useState(false);
+  const [genBillingMonth, setGenBillingMonth] = useState('');
   const [genPreviousReading, setGenPreviousReading] = useState('');
   const [genCurrentReading, setGenCurrentReading] = useState('');
   // Whether the tenant's earlier unpaid balance is counted in the summary
@@ -68,6 +74,12 @@ export const RentBills = () => {
   const [status, setStatus] = useState('ALL');
   const [propertyId, setPropertyId] = useState('');
   const [sort, setSort] = useState('cycle_desc');
+  // The list is fetched in full and sorted server-side, but pagination
+  // itself is client-side — the due-amount sort is computed after the
+  // query (amountDue isn't a real column), so the backend can't do a
+  // DB-level cursor page for that sort anyway. Same approach as Invoices.
+  const [billsPage, setBillsPage] = useState(1);
+  const BILLS_PAGE_SIZE = 20;
   const [downloadingBillId, setDownloadingBillId] = useState(null);
   const [sharingBillId, setSharingBillId] = useState(null);
   const [deletingBillId, setDeletingBillId] = useState(null);
@@ -148,6 +160,8 @@ export const RentBills = () => {
     setGenMiscAmount('');
     setGenMiscLabel('');
     setGenNotes('');
+    setBillableMonths([]);
+    setGenBillingMonth('');
     if (!genRoomId) {
       setGenRoomDetail(null);
       setGenPreviousReading('');
@@ -165,6 +179,20 @@ export const RentBills = () => {
       })
       .catch(() => setGenRoomDetail(null))
       .finally(() => setGenRoomDetailLoading(false));
+
+    if (contract) {
+      setBillableMonthsLoading(true);
+      api.get(`/rent/contracts/${contract.contractId}/billable-months`)
+        .then((months) => {
+          setBillableMonths(months);
+          // Default to the oldest unbilled month — the FIFO philosophy the
+          // rest of rent collection already follows (clear the backlog
+          // before the current month).
+          setGenBillingMonth(months[0]?.cycleStart || '');
+        })
+        .catch(() => setBillableMonths([]))
+        .finally(() => setBillableMonthsLoading(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genRoomId, contracts]);
 
@@ -214,6 +242,23 @@ export const RentBills = () => {
     if (tab === 'all') fetchBills();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, search, status, propertyId, sort]);
+
+  // Any filter change invalidates the current page — land back on page 1
+  // instead of showing an empty page 4 for a filter that now has fewer.
+  useEffect(() => {
+    setBillsPage(1);
+  }, [search, status, propertyId, sort]);
+
+  const billsTotalPages = Math.max(1, Math.ceil(bills.length / BILLS_PAGE_SIZE));
+  const billsClampedPage = Math.min(billsPage, billsTotalPages);
+  const pageBills = bills.slice((billsClampedPage - 1) * BILLS_PAGE_SIZE, billsClampedPage * BILLS_PAGE_SIZE);
+
+  // A compact page-number strip: always show first, last, current ±1, with
+  // "…" gaps — same pattern as Invoices.jsx.
+  const billsPageNumbers = () => {
+    const nums = new Set([1, billsTotalPages, billsClampedPage, billsClampedPage - 1, billsClampedPage + 1]);
+    return Array.from(nums).filter((n) => n >= 1 && n <= billsTotalPages).sort((a, b) => a - b);
+  };
 
   // After a successful generate, jump to "All Bills" so the new bill is
   // immediately visible — the Generate tab only ever lists contracts, never
@@ -276,17 +321,19 @@ export const RentBills = () => {
     setGenCurrentReading('');
   };
 
-  // Generates the rent bill, then — if this room bills electricity and a
-  // current reading was entered — generates the electricity bill too, via
-  // the existing separate-ledger endpoint. Two independent writes under one
-  // admin action; each can succeed/fail on its own, so both outcomes are
-  // reported.
-  //
-  // Always produces a bill: tries the normal (cycle-must-have-ended) path
-  // first, and if there's nothing billable that way (the current cycle just
-  // hasn't ended yet), automatically falls back to force-generating that
-  // in-progress cycle — the admin only ever sees one "Generate Bill" action.
+  const selectedBillingMonth = billableMonths.find((m) => m.cycleStart === genBillingMonth) || null;
+
+  // Generates the rent bill for the EXPLICITLY chosen billing month, then —
+  // if this room bills electricity and a current reading was entered —
+  // generates the electricity bill too, via the existing separate-ledger
+  // endpoint, defaulting to that same billing month so the two land on the
+  // same invoice automatically. Two independent writes under one admin
+  // action; each can succeed/fail on its own, so both outcomes are reported.
   const handleGenerate = async (contract) => {
+    if (!genBillingMonth) {
+      toast.error('Select a billing month.');
+      return;
+    }
     if (genMiscAmount && parseFloat(genMiscAmount) > 0 && !genMiscLabel.trim()) {
       toast.error('Enter what the miscellaneous charge is for.');
       return;
@@ -308,6 +355,8 @@ export const RentBills = () => {
 
       const billBody = {
         contractId: contract.contractId,
+        cycleStart: genBillingMonth,
+        force: selectedBillingMonth ? !selectedBillingMonth.ended : false,
         rentAmount: genRentAmount,
         lateFee: genLateFee || 0,
         discountAmount: genDiscountAmount || 0,
@@ -316,21 +365,21 @@ export const RentBills = () => {
         notes: genNotes
       };
 
-      let res = await api.post('/rent/bills/generate', billBody);
-      let forced = false;
-      if (res.generated === 0) {
-        res = await api.post('/rent/bills/generate', { ...billBody, force: true });
-        forced = true;
-      }
+      const res = await api.post('/rent/bills/generate', billBody);
       messages.push(
         res.generated > 0
-          ? `Rent bill generated${forced ? ' for the current cycle' : ''}.`
-          : 'A bill for this cycle already exists.'
+          ? `Rent bill generated${billBody.force ? ' for the in-progress cycle' : ''}.`
+          : 'A bill for this billing month already exists.'
       );
 
       if (hasElectricity && genCurrentReading !== '') {
         try {
+          // Same billing month picked above, so the two land on the same
+          // invoice automatically — this is exactly the "co-generated
+          // together" case the electricity/rent match relies on.
+          const billingMonth = genBillingMonth.slice(0, 7);
           const elecRes = await api.post(`/rent/rooms/${contract.room.id}/electricity`, {
+            billingMonth,
             currentReading: genCurrentReading,
             previousReading: hasPriorElectricityBill ? undefined : genPreviousReading
           });
@@ -434,11 +483,43 @@ export const RentBills = () => {
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
-                  {selectedContract.totalPending > 0
-                    ? `Rent pending: ${formatCurrency(selectedContract.totalPending)}. Clicking Generate will bill the next cycle if it has ended.`
-                    : 'This contract is settled — clicking Generate will bill the next cycle once it has ended.'}
-                </p>
+                {selectedContract.totalPending > 0 && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
+                    Rent pending: {formatCurrency(selectedContract.totalPending)}.
+                  </p>
+                )}
+
+                <div className="pt-2 border-t border-brand-200/60 dark:border-brand-900/60">
+                  <label className="label">Billing Month *</label>
+                  {billableMonthsLoading ? (
+                    <div className="skeleton h-10 rounded-lg" />
+                  ) : billableMonths.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-2">Nothing to bill yet — this contract's first cycle hasn't started.</p>
+                  ) : (
+                    <>
+                      <SearchableSelect
+                        mode="button"
+                        value={genBillingMonth}
+                        options={billableMonths.map((m) => ({
+                          value: m.cycleStart,
+                          label: `${new Date(m.cycleStart).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })} (${formatDate(m.cycleStart)} – ${formatDate(m.cycleEnd)})${m.ended ? '' : ' — cycle in progress'}`
+                        }))}
+                        onSelect={(opt) => setGenBillingMonth(opt.value)}
+                        ariaLabel="Select billing month"
+                      />
+                      {selectedBillingMonth && !selectedBillingMonth.ended && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                          This month's cycle hasn't ended yet — generating it now bills ahead of schedule (forced).
+                        </p>
+                      )}
+                      {billableMonths.length > 1 && (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          {billableMonths.length} unbilled months for this contract — defaulted to the oldest.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 {hasElectricity && (
                   <div className="pt-2 border-t border-brand-200/60 dark:border-brand-900/60">
@@ -647,7 +728,7 @@ export const RentBills = () => {
                 <div className="pt-2">
                   <button
                     onClick={() => handleGenerate(selectedContract)}
-                    disabled={generatingContractId === selectedContract.contractId}
+                    disabled={generatingContractId === selectedContract.contractId || !genBillingMonth}
                     className="btn btn-primary w-full"
                   >
                     <RefreshCw className={`w-4 h-4 ${generatingContractId === selectedContract.contractId ? 'animate-spin' : ''}`} />
@@ -683,6 +764,13 @@ export const RentBills = () => {
             </div>
           </div>
 
+          {!billsLoading && bills.length > 0 && (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Showing <span className="font-semibold text-slate-700 dark:text-slate-300">{pageBills.length}</span> of{' '}
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{bills.length}</span> bill{bills.length === 1 ? '' : 's'}
+            </p>
+          )}
+
           <div className="card overflow-hidden">
             {billsLoading ? (
               <div className="p-4 space-y-3">
@@ -707,7 +795,7 @@ export const RentBills = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {bills.map((b) => (
+                    {pageBills.map((b) => (
                       <tr key={b.id}>
                         <td>
                           <Link to={`/rent/rooms/${b.contract.room.id}`} className="font-bold text-slate-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-1.5">
@@ -763,6 +851,45 @@ export const RentBills = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {billsTotalPages > 1 && (
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setBillsPage((p) => Math.max(1, p - 1))}
+                  disabled={billsClampedPage === 1}
+                  className="btn-icon btn-icon-soft"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {billsPageNumbers().map((n, i, arr) => (
+                  <React.Fragment key={n}>
+                    {i > 0 && arr[i - 1] !== n - 1 && <span className="px-1 text-slate-400 select-none">…</span>}
+                    <button
+                      onClick={() => setBillsPage(n)}
+                      aria-current={n === billsClampedPage ? 'page' : undefined}
+                      className={`min-w-[2.25rem] h-9 px-2 rounded-lg text-sm font-semibold transition-colors ${
+                        n === billsClampedPage
+                          ? 'bg-brand-600 text-white shadow'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  </React.Fragment>
+                ))}
+
+                <button
+                  onClick={() => setBillsPage((p) => Math.min(billsTotalPages, p + 1))}
+                  disabled={billsClampedPage === billsTotalPages}
+                  className="btn-icon btn-icon-soft"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             )}
           </div>

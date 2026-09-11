@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { round2 } = require('../services/rentBillingService');
+const { round2, getBillableMonthsForContract } = require('../services/rentBillingService');
 const { summarizeContract } = require('./rentBillController');
 const devDate = require('../utils/devDate');
 
@@ -234,7 +234,7 @@ const getRentCollection = async (req, res, next) => {
             id: true,
             roomNumber: true,
             property: { select: { id: true, name: true, city: true, electricityBilling: true } },
-            electricityBills: { orderBy: { billDate: 'desc' } }
+            electricityBills: { orderBy: { billingMonth: 'desc' } }
           }
         }
       },
@@ -329,7 +329,7 @@ const getRentOverview = async (req, res, next) => {
             property: {
               select: { id: true, name: true, city: true, electricityBilling: true }
             },
-            electricityBills: { orderBy: { billDate: 'desc' } }
+            electricityBills: { orderBy: { billingMonth: 'desc' } }
           }
         }
       },
@@ -404,6 +404,23 @@ const getRentOverview = async (req, res, next) => {
   }
 };
 
+/** Every billing month available to pick from Generate Bill's "Billing
+ * Month" field for this contract — every unbilled cycle from the contract's
+ * start through now (or its end date), oldest first, each flagged whether
+ * its cycle has actually ended yet (an in-progress one needs force). */
+const getBillableMonths = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const contract = await prisma.rentContract.findUnique({ where: { id } });
+    if (!contract) return res.status(404).json({ error: 'Contract not found' });
+
+    const months = await getBillableMonthsForContract(contract);
+    res.json(months);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getContractById,
   deleteContract,
@@ -411,5 +428,6 @@ module.exports = {
   updateContract,
   endContract,
   getRentCollection,
-  getRentOverview
+  getRentOverview,
+  getBillableMonths
 };

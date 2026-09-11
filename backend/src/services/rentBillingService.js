@@ -3,7 +3,7 @@
 // idempotent against each other: the daily cron, the manual "Generate Bills"
 // admin action, and the one-time data migration script.
 const prisma = require('../config/prisma');
-const { listBillableCycles, getCycleForDate } = require('./rentCycleService');
+const { listBillableCycles, listCyclesSince, getCycleForDate } = require('./rentCycleService');
 const { addDaysUTC, normalizeToUTCMidnight } = require('../utils/dateCalc');
 const devDate = require('../utils/devDate');
 
@@ -30,6 +30,59 @@ const generateBillsForContract = async (contract, throughDate = devDate.now(), g
   }));
 
   return prisma.rentBill.createMany({ data: rows, skipDuplicates: true });
+};
+
+/** Every one of a contract's cycles, from its very first through "now" (or
+ * through endDate for an ended contract), that doesn't already have a
+ * RentBill row — oldest first. Each entry is flagged `ended: true/false` so
+ * a caller (the admin's month picker) can tell a normal ready-to-bill month
+ * apart from the current in-progress one, which needs an explicit force.
+ * This is the full backlog, not just "the next one" — an admin who's fallen
+ * behind sees every skipped month, not only the most recent. */
+const getBillableMonthsForContract = async (contract) => {
+  const throughDate = devDate.now();
+  const ended = contract.status === 'ENDED' && contract.endDate;
+  const through = ended ? contract.endDate : throughDate;
+  const throughDay = normalizeToUTCMidnight(through);
+
+  const existingBills = await prisma.rentBill.findMany({
+    where: { contractId: contract.id },
+    select: { cycleStart: true }
+  });
+  const billedStarts = new Set(existingBills.map((b) => new Date(b.cycleStart).getTime()));
+
+  return listCyclesSince(contract.startDate, through)
+    .filter((c) => !billedStarts.has(c.cycleStart.getTime()))
+    .map((c) => ({
+      cycleStart: c.cycleStart,
+      cycleEnd: c.cycleEnd,
+      ended: Boolean(ended) || c.cycleEnd.getTime() < throughDay.getTime()
+    }))
+    .reverse(); // listCyclesSince is newest-first; a picker reads better oldest-first
+};
+
+/** Generates a bill for exactly one specific cycle — the counterpart to
+ * generateBillsForContract's "bill the whole backlog at once", for when an
+ * admin picks a single billing month from getBillableMonthsForContract
+ * rather than catching up everything in one click. `forced` must be true
+ * for a cycle that hasn't ended yet (mirrors forceGenerateCurrentCycleBill's
+ * "forced: true" stamp, so every place that re-checks the ended-cycle rule
+ * still lets it through). skipDuplicates keeps this idempotent like every
+ * other generation path. */
+const generateBillForCycle = async (contract, cycleStart, cycleEnd, generatedBy = 'MANUAL', forced = false) => {
+  const result = await prisma.rentBill.createMany({
+    data: [{
+      contractId: contract.id,
+      cycleStart,
+      cycleEnd,
+      dueDate: addDaysUTC(cycleEnd, contract.gracePeriodDays),
+      rentAmount: contract.monthlyRent,
+      generatedBy,
+      forced
+    }],
+    skipDuplicates: true
+  });
+  return result;
 };
 
 /** The one sanctioned exception to "a bill only exists once its cycle has
@@ -134,6 +187,8 @@ module.exports = {
   generateBillsForContract,
   forceGenerateCurrentCycleBill,
   generateBillsForAllContracts,
+  getBillableMonthsForContract,
+  generateBillForCycle,
   applyLateFees,
   recomputeBill,
   runDailyBillingCycle

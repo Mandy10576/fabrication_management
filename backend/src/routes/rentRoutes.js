@@ -13,7 +13,7 @@ const {
   deleteRoom
 } = require('../controllers/rentPropertyController');
 const { getTenants, createTenant, updateTenant, uploadTenantDocuments, deleteTenantDocument, deleteTenant } = require('../controllers/rentTenantController');
-const { getContractById, deleteContract, startContract, updateContract, endContract, getRentCollection, getRentOverview } = require('../controllers/rentContractController');
+const { getContractById, deleteContract, startContract, updateContract, endContract, getRentCollection, getRentOverview, getBillableMonths } = require('../controllers/rentContractController');
 const {
   generateBills,
   getBills,
@@ -87,6 +87,7 @@ router.delete('/tenants/:id/documents/:documentId', authenticate, deleteTenantDo
 
 // Contracts
 router.get('/contracts/:id', authenticate, getContractById);
+router.get('/contracts/:id/billable-months', authenticate, getBillableMonths);
 router.put('/contracts/:id', authenticate, updateContract);
 router.patch('/contracts/:id/end', authenticate, endContract);
 router.delete('/contracts/:id', authenticate, deleteContract);
