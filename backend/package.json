@@ -11,7 +11,9 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "seed": "node prisma/seed.js",
-    "seed:test": "node prisma/seedTestData.js"
+    "seed:test": "node prisma/seedTestData.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
@@ -27,6 +29,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "jest": "^30.5.1",
     "prisma": "^5.10.0"
   }
 }
