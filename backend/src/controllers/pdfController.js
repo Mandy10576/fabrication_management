@@ -90,17 +90,17 @@ const downloadRentBillPDF = async (req, res, next) => {
       return res.status(404).json({ error: 'Bill not found' });
     }
 
-    // Best-effort match to an electricity bill from the same billing round —
-    // no formal link between the two (rent/electricity stay separate
-    // ledgers), so this is a heuristic: the room's electricity bill dated
-    // within this rent bill's cycle window. Shown on the PDF for reference
-    // only, never folded into the rent bill's own totals.
+    // Matched to the electricity bill for the SAME billing month as this
+    // rent bill — no formal DB link between the two (rent/electricity stay
+    // separate ledgers), but both sides now key off an explicit admin-
+    // chosen "billing month" rather than a raw date, so this is an exact
+    // match rather than a date-range guess. Uses the same "which calendar
+    // month is this cycle nominally for" convention the invoice's own
+    // BILLING MONTH field already displays (cycleStart's month).
+    const cycleStart = new Date(bill.cycleStart);
+    const billingMonth = new Date(Date.UTC(cycleStart.getUTCFullYear(), cycleStart.getUTCMonth(), 1));
     const electricityBill = await prisma.rentElectricityBill.findFirst({
-      where: {
-        roomId: bill.contract.roomId,
-        billDate: { gte: bill.cycleStart, lte: bill.dueDate }
-      },
-      orderBy: { billDate: 'desc' }
+      where: { roomId: bill.contract.roomId, billingMonth }
     });
 
     const company = await prisma.companyDetails.findFirst();

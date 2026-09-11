@@ -38,7 +38,8 @@ const cycleLabel = (c) => `${formatDate(c.cycleStart)} – ${formatDate(c.cycleE
 const EMPTY_TENANT_FORM = { name: '', mobile: '', alternatePhone: '', email: '', dob: '', emergencyContactName: '', emergencyContactPhone: '', address: '', aadhaarNumber: '', panNumber: '' };
 const EMPTY_COMBINED_FORM = { rentAmount: '', rentBillId: '', electricityAmount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: 'CASH', referenceNo: '', notes: '' };
 const EMPTY_EDIT_PAYMENT_FORM = { type: 'rent', billId: null, paymentId: null, amount: '', paymentDate: '', paymentMode: 'CASH', referenceNo: '', notes: '' };
-const EMPTY_ELECTRICITY_FORM = { billDate: new Date().toISOString().split('T')[0], previousReading: '', currentReading: '', notes: '' };
+const currentYearMonth = () => new Date().toISOString().slice(0, 7);
+const EMPTY_ELECTRICITY_FORM = { billingMonth: currentYearMonth(), billDate: new Date().toISOString().split('T')[0], previousReading: '', currentReading: '', notes: '' };
 const today = () => new Date().toISOString().split('T')[0];
 const emptyBillPaymentForm = (pending) => ({
   amount: pending > 0.01 ? pending : '',
@@ -118,6 +119,7 @@ export const RentRoomDetail = () => {
   const [showEditBillModal, setShowEditBillModal] = useState(false);
   const [editingBill, setEditingBill] = useState(null);
   const [editBillForm, setEditBillForm] = useState({
+    billingMonth: '',
     billDate: '',
     previousReading: '',
     currentReading: '',
@@ -174,7 +176,7 @@ export const RentRoomDetail = () => {
 
   useEffect(() => {
     if (showStartModal && useExisting) {
-      api.get(`/rent/tenants?search=${encodeURIComponent(tenantQuery)}`).then(setTenants).catch(() => {});
+      api.get(`/rent/tenants?all=true&search=${encodeURIComponent(tenantQuery)}`).then(setTenants).catch(() => {});
     }
   }, [showStartModal, useExisting, tenantQuery]);
 
@@ -542,6 +544,7 @@ export const RentRoomDetail = () => {
   const handleOpenEditBill = (bill) => {
     setEditingBill(bill);
     setEditBillForm({
+      billingMonth: bill.billingMonth ? bill.billingMonth.slice(0, 7) : currentYearMonth(),
       billDate: bill.billDate ? bill.billDate.split('T')[0] : '',
       previousReading: bill.previousReading ?? '',
       currentReading: bill.currentReading ?? '',
@@ -571,6 +574,7 @@ export const RentRoomDetail = () => {
     try {
       setSaving(true);
       const payload = {
+        billingMonth: editBillForm.billingMonth,
         billDate: editBillForm.billDate,
         previousReading: editBillForm.previousReading,
         currentReading: editBillForm.currentReading,
@@ -1175,13 +1179,15 @@ export const RentRoomDetail = () => {
                 <li key={b.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      {formatDate(b.billDate)}
+                      {b.billingMonth
+                        ? new Date(b.billingMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+                        : formatDate(b.billDate)}
                       {b.previousReading !== null && b.currentReading !== null && (
                         <span className="text-slate-400 font-normal"> · {b.previousReading} → {b.currentReading} ({b.unitsConsumed} units × ₹{b.ratePerUnit})</span>
                       )}
                     </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Paid {formatCurrency(b.amountPaid)} of {formatCurrency(b.amount)}
+                      Recorded {formatDate(b.billDate)} · Paid {formatCurrency(b.amountPaid)} of {formatCurrency(b.amount)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1750,8 +1756,22 @@ export const RentRoomDetail = () => {
         )}
         <form id="electricity-form" onSubmit={handleAddElectricityBill} className="space-y-4">
           <div>
+            <label htmlFor="el-billing-month" className="label">Billing Month *</label>
+            <input
+              id="el-billing-month"
+              type="month"
+              required
+              value={electricityForm.billingMonth}
+              onChange={(e) => setElectricityForm((p) => ({ ...p, billingMonth: e.target.value }))}
+              className="input"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Which month this bill is for — shows on the tenant's rent invoice, and lets you fill in a skipped earlier month safely.</p>
+          </div>
+
+          <div>
             <label htmlFor="el-date" className="label">Bill Date</label>
             <input id="el-date" type="date" value={electricityForm.billDate} onChange={(e) => setElectricityForm((p) => ({ ...p, billDate: e.target.value }))} className="input" />
+            <p className="text-[11px] text-slate-400 mt-1">When you actually took/recorded this reading — informational only.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1843,7 +1863,18 @@ export const RentRoomDetail = () => {
                 <CalendarDays className="w-3.5 h-3.5" />
                 Bill Details
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="eb-billing-month" className="label">Billing Month</label>
+                  <input
+                    id="eb-billing-month"
+                    type="month"
+                    required
+                    value={editBillForm.billingMonth}
+                    onChange={(e) => setEditBillForm((p) => ({ ...p, billingMonth: e.target.value }))}
+                    className="input"
+                  />
+                </div>
                 <div>
                   <label htmlFor="eb-date" className="label">Bill Date</label>
                   <input

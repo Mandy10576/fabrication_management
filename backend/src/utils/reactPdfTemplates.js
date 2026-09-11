@@ -1093,8 +1093,14 @@ const RentBillPDFDocument = ({ bill, company, electricityBill }) => {
               // ledger behind the scenes, but on this invoice it's just
               // another charge line feeding the same Total/Balance Due as
               // rent and misc — the tenant sees one number to pay.
+              // The billing month is spelled out here (not just implied by
+              // the invoice's own BILLING MONTH field above) so the tenant
+              // can tell at a glance which month's electricity usage this
+              // charge is for, even if they only skim the charges table.
               electricityBill ? React.createElement(View, { style: styles.tableRow },
-                React.createElement(Text, { style: styles.tableLabel }, `Electricity (${electricityBill.previousReading ?? '-'} to ${electricityBill.currentReading ?? '-'}, ${electricityBill.unitsConsumed} units @ Rs. ${electricityBill.ratePerUnit}/unit)`),
+                React.createElement(Text, { style: styles.tableLabel },
+                  `Electricity (${electricityBill.billingMonth ? new Date(electricityBill.billingMonth).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) + ', ' : ''}${electricityBill.previousReading ?? '-'} to ${electricityBill.currentReading ?? '-'}, ${electricityBill.unitsConsumed} units @ Rs. ${electricityBill.ratePerUnit}/unit)`
+                ),
                 React.createElement(Text, { style: styles.tableValue }, formatCurrency(electricityAmount))
               ) : null,
               discountAmount > 0 ? React.createElement(View, { style: styles.tableRow },
@@ -1197,5 +1203,8 @@ module.exports = {
   setReactPdfModule,
   InvoicePDFDocument,
   QuotationPDFDocument,
-  RentBillPDFDocument
+  RentBillPDFDocument,
+  // Exported for unit testing — pure formatting helpers, no PDF rendering.
+  formatCurrency,
+  parseAddress
 };

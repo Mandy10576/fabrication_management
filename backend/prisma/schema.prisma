@@ -590,6 +590,14 @@ model RentElectricityBill {
   contractId     String?
   contract       RentContract? @relation(fields: [contractId], references: [id])
   billDate       DateTime     @default(now())
+  // Which calendar month this bill is FOR (always the 1st of that month,
+  // UTC) — distinct from billDate, which is just when the reading was
+  // recorded/entered. This is the field that decides "previous reading"
+  // sequencing and which rent invoice the charge merges into, so admins can
+  // enter a bill for last month without the system misreading a later
+  // bill's reading as "previous". Nullable only because rows created before
+  // this field existed are backfilled from billDate at migration time.
+  billingMonth   DateTime?
   previousReading Float?
   currentReading  Float?
   ratePerUnit     Float? // snapshot of Property.electricityRate at billing time — never rewritten by later rate changes

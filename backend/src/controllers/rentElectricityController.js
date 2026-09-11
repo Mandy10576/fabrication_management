@@ -3,6 +3,23 @@ const devDate = require('../utils/devDate');
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+/** Normalizes a "YYYY-MM" month-input value (or any date-like value/Date) to
+ * a UTC first-of-month Date — the canonical form billingMonth is always
+ * stored/compared in, so two bills for "the same month" always compare
+ * equal regardless of what day-of-month they were entered on. Parses
+ * "YYYY-M(M)" explicitly rather than handing it to `new Date(...)` — that
+ * parses a zero-padded "2026-09" correctly but silently mis-parses an
+ * unpadded "2026-1" as a completely different date. */
+const normalizeToMonthStart = (value) => {
+  const match = typeof value === 'string' && /^(\d{4})-(\d{1,2})$/.exec(value.trim());
+  if (match) {
+    const [, year, month] = match;
+    return new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+  }
+  const d = new Date(value);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+};
+
 /** Re-aggregates a bill's payments and writes back amountPaid/status/
  * paymentDate/paymentMode — the same recompute-after-every-mutation pattern
  * used for Invoice and RentBill, never incremented in place. Returns the
@@ -40,7 +57,7 @@ const recomputeElectricityBill = async (billId) => {
 const getElectricityDueForRoom = async (roomId) => {
   const bills = await prisma.rentElectricityBill.findMany({
     where: { roomId, status: { not: 'PAID' } },
-    orderBy: { billDate: 'asc' }
+    orderBy: { billingMonth: 'asc' }
   });
   return round2(bills.reduce((sum, b) => sum + (b.amount - b.amountPaid), 0));
 };
@@ -53,7 +70,7 @@ const getElectricityDueForRoom = async (roomId) => {
 const addElectricityBill = async (req, res, next) => {
   try {
     const { roomId } = req.params;
-    const { billDate, currentReading, previousReading, notes } = req.body;
+    const { billDate, billingMonth, currentReading, previousReading, notes } = req.body;
 
     const room = await prisma.rentRoom.findUnique({
       where: { id: roomId },
@@ -64,16 +81,44 @@ const addElectricityBill = async (req, res, next) => {
       return res.status(400).json({ error: `Electricity billing is not enabled for ${room.property.name}.` });
     }
 
+    if (!billingMonth) {
+      return res.status(400).json({ error: 'Billing month is required' });
+    }
+    const resolvedBillingMonth = normalizeToMonthStart(billingMonth);
+
     const current = parseFloat(currentReading);
     if (isNaN(current)) {
       return res.status(400).json({ error: 'Current meter reading is required' });
     }
 
-    // The previous cycle's reading carries forward automatically; only the
-    // very first bill for a room has no prior bill to derive it from.
+    const duplicateMonth = await prisma.rentElectricityBill.findFirst({
+      where: { roomId, billingMonth: resolvedBillingMonth }
+    });
+    if (duplicateMonth) {
+      return res.status(400).json({ error: 'A bill for this billing month already exists for this room — edit it instead.' });
+    }
+
+    // Backdating for a skipped earlier month is fine, but only up to the
+    // room's latest existing month — inserting one BEFORE an already-billed
+    // later month would silently desync that later bill's own previous
+    // reading (it was computed against whatever came before it at the
+    // time). Same "only the newest end of the chain can change" rule the
+    // edit/delete endpoints already enforce.
+    const laterBill = await prisma.rentElectricityBill.findFirst({
+      where: { roomId, billingMonth: { gt: resolvedBillingMonth } }
+    });
+    if (laterBill) {
+      return res.status(400).json({
+        error: 'A bill already exists for a later billing month on this room. Add bills in billing-month order — delete the later bill first if you need to insert one before it.'
+      });
+    }
+
+    // The previous reading carries forward from the bill for the closest
+    // earlier billing month (not whichever bill was entered most recently),
+    // so a genuinely skipped month can be filled in afterwards correctly.
     const lastBill = await prisma.rentElectricityBill.findFirst({
-      where: { roomId },
-      orderBy: { billDate: 'desc' }
+      where: { roomId, billingMonth: { lt: resolvedBillingMonth } },
+      orderBy: { billingMonth: 'desc' }
     });
 
     let previous;
@@ -101,6 +146,7 @@ const addElectricityBill = async (req, res, next) => {
         roomId,
         contractId: activeContract?.id || null,
         billDate: billDate ? new Date(billDate) : devDate.now(),
+        billingMonth: resolvedBillingMonth,
         previousReading: previous,
         currentReading: current,
         ratePerUnit,
@@ -125,7 +171,7 @@ const addElectricityBill = async (req, res, next) => {
 const updateElectricityBill = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { billDate, currentReading, previousReading, ratePerUnit, notes, status, paymentMode, paymentDate } = req.body;
+    const { billDate, billingMonth, currentReading, previousReading, ratePerUnit, notes, status, paymentMode, paymentDate } = req.body;
 
     const existing = await prisma.rentElectricityBill.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Electricity bill not found' });
@@ -139,11 +185,22 @@ const updateElectricityBill = async (req, res, next) => {
       return res.status(400).json({ error: 'Rate per unit must be a valid number' });
     }
 
+    const resolvedBillingMonth = billingMonth ? normalizeToMonthStart(billingMonth) : existing.billingMonth;
+    const billingMonthChanged = resolvedBillingMonth.getTime() !== new Date(existing.billingMonth).getTime();
+    if (billingMonthChanged) {
+      const duplicateMonth = await prisma.rentElectricityBill.findFirst({
+        where: { roomId: existing.roomId, billingMonth: resolvedBillingMonth, id: { not: id } }
+      });
+      if (duplicateMonth) {
+        return res.status(400).json({ error: 'A bill for this billing month already exists for this room.' });
+      }
+    }
+
     // Only the anchor (first-ever) bill for a room has an editable previous
     // reading — every later bill's previous reading is derived, not typed.
     const priorBill = await prisma.rentElectricityBill.findFirst({
-      where: { roomId: existing.roomId, billDate: { lt: existing.billDate } },
-      orderBy: { billDate: 'desc' }
+      where: { roomId: existing.roomId, billingMonth: { lt: resolvedBillingMonth }, id: { not: id } },
+      orderBy: { billingMonth: 'desc' }
     });
     let previous = existing.previousReading;
     if (priorBill) {
@@ -156,13 +213,13 @@ const updateElectricityBill = async (req, res, next) => {
     }
 
     // A later bill's previous reading is derived from this one, so only
-    // block the edit if the resolved reading actually differs from what's
-    // on record — everyday edits (notes, rate, status) on an older bill
-    // shouldn't trip this just because the (unchanged) reading was resent.
-    const readingsChanged = current !== existing.currentReading || previous !== existing.previousReading;
+    // block the edit if the resolved reading (or the billing month itself)
+    // actually changed — everyday edits (notes, rate, status) on an older
+    // bill shouldn't trip this just because the same values were resent.
+    const readingsChanged = current !== existing.currentReading || previous !== existing.previousReading || billingMonthChanged;
     if (readingsChanged) {
       const newerBill = await prisma.rentElectricityBill.findFirst({
-        where: { roomId: existing.roomId, billDate: { gt: existing.billDate } }
+        where: { roomId: existing.roomId, billingMonth: { gt: resolvedBillingMonth }, id: { not: id } }
       });
       if (newerBill) {
         return res.status(400).json({ error: 'This is not the most recent bill for this room — its meter reading can no longer be changed without desyncing later bills. Edit the most recent bill instead.' });
@@ -180,6 +237,7 @@ const updateElectricityBill = async (req, res, next) => {
       where: { id },
       data: {
         billDate: billDate ? new Date(billDate) : existing.billDate,
+        billingMonth: resolvedBillingMonth,
         previousReading: previous,
         currentReading: current,
         ratePerUnit: rate,
@@ -362,10 +420,10 @@ const deleteElectricityBill = async (req, res, next) => {
     // it out of order would silently corrupt that chain, so only the most
     // recent bill for its room may be removed (a straightforward mistake-undo).
     const newerBill = await prisma.rentElectricityBill.findFirst({
-      where: { roomId: existing.roomId, billDate: { gt: existing.billDate } }
+      where: { roomId: existing.roomId, billingMonth: { gt: existing.billingMonth } }
     });
     if (newerBill) {
-      return res.status(400).json({ error: 'Only the most recent electricity bill for a room can be deleted, to keep meter readings consistent.' });
+      return res.status(400).json({ error: 'Only the electricity bill for the latest billing month on a room can be deleted, to keep meter readings consistent.' });
     }
 
     await prisma.rentElectricityBill.delete({ where: { id } });
@@ -396,7 +454,7 @@ const getElectricityBills = async (req, res, next) => {
         contract: { select: { id: true, tenant: { select: { id: true, name: true } } } },
         payments: { orderBy: { paymentDate: 'desc' } }
       },
-      orderBy: { billDate: 'desc' }
+      orderBy: { billingMonth: 'desc' }
     });
     res.json(bills);
   } catch (error) {
@@ -414,5 +472,6 @@ module.exports = {
   deleteElectricityBill,
   getElectricityBills,
   recomputeElectricityBill,
-  getElectricityDueForRoom
+  getElectricityDueForRoom,
+  normalizeToMonthStart
 };
