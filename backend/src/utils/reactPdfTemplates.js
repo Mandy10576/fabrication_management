@@ -382,7 +382,8 @@ const InvoicePDFDocument = ({ invoice, company }) => {
             ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
             React.createElement(Text, null, `State: ${formatStateWithCode(resolvedState)}`),
-            client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
+            // GST bills always carry the buyer's GSTIN line (N/A when unregistered).
+            (client.gstin || invoice.gstType !== 'NON_GST') ? React.createElement(Text, null, `GSTIN: ${client.gstin || 'N/A'}`) : null
           )
         ),
         React.createElement(View, { style: styles.detailsColRight },
@@ -596,7 +597,7 @@ const QuotationPDFDocument = ({ quotation, company }) => {
             ...clientAddr.lines.map((line, i) => React.createElement(Text, { key: i }, line)),
             client.mobile ? React.createElement(Text, null, `Phone: ${client.mobile}`) : null,
             React.createElement(Text, null, `State: ${formatStateWithCode(resolvedState)}`),
-            client.gstin ? React.createElement(Text, null, `GSTIN: ${client.gstin}`) : null
+            (client.gstin || gstType !== 'NON_GST') ? React.createElement(Text, null, `GSTIN: ${client.gstin || 'N/A'}`) : null
           )
         ),
         React.createElement(View, { style: styles.detailsColRight },

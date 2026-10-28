@@ -98,6 +98,7 @@ export const InvoiceTemplate = ({ invoice, company, id = "printable-invoice" }) 
                 <div style={{ fontSize: '11px', color: '#334155', marginTop: '4px' }}>
                   {client.mobile && <div>Phone: <strong>{client.mobile}</strong></div>}
                   <div><strong>State: {formatStateWithCode(resolvedState)}</strong></div>
+                  {(client.gstin || invoice.gstType !== 'NON_GST') && <div>GSTIN: <strong>{client.gstin || 'N/A'}</strong></div>}
                 </div>
               </td>
 
